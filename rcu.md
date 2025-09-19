@@ -1,17 +1,31 @@
-# RCU
-- rcu_read_lock()
-    - Disables preemption and migration when CONFIG_PREEMPT_RCU is off
-- stands for read, copy, update
-- rcu_read_lock() starts a critical section on a CPU
-- rcu_read_unlock() ends a critical section on a CPU
-- RCU grace periods trace when all the CPUs have left their critical sections
-- Memory is never freed until after CPUs have left their critical sections
+# RCU Subsystem Delta
 
-The general pattern is:
+## RCU Read-Side Critical Sections
+- No blocking/sleeping in rcu_read_lock() sections
+- Can nest rcu_read_lock() calls
+- Preemption rules depend on kernel config (PREEMPT_RCU)
+- srcu can sleep
 
-rcu_read_lock()
-<access memory protected by rcu>
-rcu_read_unlock()
+## RCU Updates
+- rcu_assign_pointer() for publishing
+- rcu_dereference() for reading
+- synchronize_rcu() is expensive (blocks)
+- call_rcu() for asynchronous cleanup
 
-As long as the memory protected by RCU is freed via the call_rcu callbacks,
-it will never be freed while a CPU is inside the critical section.
+## RCU Variants
+| Type | Sleep in read | Use Case |
+|------|---------------|----------|
+| RCU | No | General purpose |
+| SRCU | Yes | Sleeping readers |
+| Tasks RCU | Yes | Tracing/BPF |
+
+## Memory Ordering
+- rcu_dereference() includes read barrier
+- rcu_assign_pointer() includes write barrier
+- Manual barriers needed for complex patterns
+
+## Quick Checks
+- Freed memory accessible until grace period ends
+- kfree_rcu() for simple object freeing
+- INIT_RCU_HEAD not needed in modern kernels
+- rcu_read_lock_held() for debug assertions

@@ -1,45 +1,36 @@
-# Locking Patterns
+# Locking Subsystem Delta
 
-## Context Compatibility
-| Lock Type | Process | Softirq | Hardirq | Sleeps | Use Case |
-|-----------|---------|---------|---------|--------|----------|
-| spin_lock | ✓ | ✓ | ✓ | ✗ | Short critical sections |
-| spin_lock_bh | ✓ | ✗ | ✗ | ✗ | Block softirqs |
-| spin_lock_irq | ✓ | ✓ | ✓ | ✗ | Must restore IRQs |
-| spin_lock_irqsave | ✓ | ✓ | ✓ | ✗ | Unknown IRQ state |
-| mutex | ✓ | ✗ | ✗ | ✓ | Long sections |
-| rwsem | ✓ | ✗ | ✗ | ✓ | Read-heavy |
-| seqlock | ✓ | ✓ | ✓ | ✗ | Frequent reads |
+## Locking Subsystem Patterns [LOCK]
 
-## Critical Rules
-- Never sleep (mutex/rwsem) in atomic context
-- Use _irqsave if lock taken from IRQ context
-- Trylock→lock conversion risks deadlock
-- Check inode_lock() needs I_MUTEX_PARENT annotation
+| Pattern ID | Check | Risk | Details |
+|------------|-------|------|---------|
+| LOCK-001 | Seqlock critical section | Data corruption | ALL code between begin/retry is critical |
+| LOCK-002 | Sparse annotation compliance | Lock imbalance | Honor __must_hold/__acquires/__releases |
+| LOCK-003 | Write seqcount protection | Data corruption | Proper write_seqcount_begin/end pairing |
 
-## sparse annotations
-If these are present in the source code, make sure they are honored correctly:
-__must_hold(x): The specified lock is held on function entry and exit
-__acquires(x): The lock is held on function exit, but not entry
-__releases(x): The lock is held on function entry, but not exit
-__acquire(x): Code acquires the lock x (used within a function)
-__release(x): Code releases the lock x (used within a function)
-__cond_lock(x, c): Conditionally acquires lock x if condition c is true
+## Preemption vs Migration
+- **Preemption disabled**: CPU won't change, but IRQs can occur
+- **Migration disabled**: Can be preempted but returns to same CPU
+- **IRQs disabled**: No interrupts, implies preemption disabled
 
-## seqlocks
-For seqcount readers, the critical section includes ALL code between:
-- read_seqcount_begin(&seqlock)
-- read_seqcount_retry(&seqlock, sequence)
+## Lock Nesting Classes
+- Same lock type needs different classes for nesting
+- Use mutex_lock_nested() with nesting level
+- Lockdep tracks up to 8 nesting levels
 
-Standard pattern:
-do {
-  seq = read_seqcount_begin(&seqlock);
-  // ← EVERYTHING HERE IS IN THE CRITICAL SECTION
-  data1 = field1;
-  data2 = field2;
-  // ← EVERYTHING HERE IS IN THE CRITICAL SECTION
-} while (read_seqcount_retry(&seqlock, seq));
+## RCU Specifics
+- rcu_read_lock() doesn't prevent preemption (PREEMPT_RCU)
+- synchronize_rcu() waits for all readers
+- call_rcu() callbacks run after grace period
+- SRCU allows sleeping in read sections
 
-write_seqcount_begin/end() create critical sections on the
-write side.
+## RT (Realtime) Differences
+- Spinlocks become sleeping locks on RT
+- raw_spinlock_t never sleeps (even on RT)
+- local_irq_disable() doesn't disable IRQs on RT
 
+## Quick Checks
+- raw_spinlock for IRQ handlers on RT
+- Completion variables for event waiting
+- Proper memory barriers with lockless algorithms
+- percpu-rwsem for frequent read, rare write patterns

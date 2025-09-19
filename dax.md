@@ -1,12 +1,25 @@
-# DAX Patterns
+# DAX Subsystem Delta
 
-| Pattern | Check | Risk |
-|---------|-------|------|
-| **Memory Mapping** | Verify pfn valid and within device range | Invalid access |
-| **Cache Coherency** | Flush CPU caches at appropriate points | Data corruption |
-| **Locking Order** | Follow VFS→DAX→device locking hierarchy | Deadlock |
+## Subsystem-Specific Rules
+
+### DAX Mapping Requirements
+- CPU addressable persistent memory
+- Page faults handled differently than page cache
+- No struct page for some DAX mappings
+- Cache flushing required for persistence
+
+### Synchronization
+- DAX entries in radix tree need locking
+- Special handling for 2MB/1GB huge pages
+- Coordination with filesystem for truncate/punch
+
+### Persistence Guarantees
+- CPU cache flushes for durability
+- Memory barriers for ordering
+- Power-fail atomicity considerations
 
 ## Quick Checks
-- PFN validation before mapping
-- Cache flush on persistence points
-- Lock ordering compliance
+- Proper flushing after CPU writes
+- DAX entry locking for concurrent access
+- Huge page splitting/collapsing handled correctly
+- Filesystem metadata consistency with DAX operations

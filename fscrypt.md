@@ -1,14 +1,25 @@
-# Fscrypt Patterns
+# Fscrypt Subsystem Delta
 
-| Pattern | Check | Risk |
-|---------|-------|------|
-| **Key Lifecycle** | Verify key available before crypto ops | Crash/corruption |
-| **Context Inheritance** | Child inherits parent encryption context | Data exposure |
-| **Policy Validation** | Check policy compatibility before application | Invalid state |
-| **Filename Encryption** | Handle encrypted name length limits | Buffer overflow |
+## Key Management
+- Master keys in keyring, per-file keys derived
+- Key removal makes files unreadable
+- Keys must be zeroized after use
+- Key identifiers are cryptographic hashes
+
+## Encryption Context
+- Stored in xattr or superblock
+- Children inherit parent's encryption policy
+- Cannot change after creation
+- Contains policy version and encryption modes
+
+## IV (Initialization Vector) Requirements
+- Must be unique per file and logical block
+- Different modes have different IV schemes
+- IV reuse breaks confidentiality
+- Per-file key derivation prevents IV collisions
 
 ## Quick Checks
-- Key loaded before file access
-- Directory encryption context propagated
-- Policy version compatibility
-- Encrypted filename fits in NAME_MAX
+- Encryption context set before data operations
+- Proper padding to block size (usually 16 bytes)
+- No plaintext filenames in encrypted directories
+- Key availability before decrypt operations

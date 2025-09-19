@@ -1,25 +1,43 @@
-# Memory Management Patterns
+# Memory Management Subsystem Delta
 
-| Pattern | Check | Risk | Details |
-|---------|-------|------|---------|
-| **Resource Lifecycle** | Map all alloc→cleanup paths | Memory leak | Verify no early returns bypass cleanup |
-| **PTE State Consistency** | No mixing A/D bits between pages | Invalid states | Clean+Writable, Non-accessed+Writable are invalid |
-| **Cross-Page State** | Verify pte_advance_pfn() preserves correct state | Wrong page attrs | A/D bits must match target page, not source |
-| **Migration Impact** | Check downstream subsystems handle new PTE states | System crash | Migration/NUMA/swap expect valid PTE combinations |
-| **Large Folio Batching** | Per-page state handled individually | Data corruption | PageAnonExclusive/dirty/accessed per page |
-| **Writeback Side Effects** | folio_start_writeback() clears TOWRITE tag | Sync violations | Use __folio_start_writeback(folio, true) to preserve |
-| **Reference Counting** | Balance get/put operations | Use-after-free | Check all error paths for proper cleanup |
+## Memory Management Patterns [MM]
 
-## Critical Invariants
-- PTE state combinations must be logically possible
-- Write permission requires dirty+accessed bits
-- Batch operations can't mix state between different pages
-- Page cache tags affect sync operation ordering
-- Migration code has strict PTE state expectations
+| Pattern ID | Check | Risk | Details |
+|------------|-------|------|---------|
+| MM-001 | PTE state consistency | Invalid states | Clean+Writable, Non-accessed+Writable are invalid |
+| MM-002 | Cross-page state handling | Wrong page attrs | A/D bits must match target page, not source |
+| MM-003 | Migration state expectations | System crash | Migration/NUMA/swap expect valid PTE combinations |
+| MM-004 | Large folio per-page handling | Data corruption | PageAnonExclusive/dirty/accessed per page |
+| MM-005 | Writeback tag preservation | Sync violations | folio_start_writeback() clears TOWRITE tag |
 
-## Validation
-1. Trace 2+ concrete examples through batching logic
-2. Verify all downstream MM subsystems handle new states
-3. Check reference counting in error paths
-4. Validate PTE state transitions are possible
-5. Ensure per-page metadata not shared incorrectly
+## Page/Folio States
+- PTE dirty bit implies accessed bit (dirty→accessed)
+- Young/accessed pages shouldn't be clean and writable simultaneously
+- Large folios require per-page state tracking for:
+  - PageAnonExclusive
+  - Dirty/accessed bits
+  - Reference counts
+
+## GFP Flags Context
+| Flag | Sleeps | Reclaim | Use Case |
+|------|--------|---------|----------|
+| GFP_ATOMIC | No | No | IRQ/spinlock context |
+| GFP_KERNEL | Yes | Yes | Normal allocation |
+| GFP_NOWAIT | No | No | Non-sleeping, may fail |
+| GFP_NOFS | Yes | Limited | Avoid FS recursion |
+
+## Migration Invariants
+- Migration entries must maintain PTE state consistency
+- NUMA balancing expects valid PTE combinations
+- Swap code has strict PTE state requirements
+
+## Writeback Tags
+- PAGECACHE_TAG_TOWRITE cleared by folio_start_writeback()
+- Use __folio_start_writeback(folio, true) to preserve
+- Tags affect sync_file_range() behavior
+
+## Quick Checks
+- TLB flushes required after PTE modifications
+- mmap_lock ordering (read vs write)
+- Page reference before mapping operations
+- Compound page tail page handling
