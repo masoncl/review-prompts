@@ -41,6 +41,7 @@ Load the appropriate delta file when patch modifies subsystem code:
    - `diff_functions`: identify changed functions and types
    - `find_function/find_type`: get definitions for all identified items
    - `find_callers/find_callees`: trace relationships (callers 3-deep, callees 2-deep)
+   - `grep`: search function bodies for regex patterns.  returns matching lines by default, verbose=true treturns the entire function body
 
 2. **Without semcode (fallback)**:
    - Use git diff to identify changes
