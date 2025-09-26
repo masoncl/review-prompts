@@ -52,6 +52,9 @@
 | EH-004 | Return type changes handled | Wrong returns | When signatures change, verify ALL return statements |
 | EH-005 | Required interface handling | NULL deref | Ops structs with required functions per documentation |
 
+- If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you
+can provide concrete evidence of that condition existing via code snippets and call traces
+
 ### 4. Bounds & Validation [BV]
 
 | Pattern ID | Check | Risk | Details |
