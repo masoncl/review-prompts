@@ -29,8 +29,23 @@
 - raw_spinlock_t never sleeps (even on RT)
 - local_irq_disable() doesn't disable IRQs on RT
 
+## _irq and _irqsave variants
+- spin_lock_irq and spin_lock_irqsave mask off interrupts.
+- if locks are taken when irqs are already off:
+  - all lock holders need to have irqs masked in order to safely take the lock
+  - it is safe to use spin_lock() (without masking interrtupts) from code that is only called when irqs are already off
+  - it is safe to spin_lock_irq() and then unlock without re-enabling irqs, as
+    long as they are enabled again later, either directly in the same function,
+    or elsewhere in the callchain
+  - spin_trylock() might be used to avoid the deadlocks.  The deadlock can only happen if spin_lock() is called with interrupts off, without using trylock
+
 ## Quick Checks
 - raw_spinlock for IRQ handlers on RT
 - Completion variables for event waiting
 - Proper memory barriers with lockless algorithms
+- atomic_read/atomic_write and other calls in this api family provide all of the
+  memory barriers needed to atomically read and write atomic_t types on every arch.
+  Don't try to find memory barrier or ordering bugs with respect to atomics.
 - percpu-rwsem for frequent read, rare write patterns
+
+
