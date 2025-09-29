@@ -42,6 +42,8 @@
 | spin_lock_irqsave | ✓ | ✓ | ✓ | ✗ |
 | mutex/rwsem | ✓ | ✗ | ✗ | ✓ |
 
+- READ_ONCE() is not required when the data structure being read is protected by a lock we're currently holding
+
 ### 3. Error Handling [EH]
 
 | Pattern ID | Check | Risk | Example |
