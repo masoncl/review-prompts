@@ -8,6 +8,7 @@
 | Pattern ID | Check | Risk | Common Location |
 |------------|-------|------|-----------------|
 | RM-001 | 1:1 matching of alloc/free operations | Memory leak | Error paths between alloc and success |
+| RM-001a | Resource lifecycle consistency | Resource leak/corruption | Check all resource types and state transitions
 | RM-002 | Init-once enforcement for static resources | Double init | Static/global initialization |
 | RM-003 | Cleanup in ALL error paths | Resource leak | Between resource acquisition and function return |
 | RM-004 | No access after release/enqueue | Use-after-free | Async callbacks, after enqueue operations |
@@ -17,8 +18,11 @@
 | RM-008 | Assorted reference counts | Memory leak/Use-after-free | load definitions of ref counting functions to make sure you understand them correctly |
 
 **Key Notes**:
+- alloc/free and get/put matching in ALL paths
+- State preservation: resource state consistent with return contract
 - refcount_t counters do not get incremented after dropping to zero
 - Async cleanup (RCU callbacks/work queues) may access uninitialized fields if init fails
+- Don't assume error propagation happens based on return types, trace function callers/callees to verify it
 
 ### 2. Concurrency & Locking [CL]
 

@@ -48,4 +48,5 @@
   Don't try to find memory barrier or ordering bugs with respect to atomics.
 - percpu-rwsem for frequent read, rare write patterns
 
-
+## Complex combinations
+- When code reassigns over a previously locked data structure, find if we've properly unlocked that datastructure, or if the lock is mistakenly held forever

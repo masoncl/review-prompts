@@ -40,8 +40,12 @@ Load the appropriate delta file when patch modifies subsystem code:
 1. **Using semcode MCP (preferred)**:
    - `diff_functions`: identify changed functions and types
    - `find_function/find_type`: get definitions for all identified items
-   - `find_callers/find_callees`: trace relationships (callers 3-deep, callees 2-deep)
-   - `grep`: search function bodies for regex patterns.  returns matching lines by default, verbose=true treturns the entire function body
+   - `find_callchain`: trace call relationships (callers 2-deep, callees 3-deep)
+     - Always trace multiple levels of callers and callees
+     - Always trace cleanup paths and error handling
+   - `find_callers/find_callees`: spot check call relationships
+   - `grep`: search function bodies for regex patterns.  returns matching lines by default, verbose=true treturns the entire function body, has options to filter by a path regex.
+     - this can return a huge number of results, avoid filling context by using path regex options
 
 2. **Without semcode (fallback)**:
    - Use git diff to identify changes
@@ -58,6 +62,9 @@ Load the appropriate delta file when patch modifies subsystem code:
 ### TASK 2: Pattern Analysis []
 **Goal**: Apply technical patterns systematically
 
+**No loaded pattern can be skipped**: you may only skip subsystem specific
+patterns when they don't need to be loaded.
+
 1. **Priority order**:
    - Resource management (Pattern IDs: RM-*)
    - Error paths (Pattern IDs: EH-*)
@@ -67,6 +74,8 @@ Load the appropriate delta file when patch modifies subsystem code:
 
 2. **For each pattern**:
    - Check against technical-patterns.md reference
+   - Document results for every pattern
+     - PATTERN ID: [CLEAR/ISSUE/NOT-APPLICABLE]
    - Note pattern ID when issue found
    - Verify with concrete code paths
 
