@@ -1,5 +1,10 @@
 # Linux Kernel Technical Review Patterns
 
+## Core instructions
+
+- Trace full execution flow, gather additional context from the call chain to make sure you fully understand
+- Don't make assumptions based on return types, checks, WARN_ON(), BUG_ON() or comments, explicitly verify the code is correct
+
 ## Core Pattern Categories
 
 ### 1. Resource Management [RM]
@@ -8,7 +13,9 @@
 | Pattern ID | Check | Risk | Common Location |
 |------------|-------|------|-----------------|
 | RM-001 | 1:1 matching of alloc/free operations | Memory leak | Error paths between alloc and success |
-| RM-001a | Resource lifecycle consistency | Resource leak/corruption | Check all resource types and state transitions
+| RM-001a | Resource lifecycle consistency | Resource leak/corruption | Check all resource types and
+   state transitions. Trace resource ownership through function boundaries. Verify function contracts:
+      if function takes resource X to modify, does X end in expected state? |
 | RM-002 | Init-once enforcement for static resources | Double init | Static/global initialization |
 | RM-003 | Cleanup in ALL error paths | Resource leak | Between resource acquisition and function return |
 | RM-004 | No access after release/enqueue | Use-after-free | Async callbacks, after enqueue operations |
@@ -16,13 +23,21 @@
 | RM-006 | Object state preservation in reassignment | Memory leak | foo = func(foo) patterns |
 | RM-007 | List removal with proper handling | Memory leak | list_del() without return/use may leak |
 | RM-008 | Assorted reference counts | Memory leak/Use-after-free | load definitions of ref counting functions to make sure you understand them correctly |
+| RM-009 | Function resource contracts | Resource abandonment | MANDATORY: When function accepts
+  resource for modification:
+     1. Trace EVERY return path - what happens to the original resource?
+     2. If function returns different resource, prove original is properly handled
+     3. Check lock state, reference counts, and ownership of original resource
+     4. Verify caller expectations: does caller expect same resource back?
+     5. Look for assignment patterns like "original = new" that may abandon original |
 
 **Key Notes**:
+- Trace original resources through the entire code path to make sure they are not leaked
 - alloc/free and get/put matching in ALL paths
 - State preservation: resource state consistent with return contract
 - refcount_t counters do not get incremented after dropping to zero
 - Async cleanup (RCU callbacks/work queues) may access uninitialized fields if init fails
-- Don't assume error propagation happens based on return types, trace function callers/callees to verify it
+- Caller expectation tracing: What does the caller expect to happen to the resource it passed?
 
 ### 2. Concurrency & Locking [CL]
 
@@ -37,6 +52,11 @@
 | CL-007 | Cleanup ordering | Use-after-free | Stop users → wait completion → destroy resources |
 | CL-008 | IRQ-safe locking | IRQ corruption | Use _irqsave if lock taken from IRQ context |
 | CL-009 | Assorted locking | bugs | load definitions of locking functions to make sure you understand them correctly |
+| CL-010 | Lock handoff verification | Lock imbalance | When function may return different locked
+  object:
+     1. Verify original locked object's lock state is properly handled
+     2. Check if caller knows which lock to release
+     3. Trace lock acquisition/release balance for ALL objects involved |
 
 **Lock Context Compatibility Matrix**:
 | Lock Type | Process | Softirq | Hardirq | Sleeps |
@@ -47,6 +67,8 @@
 | mutex/rwsem | ✓ | ✗ | ✗ | ✓ |
 
 - READ_ONCE() is not required when the data structure being read is protected by a lock we're currently holding
+- Resource switching detection: Flag any path where function returns different resource than it was meant to modify, ensure the proper locks are held or released as needed.
+- Caller expectation tracing: What does the caller expect to happen to the resource it passed?
 
 ### 3. Error Handling [EH]
 
@@ -58,8 +80,7 @@
 | EH-004 | Return type changes handled | Wrong returns | When signatures change, verify ALL return statements |
 | EH-005 | Required interface handling | NULL deref | Ops structs with required functions per documentation |
 
-- If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you
-can provide concrete evidence of that condition existing via code snippets and call traces
+- If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you can provide concrete evidence of that condition existing via code snippets and call traces
 
 ### 4. Bounds & Validation [BV]
 

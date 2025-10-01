@@ -17,9 +17,9 @@
 - ✅ "User input at funcA() can reach this without validation"
 
 ### 2. Unverifiable Assumptions
-**Trust the author** unless you have proof they're wrong:
-- Commit message claims are assumed true
-- Comments about invariants are assumed correct
+**Trust the author** but try to prove them wrong
+- Research assumptions and claims in commit messages, comments and code.  Try to prove them wrong.
+- If you don't have concrete proof in the form of code snippets, assume the author is correct
 - Design decisions are assumed intentional
 
 **Only report if**:
@@ -76,6 +76,22 @@
 - Commit message explains the performance impact
 - Simplicity/maintainability was prioritized
 - It's optimizing for a different use case
+
+### 8. Resource Contract Analysis
+**Don't assume** resource switching is safe just because:
+  - The new resource appears equivalent
+  - No immediate crash occurs
+  - Function comments don't mention the issue
+  - funcA() { resource = funcB(resource); }
+    - Just because funcA() accepts a replacement resource does not mean
+      funcB properly manages locks, frees, and cleans up the resource it was passed
+
+**DO verify**:
+  - Original resource lock state, reference counts, ownership
+  - Caller's expectation about which resource is returned
+  - All cleanup paths handle the resource properly
+
+**ONLY REPORT**: if you can prove the resource contract has been broken
 
 ## Verification Checklist
 

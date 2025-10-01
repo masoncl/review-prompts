@@ -56,6 +56,9 @@ Load the appropriate delta file when patch modifies subsystem code:
    - Function removals → check headers, function tables, ops structures
    - Struct changes → verify all users use the new struct correctly
    - Public API changes → verify documentation updates
+   - For functions that take resources as parameters,document the expected contract
+   - Identify functions that can return different resources than they received
+   - Flag resource ownership transfers between functions
 
 **Complete**: State "COMPLETED" or "BLOCKED(reason)"
 
