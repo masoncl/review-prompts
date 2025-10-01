@@ -40,6 +40,7 @@ Load the appropriate delta file when patch modifies subsystem code:
 1. **Using semcode MCP (preferred)**:
    - `diff_functions`: identify changed functions and types
    - `find_function/find_type`: get definitions for all identified items
+     - both of these accept a regex for the name, use this before grepping through the sources for definitions
    - `find_callchain`: trace call relationships (callers 2-deep, callees 3-deep)
      - Always trace multiple levels of callers and callees
      - Always trace cleanup paths and error handling
