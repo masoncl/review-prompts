@@ -38,6 +38,13 @@
 - refcount_t counters do not get incremented after dropping to zero
 - Async cleanup (RCU callbacks/work queues) may access uninitialized fields if init fails
 - Caller expectation tracing: What does the caller expect to happen to the resource it passed?
+- css_get() adds an additional reference, so this results in both sk and newsk having one reference each:
+```
+     memcg = mem_cgroup_from_sk(sk);
+     if (memcg)
+             css_get(&memcg->css);
+     newsk->sk_memcg = sk->sk_memcg;
+```
 
 ### 2. Concurrency & Locking [CL]
 
