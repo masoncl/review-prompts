@@ -3,7 +3,8 @@
 ## Core instructions
 
 - Trace full execution flow, gather additional context from the call chain to make sure you fully understand
-- Don't make assumptions based on return types, checks, WARN_ON(), BUG_ON() or comments, explicitly verify the code is correct
+- Don't make assumptions based on return types, checks, WARN_ON(), BUG_ON(), comments, or error
+  handling patterns - explicitly verify the code is correct by tracing concrete execution paths
 
 ## Core Pattern Categories
 
