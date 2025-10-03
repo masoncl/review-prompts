@@ -5,6 +5,8 @@
 - Trace full execution flow, gather additional context from the call chain to make sure you fully understand
 - Don't make assumptions based on return types, checks, WARN_ON(), BUG_ON(), comments, or error
   handling patterns - explicitly verify the code is correct by tracing concrete execution paths
+- Never skip any patterns just because you found a bug in another pattern.
+- Never skip any patterns unless they fundamentally don't apply to the code at hand
 
 ## Core Pattern Categories
 
@@ -31,6 +33,12 @@
      3. Check lock state, reference counts, and ownership of original resource
      4. Verify caller expectations: does caller expect same resource back?
      5. Look for assignment patterns like "original = new" that may abandon original |
+| RM-010 | Object cleanup and reinitialization | Incomplete initialization | When objects are torn down or unregistered:
+    - If they are not freed, but instead returned to a pool or are global variables
+      - Check to make sure all fields in the object are fully initialized when the object is setup for reuse
+      - ex: unregister_foo() { foo->dead = 1; free(foo->ptr); add to list}
+            register_foo() { pull from list ; skip allocation of foo->ptr; foo->ptr->use_after_free;}
+      - Assume [kv]free(); [kv]malloc(); and related APIs handle this properly unless you find proof initialization is skipped
 
 **Key Notes**:
 - All pointers have the same size, "char \*foo" takes as much room as "int \*foo"
@@ -92,6 +100,9 @@
 | EH-005 | Required interface handling | NULL deref | Ops structs with required functions per documentation |
 
 - If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you can provide concrete evidence of that condition existing via code snippets and call traces
+- if (WARN_ON(foo)) { return; } might exit a function early, check for
+incomplete initialization or other mistakes that leave data structures in an
+inconsistent state
 
 ### 4. Bounds & Validation [BV]
 
