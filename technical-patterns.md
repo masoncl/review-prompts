@@ -33,6 +33,9 @@
      5. Look for assignment patterns like "original = new" that may abandon original |
 
 **Key Notes**:
+- All pointers have the same size, "char \*foo" takes as much room as "int \*foo"
+  - but for code clarity, if we're allocating an array of pointers, and using
+    sizeof(type \*) to calculate the size, we should use the correct type
 - Trace original resources through the entire code path to make sure they are not leaked
 - alloc/free and get/put matching in ALL paths
 - State preservation: resource state consistent with return contract

@@ -20,6 +20,7 @@ Load the appropriate delta file when patch modifies subsystem code:
 - RCU operations (`rcu_read_lock`, `call_rcu`) → `review/rcu.md`
 - Encryption (`crypto_`, `fscrypt_`) → `review/fscrypt.md`
 - Tracing (`trace_`, tracepoints) → `review/tracing.md`
+- adding or changing syscalls → `review/syscall.md`
 - DAX operations → `review/dax.md`
 
 ## EXCLUSIONS
