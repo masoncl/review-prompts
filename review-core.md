@@ -23,6 +23,7 @@ Load the appropriate delta file when patch modifies subsystem code:
 - Encryption (`crypto_`, `fscrypt_`) → `fscrypt.md`
 - Tracing (`trace_`, tracepoints) → `tracing.md`
 - adding or changing syscalls → `syscall.md`
+- btrfs filesystem → `btrfs.md`
 - DAX operations → `dax.md`
 
 ## EXCLUSIONS
