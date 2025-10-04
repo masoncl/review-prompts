@@ -26,6 +26,11 @@ Load the appropriate delta file when patch modifies subsystem code:
 - btrfs filesystem → `btrfs.md`
 - DAX operations → `dax.md`
 
+### Batching
+- technical-patterns.md has a batching procedure for the prompts contained
+there.  Apply similar sized batching to any prompts that you loud from subsystem
+specific files.
+
 ## EXCLUSIONS
 - Ignore fs/bcachefs regressions
 - Ignore test program issues unless system crash
@@ -71,55 +76,62 @@ diff fragments.
 
 **Complete**: State "COMPLETED" or "BLOCKED(reason)"
 
-### TASK 2: Pattern Analysis []
+### TASK 2A: Pattern Relevance Assessment []
+**Goal**: Determine which pattern categories apply to the code changes
+
+1. **Read all pattern categories** from technical-patterns.md
+2. **Analyze the type of code changes** in the diff:
+  - What systems are being modified? (memory management, networking, etc.)
+  - What type of changes? (refactoring, new features, bug fixes, etc.)
+  - What operations are involved? (allocation, locking, data flow, etc.)
+3. **Create relevance mapping**:
+  - HIGHLY_RELEVANT: Pattern category directly applies to changes
+  - POTENTIALLY_RELEVANT: Pattern category might apply, analyze fully
+  - NOT_APPLICABLE: Pattern category does not apply to this type of change
+4. **Justify each categorization** with a few words
+
+**Complete**: State "RELEVANCE ASSESSMENT COMPLETE" with summary
+
+### TASK 2B: Pattern Analysis []
 **Goal**: Apply technical patterns systematically
 
-**No loaded pattern can be skipped**: you may only skip subsystem specific
-patterns when they don't need to be loaded.
++**Apply patterns efficiently**: Focus analysis on patterns relevant to the
+code changes, but +read the full pattern, not just the name, before deciding if
+it is relevant.
 
-0. Create a check list of patterns to be applied.  Never complete TASK 2 without fully
-processing all of the patterns.  Never skip patterns.
-  - Do not mark task 2 complete until you have completed each and every pattern.
+1. Create a check list of patterns to be applied.
+   - Never complete TASK 2B without considering all of the patterns.
 
-1. **Priority order**:
+2. **Apply patterns by relevance level**:
+   - HIGHLY_RELEVANT: Full analysis required
+   - POTENTIALLY_RELEVANT: Quick scan
+   - NOT_APPLICABLE: Skip
+
+3. **Priority order**:
    - Resource management (Pattern IDs: RM-*)
    - Error paths (Pattern IDs: EH-*)
    - Concurrency (Pattern IDs: CL-*)
    - Bounds/validation (Pattern IDs: BV-*)
    - Other patterns as applicable
 
-2. **For each pattern**:
+4. **For each pattern**:
    - read the full pattern before deciding if it applies to code
    - Check against technical-patterns.md reference
-   - Document results for every pattern
-     - PATTERN ID: [CLEAR/ISSUE/NOT-APPLICABLE]
    - Note pattern ID when issue found
-   - Verify with concrete code paths
    - Never skip any patterns just because you found a bug in another pattern.
-   - Never skip any patterns unless they fundamentally don't apply to the code at hand
+   - Never skip any patterns unless they don't apply to the code at hand
 
-3. **Pattern Analysis Enforcement**:
+5. **Pattern Analysis Enforcement**:
      - MANDATORY: Use TodoWrite tool to create checklist with ALL patterns before analysis
      - Each pattern MUST be explicitly documented as: [CLEAR/ISSUE/NOT-APPLICABLE]
-     - NOT-APPLICABLE requires concrete proof:
-       - Code snippet showing absence of pattern's subject matter
-       - Semcode search results showing no matches
-       - Explicit statement of why pattern cannot apply
-     - NEVER mark TASK 2 complete without showing results for every pattern
-     - If uncertain about a pattern, mark as CLEAR with explanation rather than skip
 
-4. **Required Pattern Documentation Format**:
-     PATTERN RM-001: [STATUS] - Brief explanation
-     Evidence: [Code snippet or search result]
-
-     PATTERN RM-002: [STATUS] - Brief explanation   Evidence: [Code snippet or search result]
-
-     [Continue for ALL patterns...]
-
-5. **Completion Verification**:
-  - Count total patterns analyzed vs. total patterns loaded
-  - TASK 2 is BLOCKED if pattern count mismatch
-  - State "PATTERN ANALYSIS COMPLETE: X/X patterns analyzed"
+6. **Completion Verification**:
+  - Count total patterns analyzed or skipped vs. total patterns loaded
+  - Intentionally skipping a pattern based on TASK 2A analysis, or analyzing it in
+  TASK 2B counts as checking the pattern
+  - If you haven't checked every pattern loaded, you have failed to complete TASK 2B,
+  restart the TASK.
+  - State "PATTERN ANALYSIS COMPLETE: X/X patterns checked"
 
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives

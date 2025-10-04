@@ -6,7 +6,49 @@
 - Don't make assumptions based on return types, checks, WARN_ON(), BUG_ON(), comments, or error
   handling patterns - explicitly verify the code is correct by tracing concrete execution paths
 - Never skip any patterns just because you found a bug in another pattern.
-- Never skip any patterns unless they fundamentally don't apply to the code at hand
+- Never skip any patterns unless they don't apply to the code at hand
+
+## EFFICIENT PATTERN ANALYSIS METHODOLOGY
+
+### Batched Pattern Application
+Apply patterns in category batches to avoid redundant function reads:
+
+1. **Load all relevant functions ONCE** during context gathering
+2. **Apply entire pattern categories in single passes**:
+   - RM Batch: Apply all RM-001 through RM-010 in one analysis pass
+   - EH Batch: Apply all EH-001 through EH-005 in one analysis pass
+   - CL Batch: Apply all CL-001 through CL-010 in one analysis pass
+   - BV Batch: Apply all BV-001 through BV-004 in one analysis pass
+   - CM Batch: Apply all CM-001 through CM-005 in one analysis pass
+   - SM Batch: Apply all SM-001 through SM-003 in one analysis pass
+   - MT Batch: Apply all MT-001 through MT-002 in one analysis pass
+   - Any patterns loaded by subsystem specific prompts, group in passes in
+     similar sized chunks to the above
+
+3. **Format**: `**PATTERN ANALYSIS - [CATEGORY] BATCH**` with all patterns listed together
+
+### Smart Context Management (Option 5)
+After each pattern category batch:
+
+**RETAIN:**
+- Function bodies (needed for cross-pattern analysis)
+- Key findings and evidence
+- Resource/lock/state identification
+- Critical error paths traced
+
+**CLEAR:**
+- Detailed pattern explanations and reasoning
+- Verbose call chain analysis beyond immediate needs
+- Intermediate analysis steps
+- Redundant function parameter details
+
+### Batch Analysis Format
+```
+**PATTERN ANALYSIS - [CATEGORY] [RM/CL/EH/BV/CM/SM/MT] BATCH**
+
+- save tokens: document only that you've applied a pattern, not the details
+Category Summary: X/Y patterns analyzed, Z issues found
+```
 
 ## Core Pattern Categories
 
@@ -36,6 +78,7 @@
 | RM-010 | Object cleanup and reinitialization | Incomplete initialization | When objects are torn down or unregistered:
     - If they are not freed, but instead returned to a pool or are global variables
       - Check to make sure all fields in the object are fully initialized when the object is setup for reuse
+      - When freeing/destroying resources referenced by structure fields, ensure the pointer fields are set to NULL to prevent use-after-free on structure reuse
       - ex: unregister_foo() { foo->dead = 1; free(foo->ptr); add to list}
             register_foo() { pull from list ; skip allocation of foo->ptr; foo->ptr->use_after_free;}
       - Assume [kv]free(); [kv]malloc(); and related APIs handle this properly unless you find proof initialization is skipped

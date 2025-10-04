@@ -9,7 +9,7 @@ directory as this prompt file.
 Before creating debug-report.txt, you MUST complete ALL steps below.
 Use TodoWrite tool to track each step. Mark as BLOCKED if you cannot complete any step.
 
-TASK 1: EXTRACT CRASH INFORMATION
+TASK DEBUG.1: EXTRACT CRASH INFORMATION
 - [ ] Find all kernel messages in the sources and assume they contributed to
 the problem you're debugging.  Try to prove them as either relevant or not,
 and report on what you find.
@@ -21,29 +21,28 @@ and report on what you find.
 - [ ] Map each timestamp to a specific operation
 - [ ] Extract ALL function names from crash traces
 
-STATUS CHECK: Mark TASK 1 as "COMPLETED" or "BLOCKED(reason)" before proceeding.
+STATUS CHECK: Mark TASK DEBUG.1 as "COMPLETED" or "BLOCKED(reason)" before proceeding.
 
-TASK 2: FULL REVIEW PROTOCOL
+TASK DEBUG.2: FULL REVIEW PROTOCOL
 
 You MUST now follow the ENTIRE review protocol from review-core.md systematically:
 
 REQUIRED ACTIONS:
 1. load review-core.md, but use the functions, types, and kernel messages
-from TASK 1 as the entry point into the code that you're reviewing.
-2. follow review-core.md instructions to Create TodoWrite checklist with ALL patterns
-3. Apply EVERY pattern - document as [CLEAR/ISSUE/NOT-APPLICABLE]
-4. Complete verification phase following false-positive-guide.md
-  - Because we know we have a crash or kernel bug, assume there is a bug instead
-  of trusting the author
+from TASK DEBUG.1 as the entry point into the code that you're reviewing.
+2. Complete TASK 1: Context Gathering using semcode tools on the crash functions
+3. Complete TASK 2A: Pattern Relevance Assessment - mark each pattern category as
+HIGHLY_RELEVANT/POTENTIALLY_RELEVANT/NOT_APPLICABLE
+4. Complete TASK 2B: Pattern Analysis - MANDATORY: Use TodoWrite tool to create checklist with ALL
+patterns from technical-patterns.md before analysis. Each pattern MUST be explicitly documented as:
+[CLEAR/ISSUE/NOT-APPLICABLE]
+5. Complete TASK 3: Verification following false-positive-guide.md
+6. NEVER skip any tasks from review-core.md, even if you think you found the bug
+7. You must state "TASK X COMPLETED" for each review-core.md task before proceeding
 
-DO NOT proceed to debug-report.txt until you state:
-"REVIEW PROTOCOL COMPLETE: X/X patterns analyzed"
+STATUS CHECK: Mark TASK DEBUG.2 as "REVIEW PROTOCOL COMPLETE:
 
-If you skip this step, you have FAILED to follow the debugging protocol.
-
-STATUS CHECK: Mark TASK 2 as "REVIEW PROTOCOL COMPLETE: X/X patterns analyzed" before proceeding.
-
-TASK 3: PROVE THE BUG WITH CONCRETE EVIDENCE
+TASK DEBUG.3: PROVE THE BUG WITH CONCRETE EVIDENCE
 
 When trying to identify a bug, apply the false-positive-guide.md, but do shift
 the assumption to the code being incorrect instead of correct.
@@ -65,9 +64,9 @@ the assumption to the code being incorrect instead of correct.
   - [ ] identify the exact code taking those locks
   - [ ] prove the deadlock exists with CODE SNIPPETS
 
-STATUS CHECK: Mark TASK 3 as "BUG EVIDENCE COMPLETE" or "INSUFFICIENT EVIDENCE - CANNOT PROVE BUG" before proceeding.
+STATUS CHECK: Mark TASK DEBUG.3 as "BUG EVIDENCE COMPLETE" or "INSUFFICIENT EVIDENCE - CANNOT PROVE BUG" before proceeding.
 
-TASK 4: IDENTIFY SUSPECT COMMITS
+TASK DEBUG.4: IDENTIFY SUSPECT COMMITS
 
 If you're able to identify the bug, try to identify the commit that introduced
 the bug and follow the instructions to create review-inline.txt.
@@ -81,9 +80,9 @@ the bug.  Otherwise just label it as a likely suspect and explain your reasoning
   or inspect binaries in the working directory, it is unlikely the working
   directory object files match the crashing binary.
 
-STATUS CHECK: Mark TASK 4 as "SUSPECT COMMIT ANALYSIS COMPLETE" or "NO SUSPECTS FOUND" before proceeding.
+STATUS CHECK: Mark TASK DEBUG.4 as "SUSPECT COMMIT ANALYSIS COMPLETE" or "NO SUSPECTS FOUND" before proceeding.
 
-TASK 5 CREATING debug-report.txt:
+TASK DEBUG.5 CREATING debug-report.txt:
 
 - [ ] Name the report debug-report.txt
 - [ ] include details of the crash in the plain text syntax.
@@ -91,7 +90,7 @@ TASK 5 CREATING debug-report.txt:
 - [ ] If you're not able to identify the cause of the crash, just put
 whatever information you found into debug-report.txt
 
-TASK 5.1 MANDATORY FORMATTING RULES for debug-report.txt:
+TASK DEBUG.5.1 MANDATORY FORMATTING RULES for debug-report.txt:
 - Replace any existing debug-report.txt
 - Don't mention TASK numbers in the report, they don't mean anything to people
 who aren't working on the prompts
@@ -110,7 +109,7 @@ who aren't working on the prompts
     - [ ] Count characters and insert line breaks before reaching 78
     - [ ] never line wrap code, reproduce it exactly
 
-STATUS CHECK: Mark TASK 5.1 as "COMPLETE" only after you've acknowledged all of these rules
+STATUS CHECK: Mark TASK DEBUG.5.1 as "COMPLETE" only after you've acknowledged all of these rules
 
 debug-report.txt TEMPLATE:
 
@@ -124,11 +123,11 @@ Cleaned up copy of oops or stack trace
 
 Any other kernel messages you found relevant
 
-TASK 5.2
+TASK DEBUG.5.2
 - [ ] If you found a suspect commit, follow the review-inline.txt protocol with bug
 details
 
-TASK 5.3
+TASK DEBUG.5.3
 - [ ] If you didn't find a suspect commit:
 	- [ ] An explanation of the problem
 	- [ ] Functions, snippets and call traces of code related to the problem
@@ -137,8 +136,8 @@ TASK 5.3
 	- [ ] All code snippets should be long enough to place the code in the function and
 	explain the idea you're trying to convey
 
-STATUS CHECK: Mark TASK 5.3 as "COMPLETE" only if code snippets are sufficient to
+STATUS CHECK: Mark TASK DEBUG.5.3 as "COMPLETE" only if code snippets are sufficient to
 explain the points you're making.
 
-STATUS CHECK: Mark TASK 5 as "COMPLETE" only after you've created the report,
-and completed TASK 5.1 or TASK 5.2 and verified it exists in the filesystem
+STATUS CHECK: Mark TASK DEBUG.5 as "COMPLETE" only after you've created the report,
+and completed TASK DEBUG.5.1 or TASK DEBUG.5.2 and verified it exists in the filesystem
