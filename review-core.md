@@ -25,6 +25,7 @@ Load the appropriate delta file when patch modifies subsystem code:
 - adding or changing syscalls → `syscall.md`
 - btrfs filesystem → `btrfs.md`
 - DAX operations → `dax.md`
+- block layer or nvme → `block.md`
 
 ### Batching
 - technical-patterns.md has a batching procedure for the prompts contained
@@ -149,9 +150,9 @@ it is relevant.
 **If regressions found**:
 0. Clear any context not related to the regressions themselves
 1. Load `inline-template.txt`
-2. Create `review-inline.txt` in current directory
+2. Create `review-inline.txt` in current directory, never use the prompt directory
 3. Follow the instructions in the template carefully
-4. Verify the ./review-inline.txt file exists if regressionare found
+4. Verify the ./review-inline.txt file exists if regressions are found
 
 This step must not be skipped if there are regressions found.
 

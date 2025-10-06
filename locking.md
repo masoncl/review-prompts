@@ -31,6 +31,8 @@
 
 ## _irq and _irqsave variants
 - spin_lock_irq and spin_lock_irqsave mask off interrupts.
+- spin_lock_irqsave(lock, flags) can be nested again inside spin_lock_irqsave(lock2, flags2)
+  as long as the two locks are different and the two flags are different variables
 - if locks are taken when irqs are already off:
   - all lock holders need to have irqs masked in order to safely take the lock
   - it is safe to use spin_lock() (without masking interrtupts) from code that is only called when irqs are already off

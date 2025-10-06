@@ -83,6 +83,8 @@ Category Summary: X/Y patterns analyzed, Z issues found
       - ex: unregister_foo() { foo->dead = 1; free(foo->ptr); add to list}
             register_foo() { pull from list ; skip allocation of foo->ptr; foo->ptr->use_after_free;}
       - Assume [kv]free(); [kv]malloc(); and related APIs handle this properly unless you find proof initialization is skipped
+      - When you find a missing initialization, check the call paths to see if
+        callees actually initialize the variable before using it.
 
 **Key Notes**:
 - All pointers have the same size, "char \*foo" takes as much room as "int \*foo"
@@ -101,6 +103,12 @@ Category Summary: X/Y patterns analyzed, Z issues found
              css_get(&memcg->css);
      newsk->sk_memcg = sk->sk_memcg;
 ```
+- Never report errors without checking to see if the error is impossible in the
+  call path you found.
+    - Some call paths might always check IS_ENABLED(feature) before
+      dereferencing a variable
+    - The actual implementations of "feature" might not have those checks,
+      because they are never called unless the feature is on
 
 ### 2. Concurrency & Locking [CL]
 

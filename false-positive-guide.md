@@ -21,6 +21,11 @@
 - Research assumptions and claims in commit messages, comments and code.  Try to prove them wrong.
 - If you don't have concrete proof in the form of code snippets, assume the author is correct
 - Design decisions are assumed intentional
+- Read the entire commit message.  If the commit message explains a given bug,
+ex: "For now, ignore this problem", consider the bug a false positive.
+- Read the surrounding code comments.  If you find a bug and a comment
+explictly explaining why they have chosen to add the bug, consider it a false
+positive.
 
 **Only report if**:
 - You found specific code that proves you correct
@@ -101,21 +106,23 @@ Before reporting ANY regression, verify:
    - [ ] Found calling code that reaches here
    - [ ] No impossible conditions blocking the path
    - [ ] Not in dead code or disabled features
-
 2. **Is the bad behavior guaranteed?**
    - [ ] Not just "might happen" but "will happen"
    - [ ] Not just "increases risk" but "causes failure"
    - [ ] Concrete sequence leads to the issue
-
 3. **Did I check the full context?**
    - [ ] Examined calling functions (2-3 levels up)
    - [ ] Checked initialization and cleanup paths
    - [ ] Verified subsystem conventions
-
 4. **Is this actually wrong?**
    - [ ] Not an intentional design choice
    - [ ] Not a documented limitation
    - [ ] Not test code that's allowed to be imperfect
+5. **Did I check the commit message and surrounding comments?**
+   - [ ] The entire commit message was read and checked for explanations
+   - [ ] All surroudning code comments were checked for explanations
+6. **When complex multi-step conditions are required for the bug to exist**
+   - [ ] Prove these conditions are actually possible
 
 ## Special Cases
 
