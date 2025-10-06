@@ -57,7 +57,8 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 | Pattern ID | Check | Risk | Common Location |
 |------------|-------|------|-----------------|
-| RM-001 | 1:1 matching of alloc/free operations | Memory leak | Error paths between alloc and success |
+| RM-001 | 1:1 matching of alloc/free operations | Memory leak | Error paths between alloc and success:
+- When reporting on error checking for kmalloc and vmalloc APIs, also find and report the GFP_FLAGS used |
 | RM-001a | Resource lifecycle consistency | Resource leak/corruption | Check all resource types and
    state transitions. Trace resource ownership through function boundaries. Verify function contracts:
       if function takes resource X to modify, does X end in expected state? |
