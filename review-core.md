@@ -57,6 +57,8 @@ specific files.
    - `find_callers/find_callees`: spot check call relationships
    - `grep`: search function bodies for regex patterns.  returns matching lines by default, verbose=true treturns the entire function body, has options to filter by a path regex.
      - this can return a huge number of results, avoid filling context by using path regex options
+     - this already searches inside of function bodies.  Don't try to do multi-line greps,
+       don't try to add curly brackets to limit the result inside of functions
 
 2. **Without semcode (fallback)**:
    - Use git diff to identify changes
