@@ -41,6 +41,18 @@
     or elsewhere in the callchain
   - spin_trylock() might be used to avoid the deadlocks.  The deadlock can only happen if spin_lock() is called with interrupts off, without using trylock
 
+## memory barriers
+- You're not smart enough to understand smp_mb(), smp_rmb(), or smp_wmb() bugs yet, assume the patch author is correct unless
+the usage is wildly wrong.
+- smp_mb(): General barrier - ensures all loads/stores before appear to happen before all loads/stores after
+- smp_rmb(): Read barrier - ensures all loads before appear to happen before all loads after (no effect on stores)
+- smp_wmb(): Write barrier - ensures all stores before appear to happen before all stores after (no effect on loads)
+- Barriers prevent CPU/compiler reordering across the barrier point but don't guarantee completion, only ordering appearance
+- Usage: Must be paired between CPUs - if CPU A uses smp_wmb() before setting a flag, CPU B needs smp_rmb() after reading that flag
+  - This is a guideline, it is sometimes ignored
+- Common pattern: Producer uses smp_wmb() after writing data, before setting ready flag; Consumer uses smp_rmb() after reading ready flag, before reading data
+- Lockless access: Use barriers around shared data access when not holding locks, especially in RCU read sections or lock-free algorithms
+
 ## Quick Checks
 - raw_spinlock for IRQ handlers on RT
 - Completion variables for event waiting

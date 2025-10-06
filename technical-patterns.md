@@ -7,6 +7,15 @@
   handling patterns - explicitly verify the code is correct by tracing concrete execution paths
 - Never skip any patterns just because you found a bug in another pattern.
 - Never skip any patterns unless they don't apply to the code at hand
+- Never report errors without checking to see if the error is impossible in the
+  call path you found.
+    - Some call paths might always check IS_ENABLED(feature) before
+      dereferencing a variable
+    - The actual implementations of "feature" might not have those checks,
+      because they are never called unless the feature is on
+    - It's not enough for the API contract to be unclear, you must prove the
+    bug can happen in practice.
+    - Do not recommend defensive programming unless it fixes a proven bug.
 
 ## EFFICIENT PATTERN ANALYSIS METHODOLOGY
 
@@ -103,13 +112,6 @@ Category Summary: X/Y patterns analyzed, Z issues found
              css_get(&memcg->css);
      newsk->sk_memcg = sk->sk_memcg;
 ```
-- Never report errors without checking to see if the error is impossible in the
-  call path you found.
-    - Some call paths might always check IS_ENABLED(feature) before
-      dereferencing a variable
-    - The actual implementations of "feature" might not have those checks,
-      because they are never called unless the feature is on
-
 ### 2. Concurrency & Locking [CL]
 
 | Pattern ID | Check | Risk | Details |

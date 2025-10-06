@@ -5,3 +5,7 @@
   submission (blk_try_enter_queue) to completion (blk_queue_exit), teardown
   functions cannot complete while bios with QoS flags are still executing their
   completion paths.
+- bio chains are formed as the result of merging tests.  These establish
+  rules about what bios are allowed to be mixed together.  If you find a bug
+  related to chains of bios, first make sure the merging rules allows that
+  chain to exist
