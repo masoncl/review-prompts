@@ -22,6 +22,7 @@ Load the appropriate delta file when patch modifies subsystem code:
 - RCU operations (`rcu_read_lock`, `call_rcu`) → `rcu.md`
 - Encryption (`crypto_`, `fscrypt_`) → `fscrypt.md`
 - Tracing (`trace_`, tracepoints) → `tracing.md`
+- workqueue functions (`struct workqueue_struct`, `struct work_struct` etc),  → `workqueue.md`
 - adding or changing syscalls → `syscall.md`
 - btrfs filesystem → `btrfs.md`
 - DAX operations → `dax.md`
