@@ -155,7 +155,8 @@ it is relevant.
 1. Load `inline-template.txt`
 2. Create `review-inline.txt` in current directory, never use the prompt directory
 3. Follow the instructions in the template carefully
-4. Verify the ./review-inline.txt file exists if regressions are found
+4. Never include bugs that you identified as false positives in the report
+5. Verify the ./review-inline.txt file exists if regressions are found
 
 This step must not be skipped if there are regressions found.
 

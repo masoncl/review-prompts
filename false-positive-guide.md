@@ -83,6 +83,12 @@ positive.
 - An ABBA deadlock pattern emerges
 - State becomes invalid
 
+### 8. Races
+**You're especially bad at finding races, assume you're wrong unless you have concrete proof**
+- [ ] identify the EXACT data structure names and definitions
+- [ ] identify the locks that should protect them
+- [ ] prove the race exists with CODE SNIPPETS
+
 **Just because** operations moved doesn't mean it's wrong.
 
 ### 8. Performance Tradeoffs

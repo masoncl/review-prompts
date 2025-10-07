@@ -6,9 +6,11 @@ absolutely and completely plain text fit for the linux kernel mailing list.
 - Any long lines present in the unified diff should be preserved, but
 any summary, comments or questions you add should be wrapped at 78 characters
 
-- Don't mention line numbers when referencing code locations, instead indicate
+- Never mention line numbers when referencing code locations, instead indicate
 the function name and also call chain if that makes it more clear.  Avoid
 complex paragraphs and instead use call chains funcA()->funcB() to explain.
+
+- Never include bugs filtered out as false positives in the report
 
 - Always end the report with a blank line.
 

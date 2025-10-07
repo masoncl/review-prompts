@@ -119,7 +119,9 @@ Category Summary: X/Y patterns analyzed, Z issues found
 | CL-001 | Correct lock type for context | Deadlock/sleep bug | Never sleep (mutex/rwsem) in atomic context |
 | CL-002 | Lock ordering consistency | ABBA deadlock | Document and verify lock ordering when multiple held |
 | CL-003 | Lock requirements traced 2-3 levels | Missing synchronization | Called functions may require locks |
-| CL-004 | Race window analysis | Data corruption | Check between resource release and subsequent access |
+| CL-004 | Race window analysis | Data corruption | Check between resource release and subsequent access:
+- race windows need hard proof showing that both sides of the race can occurin practice.
+- do not worry about theoritical races, only proven races |
 | CL-005 | Memory ordering for lockless access | Data corruption | READ_ONCE/WRITE_ONCE for shared fields |
 | CL-006 | Trylock→lock conversion safety | Deadlock | May introduce new deadlock scenarios |
 | CL-007 | Cleanup ordering | Use-after-free | Stop users → wait completion → destroy resources |
@@ -162,7 +164,17 @@ inconsistent state
 
 | Pattern ID | Check | Risk | Details |
 |------------|-------|------|---------|
-| BV-001 | Bounds checked at point of use | Buffer overflow | Not just where received, but where accessed |
+| BV-001 | Bounds checked at point of use | Buffer overflow | Not just where received, but where accessed:
+ - strscpy() can do automatic size detection for arrays, and this works when
+   pointers to arrays are copied and the compiler is able to find the type
+ - char \*s = ""; strlen(s) returns zero, but it safe to access s[0];
+ - a common pattern memcpy(dst + (offset & mask), src, size); usually includes
+   alignment validation of 'offset' somewhere else in the code.  Try to find
+   that validation before reporting |
+ - global arrays often have a MAX_FOO parameter that corresponds to the maximum
+  possible elements.  Before reporting an overflow, check if it is impossible
+  to create more than MAX_FOO elements in the first place.
+
 | BV-002 | Integer overflow before indexing | Buffer overflow | Watch 16/32-bit arithmetic before array access |
 | BV-003 | Dynamic bounds revalidation | Buffer overflow | Revalidate if size can change between check and use |
 | BV-004 | Untrusted data validation | Security | Only enforce on data from untrusted sources |
