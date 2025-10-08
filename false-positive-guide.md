@@ -9,6 +9,13 @@ must complete task POSITIVE.1 before completing the false positive check.
 
 ## Common False Positive Patterns
 
+### 0. Context preservation
+- If you're analyzing a git commit make sure the full commit message is still in context.  If not, reload it.
+- If you're processing a patch instead of a commit, make sure the full
+  patch description is still in context.  If not, reread it.
+- Confirm this context is available for the false positive section
+- Do not proceed with false positive verification without this context ready
+
 ### 1. Defensive Programming Requests
 **Never suggest** defensive checks unless you can prove:
 - The input comes from an untrusted source (user/network)

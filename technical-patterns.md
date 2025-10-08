@@ -5,6 +5,9 @@
 - Trace full execution flow, gather additional context from the call chain to make sure you fully understand
 - Don't make assumptions based on return types, checks, WARN_ON(), BUG_ON(), comments, or error
   handling patterns - explicitly verify the code is correct by tracing concrete execution paths
+- Never assume that changing a WARN_ON() or BUG_ON() statement changes the
+  errors or conditions a function can accept.  They indicate changes to
+  what is printed to the console, and nothing else.
 - Never skip any patterns just because you found a bug in another pattern.
 - Never skip any patterns unless they don't apply to the code at hand
 - Never report errors without checking to see if the error is impossible in the
@@ -112,6 +115,9 @@ Category Summary: X/Y patterns analyzed, Z issues found
              css_get(&memcg->css);
      newsk->sk_memcg = sk->sk_memcg;
 ```
+- If you find a type mismatch (using *foo instead of foo etc), trace the type
+  fully and check against the expected type to make sure you're flagging it
+  correctly
 ### 2. Concurrency & Locking [CL]
 
 | Pattern ID | Check | Risk | Details |
