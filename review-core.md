@@ -60,6 +60,8 @@ specific files.
      - this can return a huge number of results, avoid filling context by using path regex options
      - this already searches inside of function bodies.  Don't try to do multi-line greps,
        don't try to add curly brackets to limit the result inside of functions
+   - If the current commit has deleted a function, semcode won't be able to
+     find it unless you search the parent commit.
 
 2. **Without semcode (fallback)**:
    - Use git diff to identify changes
