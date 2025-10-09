@@ -169,8 +169,32 @@ it is relevant.
 **Goal**: Create clear, actionable report
 
 **If no regressions found**:
-- Mark complete and provide summary
-- Note any context limitations
+
+Complete the following subtasks:
+
+1. **Changelog/Commit Message Review**:
+   - Compare commit title and message against actual code changes
+   - Verify the changelog is complete (describes all significant changes)
+   - Verify the changelog is concise (no unnecessary verbosity)
+   - Check that the "why" is explained, not just the "what"
+   - Flag missing context that would help reviewers/maintainers
+
+2. **Patch Scope Verification**:
+   - Verify the patch does one logical thing (with reasonable flexibility)
+   - Flag if patch mixes unrelated changes (e.g., refactoring + feature addition)
+   - Note if patch should be split into a series
+   - Allow related changes that naturally belong together
+
+3. **Submission Guidelines Check**:
+   - Reference Documentation/process/submitting-patches.rst for guidelines
+   - Check for proper Signed-off-by and other required tags
+   - Verify subject line follows conventions (subsystem prefix, imperative mood, ~50 chars)
+   - Note any deviations from kernel patch submission standards
+
+4. **Final Summary**:
+   - Mark complete and provide summary
+   - Note any context limitations
+   - Report changelog/scope/guideline findings
 
 **If regressions found**:
 0. Clear any context not related to the regressions themselves
