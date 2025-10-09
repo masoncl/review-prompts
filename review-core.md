@@ -17,6 +17,7 @@ Load the appropriate delta file when patch modifies subsystem code:
 - Memory management (`mm/`, page/folio ops) → `mm.md`
 - VFS operations (`inode_`, `dentry_`, `vfs_`) → `vfs.md`
 - Locking primitives (`spin_lock`, `mutex_`) → `locking.md`
+- Scheduler code (`kernel/sched/`, `sched_`, `schedule`, runqueue, `wake_up`) → `scheduler.md`
 - BPF code (`kernel/bpf/`, `bpf_`, verifier) → `bpf.md`
 - RCU operations (`rcu_read_lock`, `call_rcu`) → `rcu.md`
 - Encryption (`crypto_`, `fscrypt_`) → `fscrypt.md`
