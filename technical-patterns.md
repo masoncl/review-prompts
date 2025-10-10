@@ -27,13 +27,13 @@ Apply patterns in category batches to avoid redundant function reads:
 
 1. **Load all relevant functions ONCE** during context gathering
 2. **Apply entire pattern categories in single passes**:
-   - RM Batch: Apply all RM-001 through RM-010 in one analysis pass
-   - EH Batch: Apply all EH-001 through EH-005 in one analysis pass
-   - CL Batch: Apply all CL-001 through CL-010 in one analysis pass
-   - BV Batch: Apply all BV-001 through BV-004 in one analysis pass
-   - CM Batch: Apply all CM-001 through CM-005 in one analysis pass
-   - SM Batch: Apply all SM-001 through SM-003 in one analysis pass
-   - MT Batch: Apply all MT-001 through MT-002 in one analysis pass
+   - RM Batch: Apply all RM-* in one analysis pass
+   - EH Batch: Apply all EH-* in one analysis pass
+   - CL Batch: Apply all CL-* in one analysis pass
+   - BV Batch: Apply all BV-* in one analysis pass
+   - CM Batch: Apply all CM-* in one analysis pass
+   - SM Batch: Apply all SM-* in one analysis pass
+   - MT Batch: Apply all MT-* in one analysis pass
    - Any patterns loaded by subsystem specific prompts, group in passes in
      similar sized chunks to the above
 
@@ -97,6 +97,11 @@ Category Summary: X/Y patterns analyzed, Z issues found
       - Assume [kv]free(); [kv]malloc(); and related APIs handle this properly unless you find proof initialization is skipped
       - When you find a missing initialization, check the call paths to see if
         callees actually initialize the variable before using it.
+|
+| RM-011 | Local variable initialization | uninit memory usage |
+- global variables and static variables are zero filled automatically
+- trace access to local variables on the stack to find usage without proper init
+|
 
 **Key Notes**:
 - All pointers have the same size, "char \*foo" takes as much room as "int \*foo"
