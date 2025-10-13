@@ -10,7 +10,6 @@ not provided, assume it is the same directory as the prompt file.
 
 ### Core Files (ALWAYS LOAD FIRST)
 1. `technical-patterns.md` - Consolidated pattern reference with IDs
-2. `false-positive-guide.md` - Comprehensive false positive prevention
 
 ### Subsystem Deltas (LOAD ONLY IF PATCH TOUCHES)
 Load the appropriate delta file when patch modifies subsystem code:
@@ -38,27 +37,44 @@ specific files.
 - Ignore test program issues unless system crash
 - Don't report assertion/WARN/BUG removals as regressions
 
-## CONTEXT MANAGEMENT
-- Discard non-essential details after each phase to manage token limits
+## Task 0: CONTEXT MANAGEMENT
+- Discard non-essential details after each task to manage token limits
+  - Don't discard function or type context if you'll use it later on
 - Exception: Keep all context for Phase 4 reporting if regressions found
 - Report any context obtained outside semcode MCP tools
+
+1. Plan your entire context gathering phase after finding the diff and before making any additional tool calls
+   - Before gathering full context, think about the diff you're analyzing
+   - Classify the kinds of changes introduced by the diff
+     - Use this classification to help limit patterns you will fully process
+   - Plan entire context gathering phase
+     - identify the minimum context needed to answer each pattern check
+     - Unless you're running out of context space, try to load all required context once and only once
+   - Don't fetch caller/callee context unless you can explain why it's needed for a specific pattern
+   - reason about likely outcomes before verifying
+2. You may need to load additional context in order to properly analyze the review patterns.
 
 ## REVIEW TASKS
 
 ### TASK 1: Context Gathering []
 **Goal**: Build complete understanding of changed code
-
 1. **Using semcode MCP (preferred)**:
    - `diff_functions`: identify changed functions and types
    - `find_function/find_type`: get definitions for all identified items
      - both of these accept a regex for the name, use this before grepping through the sources for definitions
-   - `find_callchain`: trace call relationships (callers 2-deep, callees 3-deep)
-     - Always trace multiple levels of callers and callees
+   - `find_callchain`: trace call relationships
+     - spot check call relationships, especially to understand proper API usage
+     - use arguments to limit callchain depth up and/or down.
+   - `find_callers/find_callees`:
+     - Check at least one level up and one level down, more if needed.
+     - spot check other call relationships as required
      - Always trace cleanup paths and error handling
-   - `find_callers/find_callees`: spot check call relationships
-   - `grep`: search function bodies for regex patterns.  returns matching lines by default, verbose=true treturns the entire function body, has options to filter by a path regex.
-     - this can return a huge number of results, avoid filling context by using path regex options
-     - this already searches inside of function bodies.  Don't try to do multi-line greps,
+   - `grep`: search function bodies for regex patterns.
+     - returns matching lines by default (verbose=false).  When verbose=true is used, also returns entire function body
+     - use verbose=false first to find matching lines, then use semcode find_function to pull in functions you're interested in
+     - use verbose=true only with detailed regexes where you want full function bodies for every result
+     - can return a huge number of results, use path regex option to limit results to avoid avoid filling context
+     - searches inside of function bodies.  Don't try to do multi-line greps,
        don't try to add curly brackets to limit the result inside of functions
    - If the current commit has deleted a function, semcode won't be able to
      find it unless you search the parent commit.
@@ -76,7 +92,7 @@ specific files.
    - Identify functions that can return different resources than they received
    - Flag resource ownership transfers between functions
 
-4. Next use fragments of code from the diff without first trying to find the
+4. Never use fragments of code from the diff without first trying to find the
 entire function or type in the sources.  Always prefer full context over
 diff fragments.
 
@@ -85,11 +101,14 @@ diff fragments.
 ### TASK 2A: Pattern Relevance Assessment []
 **Goal**: Determine which pattern categories apply to the code changes
 
-1. **Read all pattern categories** from technical-patterns.md
-2. **Analyze the type of code changes** in the diff:
-  - What systems are being modified? (memory management, networking, etc.)
+1. **Analyze the type of code changes** in the diff:
   - What type of changes? (refactoring, new features, bug fixes, etc.)
   - What operations are involved? (allocation, locking, data flow, etc.)
+  - If the diff is completely trivial, changing only comments or string literals
+    - do a basic check for correctness, don't bother loading all the patterns
+    - Complete Task 2, proceed to Task 3.
+  - What systems are being modified? (memory management, networking, etc.)
+2. **Read all pattern categories** from technical-patterns.md
 3. **Create relevance mapping**:
   - HIGHLY_RELEVANT: Pattern category directly applies to changes
   - POTENTIALLY_RELEVANT: Pattern category might apply, analyze fully
@@ -143,7 +162,7 @@ it is relevant.
 **Goal**: Eliminate false positives
 
 - mark this complete if there are no regressions found
-- Follow the false-positive-guide.md steps
+- If regressions are found, load `false-positive-guide.md` and follow the steps
 
 ### TASK 4: Reporting []
 **Goal**: Create clear, actionable report
