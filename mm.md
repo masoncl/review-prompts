@@ -41,3 +41,4 @@
 - mmap_lock ordering (read vs write)
 - Page reference before mapping operations
 - Compound page tail page handling
+- get_node(XXX, numa_mem_id()) can return NULL on memory-less nodes

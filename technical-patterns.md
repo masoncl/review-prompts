@@ -139,10 +139,12 @@ Category Summary: X/Y patterns analyzed, Z issues found
 | CL-008 | IRQ-safe locking | IRQ corruption | Use _irqsave if lock taken from IRQ context |
 | CL-009 | Assorted locking | bugs | load definitions of locking functions to make sure you understand them correctly |
 | CL-010 | Lock handoff verification | Lock imbalance | When function may return different locked
-  object:
+  object, OR may return with a different lock than originally held when called:
      1. Verify original locked object's lock state is properly handled
      2. Check if caller knows which lock to release
-     3. Trace lock acquisition/release balance for ALL objects involved |
+     3. Trace lock acquisition/release balance for ALL objects involved
+     4. When locks are dropped and reacquired, verify ALL objects protected by those locks are not stale
+     |
 
 **Lock Context Compatibility Matrix**:
 | Lock Type | Process | Softirq | Hardirq | Sleeps |
