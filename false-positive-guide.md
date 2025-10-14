@@ -159,6 +159,9 @@ Before reporting ANY regression, verify:
 
 Before adding to report, ask:
 1. **Do I have proof, not just suspicion?**
+  - Code snippets showing all components required to trigger the bug count as proof
+  - Existing defensive pattern checks for the same condition also count as proof.
+  - Existing WARN_ON()/BUG_ON() don't count as proof.
 2. **Would an expert see this as a real issue?**
 3. **Is this worth the maintainer's time?**
 4. **Am I being overly defensive?**
