@@ -42,6 +42,9 @@ specific files.
   - Don't discard function or type context if you'll use it later on
 - Exception: Keep all context for Phase 4 reporting if regressions found
 - Report any context obtained outside semcode MCP tools
+- Kernel source files are large and are likely to fill your context window.
+  - If you're reading entire files, batch the reads to limit context explosion.
+  - trim the context from source files to only what matters for the review
 
 1. Plan your entire context gathering phase after finding the diff and before making any additional tool calls
    - Before gathering full context, think about the diff you're analyzing

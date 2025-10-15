@@ -102,6 +102,17 @@ Category Summary: X/Y patterns analyzed, Z issues found
 - global variables and static variables are zero filled automatically
 - trace access to local variables on the stack to find usage without proper init
 |
+| RM-012 | memcg accounting | Incorrect memory accounting |
+- skip this pattern unless page, slab or vmalloc APIs are used
+- When using __GFP_ACCOUNT, ensure the correct memcg is charged
+  - old = set_active_memcg(memcg) ; work ; set_active_memcg(old)
+- slabs created with SLAB_ACCOUNT implicitly have __GFP_ACCOUNT on every allocation
+- Most usage does not need set_active_memcg(), but:
+  - helpers operating in kthreads switching context between many memcgs may need it
+  - helpers operating on objects (ex BPF maps) that store an memcg to be charged against at creation time may need it
+- by default most usage charges memory to the task's memcg
+- Ensure new __GFP_ACCOUNT usage is consistent with the charging model used in the rest of the surrounding code
+|
 
 **Key Notes**:
 - All pointers have the same size, "char \*foo" takes as much room as "int \*foo"
