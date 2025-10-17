@@ -18,7 +18,7 @@ must complete task POSITIVE.1 before completing the false positive check.
 
 ### 1. Defensive Programming Requests
 **Never suggest** defensive checks unless you can prove:
-- The input comes from an untrusted source (user/network)
+- The input comes from an untrusted source (ex: user/network)
 - An actual path exists where invalid data reaches the code
 - The current code can demonstrably fail
 
@@ -35,6 +35,7 @@ must complete task POSITIVE.1 before completing the false positive check.
 
 ### 3. Unverifiable Assumptions
 **Trust the author** but try to prove them wrong
+- Untrusted sources (network/user) need less proof
 - Research assumptions and claims in commit messages, comments and code.  Try to prove them wrong.
 - If you don't have concrete proof in the form of code snippets, assume the author is correct
 - Design decisions are assumed intentional
@@ -132,6 +133,8 @@ Before reporting ANY regression, verify:
    - [ ] All surroudning code comments were checked for explanations
 6. **When complex multi-step conditions are required for the bug to exist**
    - [ ] Prove these conditions are actually possible
+7. **Did I hallucinate a problem that doesn't actually exist?**
+   - [ ] Check the bug report actually matches the code
 
 ## Special Cases
 
@@ -157,7 +160,7 @@ Before reporting ANY regression, verify:
 
 ## Final Filter
 
-Before adding to report, ask:
+Before adding to report, think about the regression and ask:
 1. **Do I have proof, not just suspicion?**
   - Code snippets showing all components required to trigger the bug count as proof
   - Existing defensive pattern checks for the same condition also count as proof.

@@ -25,6 +25,8 @@
 ### Batched Pattern Application
 Apply patterns in category batches to avoid redundant function reads:
 
+0. Use TodoWrite to track specific details of every pattern you fully analyze,
+make sure you complete every one.  Include any subsystem specific prompts loaded as well.
 1. **Load all relevant functions ONCE** during context gathering
 2. **Apply entire pattern categories in single passes**:
    - RM Batch: Apply all RM-* in one analysis pass
@@ -69,13 +71,17 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 | Pattern ID | Check | Risk | Common Location |
 |------------|-------|------|-----------------|
-| RM-001 | 1:1 matching of alloc/free operations | Memory leak | Error paths between alloc and success:
-- When reporting on error checking for kmalloc and vmalloc APIs, also find and report the GFP_FLAGS used |
-| RM-001a | Resource lifecycle consistency | Resource leak/corruption | Check all resource types and
-   state transitions. Trace resource ownership through function boundaries. Verify function contracts:
-      if function takes resource X to modify, does X end in expected state? |
+| RM-001 | Resource lifecycle management | Memory leak/corruption | Error paths between alloc and success:
+- Track ALL resources in TodoWrite (allocations, locks, references, file handles, etc.)
+- Verify 1:1 matching: every alloc has corresponding free in ALL paths
+- Check cleanup in ALL error paths between acquisition and function return
+- For every modified function, list ALL resources acquired
+- For every return/goto, verify every previously acquired resource is cleaned up
+- Trace resource ownership through function boundaries
+- Verify function contracts: if function takes resource X to modify, does X end in expected state?
+- Track all resource types and state transitions in TodoWrite
+- When reporting kmalloc/vmalloc errors, include GFP_FLAGS used |
 | RM-002 | Init-once enforcement for static resources | Double init | Static/global initialization |
-| RM-003 | Cleanup in ALL error paths | Resource leak | Between resource acquisition and function return |
 | RM-004 | No access after release/enqueue | Use-after-free | Async callbacks, after enqueue operations |
 | RM-005 | Proper refcount handling | Use-after-free/leak | refcount_dec_and_test returns true only at zero |
 | RM-006 | Object state preservation in reassignment | Memory leak | foo = func(foo) patterns |
@@ -83,12 +89,14 @@ Category Summary: X/Y patterns analyzed, Z issues found
 | RM-008 | Assorted reference counts | Memory leak/Use-after-free | load definitions of ref counting functions to make sure you understand them correctly |
 | RM-009 | Function resource contracts | Resource abandonment | MANDATORY: When function accepts
   resource for modification:
+     0. Track every resource in the TodoWrite
      1. Trace EVERY return path - what happens to the original resource?
      2. If function returns different resource, prove original is properly handled
      3. Check lock state, reference counts, and ownership of original resource
      4. Verify caller expectations: does caller expect same resource back?
      5. Look for assignment patterns like "original = new" that may abandon original |
 | RM-010 | Object cleanup and reinitialization | Incomplete initialization | When objects are torn down or unregistered:
+    - Track every object torn down in the TodoWrite
     - If they are not freed, but instead returned to a pool or are global variables
       - Check to make sure all fields in the object are fully initialized when the object is setup for reuse
       - When freeing/destroying resources referenced by structure fields, ensure the pointer fields are set to NULL to prevent use-after-free on structure reuse
@@ -98,9 +106,14 @@ Category Summary: X/Y patterns analyzed, Z issues found
       - When you find a missing initialization, check the call paths to see if
         callees actually initialize the variable before using it.
 |
-| RM-011 | Local variable initialization | uninit memory usage |
+| RM-011 | variable and field initialization | uninit memory usage |
 - global variables and static variables are zero filled automatically
-- trace access to local variables on the stack to find usage without proper init
+- Track all other variable/field access from in TodoWrite
+- slab and vmalloc APIs have variants that zero fill, and __GFP_ZERO gfp mask does as well
+- kmem_cache_create() can use an init_once() function to initialize slab ojbects
+- trace variable/field access to make sure they are initialized before use
+- special attention for error paths (goto fail)
+- if you can't verify fully, check against other similar usage
 |
 | RM-012 | memcg accounting | Incorrect memory accounting |
 - skip this pattern unless page, slab or vmalloc APIs are used
@@ -131,31 +144,38 @@ Category Summary: X/Y patterns analyzed, Z issues found
              css_get(&memcg->css);
      newsk->sk_memcg = sk->sk_memcg;
 ```
-- If you find a type mismatch (using *foo instead of foo etc), trace the type
+- If you find a type mismatch (using \*foo instead of foo etc), trace the type
   fully and check against the expected type to make sure you're flagging it
   correctly
 ### 2. Concurrency & Locking [CL]
 
 | Pattern ID | Check | Risk | Details |
 |------------|-------|------|---------|
-| CL-001 | Correct lock type for context | Deadlock/sleep bug | Never sleep (mutex/rwsem) in atomic context |
-| CL-002 | Lock ordering consistency | ABBA deadlock | Document and verify lock ordering when multiple held |
-| CL-003 | Lock requirements traced 2-3 levels | Missing synchronization | Called functions may require locks |
-| CL-004 | Race window analysis | Data corruption | Check between resource release and subsequent access:
+| CL-001 | Lock type and ordering | Deadlock/sleep bug |
+- Never sleep (mutex/rwsem/schedule/sleeping allocations) in atomic context
+- Use _irqsave if lock taken from IRQ context
+- Document and verify lock ordering when multiple locks held
+- Trylock→lock conversion may introduce deadlock scenarios |
+| CL-002 | Lock requirements verification | Missing synchronization |
+- Trace called functions 2-3 levels for lock requirements
+- Track lock handoff when returning different locked objects in TodoWrite
+- When function returns with different lock than originally held:
+  - Verify original locked object's lock state properly handled
+  - Check if caller knows which lock to release
+  - Trace lock acquisition/release balance for ALL objects involved
+- When locks dropped/reacquired, verify protected objects not stale
+- Load definitions of locking functions to understand them correctly |
+| CL-004 | Race window analysis | Data corruption | Check concurrent access:
+- Create TodoWrite items to track all concurrent to shared datastructures made
+- Verify proper exclusion exists (rcu, locking etc)
+- when shared data-structures can be read or written concurrently with other writes
 - race windows need hard proof showing that both sides of the race can occurin practice.
 - do not worry about theoritical races, only proven races |
 | CL-005 | Memory ordering for lockless access | Data corruption | READ_ONCE/WRITE_ONCE for shared fields |
-| CL-006 | Trylock→lock conversion safety | Deadlock | May introduce new deadlock scenarios |
 | CL-007 | Cleanup ordering | Use-after-free | Stop users → wait completion → destroy resources |
-| CL-008 | IRQ-safe locking | IRQ corruption | Use _irqsave if lock taken from IRQ context |
-| CL-009 | Assorted locking | bugs | load definitions of locking functions to make sure you understand them correctly |
-| CL-010 | Lock handoff verification | Lock imbalance | When function may return different locked
-  object, OR may return with a different lock than originally held when called:
-     1. Verify original locked object's lock state is properly handled
-     2. Check if caller knows which lock to release
-     3. Trace lock acquisition/release balance for ALL objects involved
-     4. When locks are dropped and reacquired, verify ALL objects protected by those locks are not stale
-     |
+| CL-011 | Error handling locks | Incorrect locking |
+- For every lock acquired, trace every error path in every function, ensure locks are properly released or handed off
+|
 
 **Lock Context Compatibility Matrix**:
 | Lock Type | Process | Softirq | Hardirq | Sleeps |
@@ -173,10 +193,34 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 | Pattern ID | Check | Risk | Example |
 |------------|-------|------|---------|
-| EH-001 | NULL safety verification | NULL deref | Trace callers for NULL passing, especially cleanup paths |
+| EH-001 | NULL safety verification | NULL deref |
+- Track every pointer access in the TodoWrite
+- Trace callers for NULL passing, especially cleanup paths
+- Don't dereference potentially NULL pointers (including in BUG_ON/WARN_ON statements)
+- Trace pointers to ensure they are checked for NULL properly
+- If unsure, check to make sure new code maintains similar checks to old code |
 | EH-002 | ERR_PTR vs NULL consistency | Wrong error check | Don't mix IS_ERR with NULL checks |
-| EH-003 | Error value preservation | Lost errors | Watch for `ret = func(); ... ret = 0;` patterns |
-| EH-004 | Return type changes handled | Wrong returns | When signatures change, verify ALL return statements |
+| EH-003 | Error value preservation | Lost errors |
+- Track every error value overwrite in TodoWrite
+- Watch for `ret = func(); ... ret = 0;` patterns
+- When loops accumulate errors:
+    - Trace at least 2 concrete iteration scenarios
+    - Scenario 1: [fail, fail] - does final error match last failure?
+    - Scenario 2: [fail, success] - is error cleared on success?
+    - Scenario 3: [success, fail] - does success get overwritten?
+    - Compare to similar patterns in codebase for consistency
+    - Ask: Should partial success clear previous recoverable errors?
+|
+| EH-004 | Return value changes handled | Wrong returns | When return values or types change, verify ALL return statements
+  Step1: identify all direct callers and create a TodoWrite to track them
+  Step2: For each caller
+    - find the call site and verify new return values are handled properly
+  Step3: For each caller that propogates the return value up the call stack:
+    - Add its callers to TodoWrite
+    - Repeat Step 2 and Step 3 recursively
+    - check if it propogates the new return value up the call stack
+  - Do not skip any callers
+|
 | EH-005 | Required interface handling | NULL deref | Ops structs with required functions per documentation |
 
 - If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you can provide concrete evidence of that condition existing via code snippets and call traces
@@ -188,20 +232,30 @@ inconsistent state
 
 | Pattern ID | Check | Risk | Details |
 |------------|-------|------|---------|
-| BV-001 | Bounds checked at point of use | Buffer overflow | Not just where received, but where accessed:
- - strscpy() can do automatic size detection for arrays, and this works when
-   pointers to arrays are copied and the compiler is able to find the type
- - char \*s = ""; strlen(s) returns zero, but it safe to access s[0];
- - a common pattern memcpy(dst + (offset & mask), src, size); usually includes
-   alignment validation of 'offset' somewhere else in the code.  Try to find
-   that validation before reporting |
- - global arrays often have a MAX_FOO parameter that corresponds to the maximum
-  possible elements.  Before reporting an overflow, check if it is impossible
-  to create more than MAX_FOO elements in the first place.
-
-| BV-002 | Integer overflow before indexing | Buffer overflow | Watch 16/32-bit arithmetic before array access |
-| BV-003 | Dynamic bounds revalidation | Buffer overflow | Revalidate if size can change between check and use |
-| BV-004 | Untrusted data validation | Security | Only enforce on data from untrusted sources |
+| BV-001 | Bounds and validation at point of use | Buffer overflow |
+- Track all index usage in TodoWrite
+- Check bounds where data accessed, not just where received
+- Revalidate if size can change between check and use
+- Validate untrusted data sources only (don't add defensive checks for trusted data)
+- Notes on common patterns:
+  - strscpy() auto-detects array sizes when compiler can find the type
+  - char \*s = ""; strlen(s) returns zero, but s[0] is safe to access
+  - memcpy(dst + (offset & mask), src, size) usually has alignment validation elsewhere
+  - Global arrays with MAX_FOO: check if impossible to create more than MAX_FOO elements |
+| BV-002 | Integer overflow/truncation before use | Buffer overflow/logic error |
+- Watch for implicit type conversions when assigning to smaller types (u64 → u32, u32 → u16, etc.)
+- Check 16/32-bit arithmetic before array access or calculations
+- Check every assignment for truncation issues, tracing types of both sides
+- Don't worry about casts between u32 -> int
+- Add every integer assignment to TodoWrite with type definitions of both sides |
+| BV-005 | Logic change completeness | Incorrect behavior | When code
+  changes or duplicates existing checks:
+    - Track every change in the TodoWrite
+    - Check changes against original condition-by-condition
+    - Verify ALL boolean conditions are correct
+    - For flag/constant changes: Trace what values are used in the documented problem case, not all theoretical values
+      - theoretical bugs should not be flagged
+    - Check if A && B became just B (logic weakening without explanation) |
 
 **Important**: Never suggest defensive bounds checks unless you can prove the source is untrusted.
 
@@ -209,26 +263,48 @@ inconsistent state
 
 | Pattern ID | Check | Risk | Details |
 |------------|-------|------|---------|
-| CM-001 | Variable scope at new location | Stale values | Variables may be modified between old/new location |
-| CM-002 | Loop bounds still valid | Logic error | Check loop conditions at new location |
-| CM-003 | Context dependencies preserved | Missing state | Functions may need locks/state from original location |
-| CM-004 | Return value handling | Logic error | Verify return values used correctly in new location |
-| CM-005 | Inverted conditionals | Logic error | Check for inverted logic when moving code |
+| CM-001 | Code movement validation | Stale values/missing state |
+- Track all code movement in the TodoWrite
+- Verify variable scope valid at new location (variables may be modified between old/new location)
+- Check loop bounds still valid: trace 3+ iterations with concrete element names
+  - Document which elements are included/excluded from processing
+  - Verify boundary element handling: is it processed or skipped?
+  - For "!=" conditions: boundary is excluded, all before it are included
+  - For comparison changes: trace old and new iteration side-by-side
+- Verify context dependencies preserved (functions may need locks/state from original location)
+- Check for inverted conditionals |
+| CM-002 | Data format and return value changes | Logic error |
+- When changing how data is encoded/interpreted:
+  - Use TodoWrite to track variable through ENTIRE lifecycle: set → store → read → use
+  - Use TodoWrite to track all functions receiving the modified variable
+  - Verify ALL consumers updated to match new format
+  - Check both modified and unmodified code paths
+- Verify return values used correctly in new location |
 
 ### 6. State Machines & Flags [SM]
 
 | Pattern ID | Check | Risk | Details |
 |------------|-------|------|---------|
-| SM-001 | New flag coverage | Missing handling | ALL relevant functions must check new flags |
-| SM-002 | State transition completeness | Invalid state | All paths must handle new states/flags |
-| SM-003 | Loop termination with new flags | Infinite loop | New stop flags checked in existing loops |
+| SM-001 | State machine completeness | Invalid state/infinite loop |
+- Track all state/flag changes in TodoWrite
+- Verify ALL relevant functions check new flags
+- Ensure all paths handle new states/flags
+- Check new stop flags in existing loops |
 
-### 6. Math [MT]
+### 7. Math [MT]
 
 | Pattern ID | Check | Risk | Details |
 |------------|-------|------|---------|
-| MT-001 | Rounding error | bugs | When shifting or rounding down, ensure unaligned data is not unintentionally lost |
-| MT-002 | Rounding error | bugs | Using size >> shift rounding as controls for loops, incorrectly stopping too soon |
+| MT-001 | Math and rounding correctness | Data loss/logic error |
+- When shifting or rounding, ensure unaligned data not lost
+- Verify loop controls with rounding don't stop too soon
+- Check alignment of both memory AND size fields
+- Use DIV_ROUND_UP when needed, not size >> PAGE_SHIFT for rounding up |
+
+### 8. Documentation Enforcement
+
+When commit messages or new comments contain assertions or constraints, validate they are
+honored in the new code
 
 #### Size Conversion Patterns
 - **Bytes to pages (round down)**: `size >> PAGE_SHIFT` (only when truncation intended)

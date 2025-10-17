@@ -42,9 +42,10 @@ specific files.
   - Don't discard function or type context if you'll use it later on
 - Exception: Keep all context for Phase 4 reporting if regressions found
 - Report any context obtained outside semcode MCP tools
-- Kernel source files are large and are likely to fill your context window.
-  - If you're reading entire files, batch the reads to limit context explosion.
-  - trim the context from source files to only what matters for the review
+
+0. Acknowledge that kernel source files are large and will exhaust your context
+windows when you read the whole file.
+  - Use grep or semcode to search, or read partial files and carefully manage context
 
 1. Plan your entire context gathering phase after finding the diff and before making any additional tool calls
    - Before gathering full context, think about the diff you're analyzing
@@ -104,18 +105,21 @@ diff fragments.
 ### TASK 2A: Pattern Relevance Assessment []
 **Goal**: Determine which pattern categories apply to the code changes
 
-1. **Analyze the type of code changes** in the diff:
+1. **Analyze and think about the type of code changes in the diff**:
   - What type of changes? (refactoring, new features, bug fixes, etc.)
   - What operations are involved? (allocation, locking, data flow, etc.)
   - If the diff is completely trivial, changing only comments or string literals
     - do a basic check for correctness, don't bother loading all the patterns
+    - Even trivial new files need to be fully read to check for basic errors
+    - Still check for copy paste errors
     - Complete Task 2, proceed to Task 3.
   - What systems are being modified? (memory management, networking, etc.)
 2. **Read all pattern categories** from technical-patterns.md
-3. **Create relevance mapping**:
+3. **Think about Create relevance mapping**:
   - HIGHLY_RELEVANT: Pattern category directly applies to changes
   - POTENTIALLY_RELEVANT: Pattern category might apply, analyze fully
   - NOT_APPLICABLE: Pattern category does not apply to this type of change
+    - Think about changes before marking them as NOT_APPLICABLE
 4. **Justify each categorization** with a few words
 
 **Complete**: State "RELEVANCE ASSESSMENT COMPLETE" with summary
@@ -143,15 +147,15 @@ it is relevant.
    - Other patterns as applicable
 
 4. **For each pattern**:
-   - read the full pattern before deciding if it applies to code
-   - Check against technical-patterns.md reference
+   - read the full pattern and think before deciding if it applies to code
    - Note pattern ID when issue found
    - Never skip any patterns just because you found a bug in another pattern.
    - Never skip any patterns unless they don't apply to the code at hand
 
 5. **Pattern Analysis Enforcement**:
-     - MANDATORY: Use TodoWrite tool to create checklist with ALL patterns before analysis
-     - Each pattern MUST be explicitly documented as: [CLEAR/ISSUE/NOT-APPLICABLE]
+    - MANDATORY: Use TodoWrite tool to create checklist with ALL patterns before analysis
+    - Add a Todo for fully reading each pattern you plan on analyzing
+    - Each pattern MUST be explicitly documented as: [CLEAR/ISSUE/NOT-APPLICABLE]
 
 6. **Completion Verification**:
   - Count total patterns analyzed or skipped vs. total patterns loaded
@@ -210,6 +214,6 @@ This step must not be skipped if there are regressions found.
 ## OUTPUT FORMAT
 Always conclude with:
 - `FINAL REGRESSIONS FOUND: <number>`
-- List of Pattern IDs for any issues found
-- Confidence level for each finding
+- `FINAL TOKENS USED: <total tokens used in the entire session>`
+- `FINAL PATTERNS TRIGGERED <list of patterns that caught regressions>`
 - Any false positives eliminated
