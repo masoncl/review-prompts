@@ -45,10 +45,13 @@ specific files.
 
 0. Acknowledge that kernel source files are large and will exhaust your context
 windows when you read the whole file.
-  - Use grep or semcode to search, or read partial files and carefully manage context
+  - Use grep or semcode to search, or read partial files and carefully manage context,
+  but do not read large files, you will exhaust context and fail the review
 
 1. Plan your entire context gathering phase after finding the diff and before making any additional tool calls
-   - Before gathering full context, think about the diff you're analyzing
+   - Before gathering full context
+     - Think about the diff you're analyzing, and understand the commit's purpose
+     - Document the commit's intent before analyzing patterns
    - Classify the kinds of changes introduced by the diff
      - Use this classification to help limit patterns you will fully process
    - Plan entire context gathering phase

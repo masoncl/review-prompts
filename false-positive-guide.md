@@ -128,6 +128,7 @@ Before reporting ANY regression, verify:
    - [ ] Not an intentional design choice
    - [ ] Not a documented limitation
    - [ ] Not test code that's allowed to be imperfect
+   - [ ] Not a potential future bug if the code changes, but a bug today
 5. **Did I check the commit message and surrounding comments?**
    - [ ] The entire commit message was read and checked for explanations
    - [ ] All surroudning code comments were checked for explanations

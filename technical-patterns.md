@@ -29,6 +29,7 @@ Apply patterns in category batches to avoid redundant function reads:
 make sure you complete every one.  Include any subsystem specific prompts loaded as well.
 1. **Load all relevant functions ONCE** during context gathering
 2. **Apply entire pattern categories in single passes**:
+   - CS Batch: Apply all CS-* in one analysis pass (call stack traversal patterns)
    - RM Batch: Apply all RM-* in one analysis pass
    - EH Batch: Apply all EH-* in one analysis pass
    - CL Batch: Apply all CL-* in one analysis pass
@@ -58,7 +59,7 @@ After each pattern category batch:
 
 ### Batch Analysis Format
 ```
-**PATTERN ANALYSIS - [CATEGORY] [RM/CL/EH/BV/CM/SM/MT] BATCH**
+**PATTERN ANALYSIS - [CATEGORY] [CS/RM/CL/EH/BV/CM/SM/MT] BATCH**
 
 - save tokens: document only that you've applied a pattern, not the details
 Category Summary: X/Y patterns analyzed, Z issues found
@@ -66,7 +67,58 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 ## Core Pattern Categories
 
-### 1. Resource Management [RM]
+### 1. Call Stack Analysis [CS]
+**Principle**: Many bugs require tracing execution flow up to callers or down to callees. Group these checks to minimize redundant traversals.
+
+| Pattern ID | Check | Risk | Details |
+|------------|-------|------|---------|
+| CS-001 | Callee analysis (down the stack) | Various |
+**When to check**: Functions modified or newly added that call other functions
+- **Callee traversal process**:
+  - Step 1: Identify all direct callees in modified functions, track in TodoWrite
+  - Step 2: For each callee, load function definition
+  - Step 3: Trace 2-3 levels deep, adding callees to TodoWrite as discovered
+  - Step 4: Apply all checks below to each callee in the chain
+- **Lock requirements**: Check lock requirements for each callee
+  - Track lock requirements found for each callee in TodoWrite
+- **Error path locking**: For every lock acquired, trace every error path through callees ensuring locks properly released/handed off
+  - Track each error path traced through callees in TodoWrite
+- **Resource propagation**: Trace resource ownership through callee boundaries (where does resource end up?)
+  - Track each resource flow through callees in TodoWrite
+- **Initialization delegation**: When variables/fields may be uninitialized, check if callees initialize before use
+  - Track each variable/field and initialization status per callee in TodoWrite
+- Consolidate all findings in single TodoWrite section for callee analysis |
+| CS-002 | Caller analysis (up the stack) | Various |
+**When to check**: Functions with modified signatures, return values, or argument constraints
+- **NULL passing**: Trace callers for NULL passing, especially cleanup paths
+- **Locking**: track locks held at return time:
+  - make sure they match caller expectation
+  - if different from locks held when called or if locks are dropped druing the call,
+    make sure something has  properly revalidated state under the new lock
+- **Return value propagation**: When return values/types change:
+  - Step 1: Identify all direct callers, track in TodoWrite
+  - Step 2: For each caller, verify new return values handled properly
+    - differentiate between checking a return value and checking all possible variations.
+    - ex: NULL, ERR_PTR(), negative error values vs positive status etc
+  - Step 3: For callers that propagate return value, add their callers to TodoWrite
+  - Step 4: Repeat recursively until no more propagation
+  - Do not skip any callers
+- **Caller expectations**: Verify callers' expectations about resource state match function behavior
+- Track all caller chains in TodoWrite |
+| CS-003 | Cross-function data flow | Logic error |
+**When to check**: Data format changes, encoding changes, or variables passed between functions
+- **Full lifecycle tracking**: Track variable through ENTIRE lifecycle: set → store → read → use
+- **Consumer verification**: Track all functions receiving the modified variable in TodoWrite
+- **Format consistency**: Verify ALL consumers updated to match new format
+- **Producer/consumer sync**: Check both modified and unmodified code paths
+- Track complete data flow in TodoWrite |
+
+**Optimization notes**:
+- Perform CS-001 and CS-002 in a single pass when tracing call chains
+- Load caller/callee context once, apply all CS checks together
+- Use TodoWrite to avoid redundant traversals
+
+### 2. Resource Management [RM]
 **Principle**: Every resource must have balanced lifecycle: alloc→init→use→cleanup→free
 
 | Pattern ID | Check | Risk | Common Location |
@@ -77,10 +129,10 @@ Category Summary: X/Y patterns analyzed, Z issues found
 - Check cleanup in ALL error paths between acquisition and function return
 - For every modified function, list ALL resources acquired
 - For every return/goto, verify every previously acquired resource is cleaned up
-- Trace resource ownership through function boundaries
 - Verify function contracts: if function takes resource X to modify, does X end in expected state?
 - Track all resource types and state transitions in TodoWrite
-- When reporting kmalloc/vmalloc errors, include GFP_FLAGS used |
+- When reporting kmalloc/vmalloc errors, include GFP_FLAGS used
+- Note: For cross-function resource flow, see CS-001 and CS-002 |
 | RM-002 | Init-once enforcement for static resources | Double init | Static/global initialization |
 | RM-004 | No access after release/enqueue | Use-after-free | Async callbacks, after enqueue operations |
 | RM-005 | Proper refcount handling | Use-after-free/leak | refcount_dec_and_test returns true only at zero |
@@ -93,8 +145,8 @@ Category Summary: X/Y patterns analyzed, Z issues found
      1. Trace EVERY return path - what happens to the original resource?
      2. If function returns different resource, prove original is properly handled
      3. Check lock state, reference counts, and ownership of original resource
-     4. Verify caller expectations: does caller expect same resource back?
-     5. Look for assignment patterns like "original = new" that may abandon original |
+     4. Look for assignment patterns like "original = new" that may abandon original
+     5. Note: For caller expectation verification, see CS-002 |
 | RM-010 | Object cleanup and reinitialization | Incomplete initialization | When objects are torn down or unregistered:
     - Track every object torn down in the TodoWrite
     - If they are not freed, but instead returned to a pool or are global variables
@@ -103,14 +155,13 @@ Category Summary: X/Y patterns analyzed, Z issues found
       - ex: unregister_foo() { foo->dead = 1; free(foo->ptr); add to list}
             register_foo() { pull from list ; skip allocation of foo->ptr; foo->ptr->use_after_free;}
       - Assume [kv]free(); [kv]malloc(); and related APIs handle this properly unless you find proof initialization is skipped
-      - When you find a missing initialization, check the call paths to see if
-        callees actually initialize the variable before using it.
-|
+      - Note: For checking if callees initialize variables, see CS-001 |
 | RM-011 | variable and field initialization | uninit memory usage |
 - global variables and static variables are zero filled automatically
 - Track all other variable/field access from in TodoWrite
 - slab and vmalloc APIs have variants that zero fill, and __GFP_ZERO gfp mask does as well
 - kmem_cache_create() can use an init_once() function to initialize slab ojbects
+  - this only happens on the first allocation, and protects us from garbage in the struct
 - trace variable/field access to make sure they are initialized before use
 - special attention for error paths (goto fail)
 - if you can't verify fully, check against other similar usage
@@ -156,26 +207,49 @@ Category Summary: X/Y patterns analyzed, Z issues found
 - Use _irqsave if lock taken from IRQ context
 - Document and verify lock ordering when multiple locks held
 - Trylock→lock conversion may introduce deadlock scenarios |
-| CL-002 | Lock requirements verification | Missing synchronization |
-- Trace called functions 2-3 levels for lock requirements
+| CL-002 | Lock handoff and balance | Missing synchronization |
 - Track lock handoff when returning different locked objects in TodoWrite
 - When function returns with different lock than originally held:
   - Verify original locked object's lock state properly handled
   - Check if caller knows which lock to release
   - Trace lock acquisition/release balance for ALL objects involved
 - When locks dropped/reacquired, verify protected objects not stale
-- Load definitions of locking functions to understand them correctly |
+- Load definitions of locking functions to understand them correctly
+- Note: For lock requirements in callees, see CS-001 |
 | CL-004 | Race window analysis | Data corruption | Check concurrent access:
 - Create TodoWrite items to track all concurrent to shared datastructures made
 - Verify proper exclusion exists (rcu, locking etc)
 - when shared data-structures can be read or written concurrently with other writes
 - race windows need hard proof showing that both sides of the race can occurin practice.
 - do not worry about theoritical races, only proven races |
+- To test a race window between two contexts:
+  - Add a TodoWrite for every critical section
+  - Trace normal execution without interruption
+  - Trace potential races assuming interruptions or concurrency at every point
+   in the critical section
+  - Think about changes introduced by the patch to potential interruptions or concurrency
+   in the critical section
 | CL-005 | Memory ordering for lockless access | Data corruption | READ_ONCE/WRITE_ONCE for shared fields |
 | CL-007 | Cleanup ordering | Use-after-free | Stop users → wait completion → destroy resources |
 | CL-011 | Error handling locks | Incorrect locking |
-- For every lock acquired, trace every error path in every function, ensure locks are properly released or handed off
+| CL-012 | New concurrent access to shared resources | Race condition |
+  **When to check**: Patch adds new writes to variables/timers/resources already accessed elsewhere
+  - **Step 1**: Identify all shared resources being written (state vars, timers, flags, etc.)
+  - **Step 2**: Use grep/semcode to find ALL other write sites for same resources
+  - **Step 3**: Document execution context for each write site:
+    - Process context
+    - Workqueue context
+    - Softirq context
+    - Hardirq context
+  - **Step 4**: Check if new writes can race with existing writes:
+    - Softirq can interrupt: process, workqueue
+    - Hardirq can interrupt: everything
+    - Workqueues can run concurrent with process context
+  - **Step 5**: Check for synchronization (locks, atomic ops, memory barriers)
+  - Track analysis in TodoWrite with resource name, contexts, and values
 |
+- For every lock acquired in modified functions, check all error paths ensure locks properly released or handed off
+- Note: For tracing error paths through callees, see CS-001 |
 
 **Lock Context Compatibility Matrix**:
 | Lock Type | Process | Softirq | Hardirq | Sleeps |
@@ -195,10 +269,10 @@ Category Summary: X/Y patterns analyzed, Z issues found
 |------------|-------|------|---------|
 | EH-001 | NULL safety verification | NULL deref |
 - Track every pointer access in the TodoWrite
-- Trace callers for NULL passing, especially cleanup paths
 - Don't dereference potentially NULL pointers (including in BUG_ON/WARN_ON statements)
 - Trace pointers to ensure they are checked for NULL properly
-- If unsure, check to make sure new code maintains similar checks to old code |
+- If unsure, check to make sure new code maintains similar checks to old code
+- Note: For tracing NULL passing from callers, see CS-002 |
 | EH-002 | ERR_PTR vs NULL consistency | Wrong error check | Don't mix IS_ERR with NULL checks |
 | EH-003 | Error value preservation | Lost errors |
 - Track every error value overwrite in TodoWrite
@@ -211,16 +285,9 @@ Category Summary: X/Y patterns analyzed, Z issues found
     - Compare to similar patterns in codebase for consistency
     - Ask: Should partial success clear previous recoverable errors?
 |
-| EH-004 | Return value changes handled | Wrong returns | When return values or types change, verify ALL return statements
-  Step1: identify all direct callers and create a TodoWrite to track them
-  Step2: For each caller
-    - find the call site and verify new return values are handled properly
-  Step3: For each caller that propogates the return value up the call stack:
-    - Add its callers to TodoWrite
-    - Repeat Step 2 and Step 3 recursively
-    - check if it propogates the new return value up the call stack
-  - Do not skip any callers
-|
+| EH-004 | Return value changes handled | Wrong returns | When return values or types change:
+- Verify ALL return statements in modified function are correct
+- Note: For recursive caller analysis and return value propagation, see CS-002 |
 | EH-005 | Required interface handling | NULL deref | Ops structs with required functions per documentation |
 
 - If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you can provide concrete evidence of that condition existing via code snippets and call traces
@@ -247,11 +314,14 @@ inconsistent state
 - Check 16/32-bit arithmetic before array access or calculations
 - Check every assignment for truncation issues, tracing types of both sides
 - Don't worry about casts between u32 -> int
+- if you think a variable can overflow over time, make sure the period of time
+  required is a practical concern
 - Add every integer assignment to TodoWrite with type definitions of both sides |
 | BV-005 | Logic change completeness | Incorrect behavior | When code
   changes or duplicates existing checks:
     - Track every change in the TodoWrite
     - Check changes against original condition-by-condition
+    - Check changes against the intentional changes from the commit message
     - Verify ALL boolean conditions are correct
     - For flag/constant changes: Trace what values are used in the documented problem case, not all theoretical values
       - theoretical bugs should not be flagged
@@ -267,19 +337,16 @@ inconsistent state
 - Track all code movement in the TodoWrite
 - Verify variable scope valid at new location (variables may be modified between old/new location)
 - Check loop bounds still valid: trace 3+ iterations with concrete element names
+  - For comparison changes: trace old and new iteration side-by-side
+  - for(init; condition; advance) checks condition before executing body
   - Document which elements are included/excluded from processing
   - Verify boundary element handling: is it processed or skipped?
-  - For "!=" conditions: boundary is excluded, all before it are included
-  - For comparison changes: trace old and new iteration side-by-side
 - Verify context dependencies preserved (functions may need locks/state from original location)
 - Check for inverted conditionals |
 | CM-002 | Data format and return value changes | Logic error |
-- When changing how data is encoded/interpreted:
-  - Use TodoWrite to track variable through ENTIRE lifecycle: set → store → read → use
-  - Use TodoWrite to track all functions receiving the modified variable
-  - Verify ALL consumers updated to match new format
-  - Check both modified and unmodified code paths
-- Verify return values used correctly in new location |
+- When changing how data is encoded/interpreted within a function, verify consistency
+- Verify return values used correctly in new location
+- Note: For cross-function data flow and consumer verification, see CS-003 |
 
 ### 6. State Machines & Flags [SM]
 
