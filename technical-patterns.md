@@ -163,6 +163,8 @@ Category Summary: X/Y patterns analyzed, Z issues found
 - kmem_cache_create() can use an init_once() function to initialize slab ojbects
   - this only happens on the first allocation, and protects us from garbage in the struct
 - trace variable/field access to make sure they are initialized before use
+- Writing structure members, or passing to functions that only write without
+  reading, both count as initializing the member.
 - special attention for error paths (goto fail)
 - if you can't verify fully, check against other similar usage
 |
