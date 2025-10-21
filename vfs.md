@@ -2,12 +2,29 @@
 
 ## VFS Patterns [VFS]
 
-| Pattern ID | Check | Risk | Details |
-|------------|-------|------|---------|
-| VFS-001 | Directory locking hierarchy | Deadlock | Use inode_lock_nested(dir, I_MUTEX_PARENT) |
-| VFS-002 | Dentry instantiation | Corruption | d_instantiate() only on negative dentries |
-| VFS-003 | Permission check timing | Security bypass | may_open() before file access |
-| VFS-004 | File ops NULL check | NULL deref | Check file->f_op != NULL before use |
+#### VFS-001: Directory locking hierarchy
+
+**Risk**: Deadlock
+
+**Details**: Use inode_lock_nested(dir, I_MUTEX_PARENT)
+
+#### VFS-002: Dentry instantiation
+
+**Risk**: Corruption
+
+**Details**: d_instantiate() only on negative dentries
+
+#### VFS-003: Permission check timing
+
+**Risk**: Security bypass
+
+**Details**: may_open() before file access
+
+#### VFS-004: File ops NULL check
+
+**Risk**: NULL deref
+
+**Details**: Check file->f_op != NULL before use
 
 ## Inode Locking Hierarchy
 - Parent → Child ordering for directory operations

@@ -2,13 +2,35 @@
 
 ## Memory Management Patterns [MM]
 
-| Pattern ID | Check | Risk | Details |
-|------------|-------|------|---------|
-| MM-001 | PTE state consistency | Invalid states | Clean+Writable, Non-accessed+Writable are invalid |
-| MM-002 | Cross-page state handling | Wrong page attrs | A/D bits must match target page, not source |
-| MM-003 | Migration state expectations | System crash | Migration/NUMA/swap expect valid PTE combinations |
-| MM-004 | Large folio per-page handling | Data corruption | PageAnonExclusive/dirty/accessed per page |
-| MM-005 | Writeback tag preservation | Sync violations | folio_start_writeback() clears TOWRITE tag |
+#### MM-001: PTE state consistency
+
+**Risk**: Invalid states
+
+**Details**: Clean+Writable, Non-accessed+Writable are invalid
+
+#### MM-002: Cross-page state handling
+
+**Risk**: Wrong page attrs
+
+**Details**: A/D bits must match target page, not source
+
+#### MM-003: Migration state expectations
+
+**Risk**: System crash
+
+**Details**: Migration/NUMA/swap expect valid PTE combinations
+
+#### MM-004: Large folio per-page handling
+
+**Risk**: Data corruption
+
+**Details**: PageAnonExclusive/dirty/accessed per page
+
+#### MM-005: Writeback tag preservation
+
+**Risk**: Sync violations
+
+**Details**: folio_start_writeback() clears TOWRITE tag
 
 ## Page/Folio States
 - PTE dirty bit implies accessed bit (dirty→accessed)
@@ -19,12 +41,26 @@
   - Reference counts
 
 ## GFP Flags Context
-| Flag | Sleeps | Reclaim | Use Case |
-|------|--------|---------|----------|
-| GFP_ATOMIC | No | No | IRQ/spinlock context |
-| GFP_KERNEL | Yes | Yes | Normal allocation |
-| GFP_NOWAIT | No | No | Non-sleeping, may fail |
-| GFP_NOFS | Yes | Limited | Avoid FS recursion |
+
+**GFP_ATOMIC**
+: **Sleeps**: No
+: **Reclaim**: No
+: **Use Case**: IRQ/spinlock context
+
+**GFP_KERNEL**
+: **Sleeps**: Yes
+: **Reclaim**: Yes
+: **Use Case**: Normal allocation
+
+**GFP_NOWAIT**
+: **Sleeps**: No
+: **Reclaim**: No
+: **Use Case**: Non-sleeping, may fail
+
+**GFP_NOFS**
+: **Sleeps**: Yes
+: **Reclaim**: Limited
+: **Use Case**: Avoid FS recursion
 
 ## Migration Invariants
 - Migration entries must maintain PTE state consistency

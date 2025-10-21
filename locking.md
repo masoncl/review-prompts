@@ -2,11 +2,23 @@
 
 ## Locking Subsystem Patterns [LOCK]
 
-| Pattern ID | Check | Risk | Details |
-|------------|-------|------|---------|
-| LOCK-001 | Seqlock critical section | Data corruption | ALL code between begin/retry is critical |
-| LOCK-002 | Sparse annotation compliance | Lock imbalance | Honor __must_hold/__acquires/__releases |
-| LOCK-003 | Write seqcount protection | Data corruption | Proper write_seqcount_begin/end pairing |
+#### LOCK-001: Seqlock critical section
+
+**Risk**: Data corruption
+
+**Details**: ALL code between begin/retry is critical
+
+#### LOCK-002: Sparse annotation compliance
+
+**Risk**: Lock imbalance
+
+**Details**: Honor __must_hold/__acquires/__releases
+
+#### LOCK-003: Write seqcount protection
+
+**Risk**: Data corruption
+
+**Details**: Proper write_seqcount_begin/end pairing
 
 ## Preemption vs Migration
 - **Preemption disabled**: CPU won't change, but IRQs can occur
