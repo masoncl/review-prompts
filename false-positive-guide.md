@@ -136,6 +136,15 @@ Before reporting ANY regression, verify:
    - [ ] Prove these conditions are actually possible
 7. **Did I hallucinate a problem that doesn't actually exist?**
    - [ ] Check the bug report actually matches the code
+8. **Debate yourself**
+   - Do these two in order:
+   - 8.1 [ ] Pretend you are the author of this patch.  Think extremely hard about
+         the review, and try to prove the review is incorrect.
+         - Make sure to double check for hallucinations or other places the
+         review is simply inventing false information.
+   - 8.2 [ ] Now pretend you're the reviewer.  Think extremely hard about any
+         arguments from the theoritcal author and decide if this review is
+         correct
 
 ## Special Cases
 
