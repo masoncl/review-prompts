@@ -2,36 +2,70 @@
 
 ## Scheduler Patterns [SCHED]
 
-| Pattern ID | Check | Risk | Details |
-|------------|-------|------|---------|
-| SCHED-001 | Runqueue lock ordering | Deadlock | Multi-runqueue operations need consistent lock ordering |
-| SCHED-002 | Task state transitions | Race conditions | TASK_RUNNING transitions require proper barriers |
-| SCHED-003 | CPU affinity violations | System instability | Migration must respect cpumask and hotplug state |
-| SCHED-004 | Load balancing invariants | Performance degradation | Per-entity load must match hierarchy aggregation |
-| SCHED-005 | Bandwidth enforcement | Starvation/DoS | RT/DL throttling must prevent monopolization |
-| SCHED-006 | Priority inheritance | Priority inversion | PI chain updates need proper locking |
-| SCHED-007 | Context switch atomicity | Data corruption | switch_to() and surrounding code is non-preemptible |
-| SCHED-008 | Per-CPU runqueue access | Data corruption | Runqueue access requires proper locking |
+### SCHED-001: Runqueue lock ordering
 
-## Runqueue Locking
+**Risk**: Deadlock
+
+**Details**: Multi-runqueue operations need consistent lock ordering
+
 - **Lock ordering**: Always lock runqueues in ascending order to prevent deadlock
 - **Double runqueue lock**: Use `double_rq_lock()`/`double_rq_unlock()` for locking 2 runqueues at once
 - **Lock release timing**: Don't release rq lock with task in inconsistent state
 - **Raw spinlocks**: Runqueue locks are raw_spinlock_t (never sleep, even on RT)
 
-## Task States and Transitions
+### SCHED-002: Task state transitions
+
+**Risk**: Race conditions
+
+**Details**: TASK_RUNNING transitions require proper barriers
+
 - **State changes**: Use `set_current_state()` with proper barriers
 - **Wakeup races**: Check task->state after adding to runqueue
 - **TASK_DEAD**: Special handling required, task cannot be rescheduled
 - **TASK_RUNNING**: Only state where task can be on runqueue
 - **Voluntary sleep**: Must set state before condition check to avoid lost wakeups
 
-## CPU Affinity and Migration
+### SCHED-003: CPU affinity violations
+
+**Risk**: System instability
+
+**Details**: Migration must respect cpumask and hotplug state
+
 - **cpumask validation**: Check cpumask_subset() against allowed CPUs
 - **Hotplug coordination**: Migration during hotplug needs special care
 - **Per-CPU kthreads**: Use `kthread_bind()` or `set_cpus_allowed_ptr()`
 - **Active migration**: May need to stop_one_cpu() for forced migration
 - **Migration disabled**: Check `is_migration_disabled()` before migration
+
+### SCHED-004: Load balancing invariants
+
+**Risk**: Performance degradation
+
+**Details**: Per-entity load must match hierarchy aggregation
+
+### SCHED-005: Bandwidth enforcement
+
+**Risk**: Starvation/DoS
+
+**Details**: RT/DL throttling must prevent monopolization
+
+### SCHED-006: Priority inheritance
+
+**Risk**: Priority inversion
+
+**Details**: PI chain updates need proper locking
+
+### SCHED-007: Context switch atomicity
+
+**Risk**: Data corruption
+
+**Details**: switch_to() and surrounding code is non-preemptible
+
+### SCHED-008: Per-CPU runqueue access
+
+**Risk**: Data corruption
+
+**Details**: Runqueue access requires proper locking
 
 ## Scheduling Classes
 ### Real-Time (SCHED_FIFO/SCHED_RR)
