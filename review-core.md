@@ -183,7 +183,7 @@ it is relevant.
 
 **If regressions found**:
 0. Clear any context not related to the regressions themselves
-1. Load `inline-template.txt`
+1. Load `inline-template.md`
 2. Create `review-inline.txt` in current directory, never use the prompt directory
 3. Follow the instructions in the template carefully
 4. Never include bugs that you identified as false positives in the report

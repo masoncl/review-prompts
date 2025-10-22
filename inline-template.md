@@ -34,33 +34,39 @@ the author.
 - Don't make long confusing paragraphs, ask short questions backed up by
 code snippets (in plain text), or call chains if needed.
 
-Your report should include:
+Create a TodoWrite for these items, all of which your report should include:
 
-git sha of the commit
-Author: line from the commit
-One line subject from the commit
+- [ ] git sha of the commit
+- [ ] Author: line from the commit
+- [ ] One line subject from the commit
 
-A brief (max 3 sentence) summary of the commit
+- [ ] A brief (max 3 sentence) summary of the commit
 
-Any Link: tags from the commit header
+- [ ] Any Link: tags from the commit header
 
-A unified diff of the commit, quoted as though its in an email reply:
+- [ ] A unified diff of the commit, quoted as though it's in an email reply.
+  - [ ] The diff must not be generated from existing context.
+  - [ ] You must regenerate the diff by calling out to semcode's commit function,
+    using git log, or re-reading any patch files you were asked to review.
+  - [ ] You must ensure the quoted portions of the diff exactly match the
+    original commit or patch.
 
-Place your questions about the regressions you found alongside the code in
-the diff that introduced them.  Do not put the quoting '> ' characters in
-front of your new text.
+- [ ] Place your questions about the regressions you found alongside the code
+  in the diff that introduced them.  Do not put the quoting '> ' characters in
+  front of your new text.
+- [ ] Place your questions as close as possible to the buggy section of code.
 
-Place your questions as close as possible to the buggy section of code.
+- [ ] If there are hunks of the diff unrelated to your review, you may snip
+  them out of the report and replace them with '[ ... ]'.  You may remove
+  multiple hunks, but do not snip partial hunks.  You may snip large partial
+  hunks that span multiple functions.
 
-If there are hunks of the diff unrelated to your review, you may snip them
-out of the report and replace them with '[ ... ]'.  You may remove multiple
-hunks, but do not snip partial hunks.
-
-You may snip entire files, but make sure the file headers for any hunks you
-do comment on stay in the report.
+- [ ] You may snip entire files, but make sure the file headers for any hunks
+  you do comment on stay in the report.
 
 Sample:
 
+```
 commit 06e4fcc91a224c6b7119e87fc1ecc7c533af5aed
 Author: Kairui Song <kasong@tencent.com>
 
@@ -123,3 +129,4 @@ updates are getting lost.
 >  		}
 >  	}
 >  
+```
