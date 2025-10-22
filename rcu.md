@@ -14,17 +14,11 @@
 
 ## RCU Variants
 
-**RCU**
-: **Sleep in read**: No
-: **Use Case**: General purpose
-
-**SRCU**
-: **Sleep in read**: Yes
-: **Use Case**: Sleeping readers
-
-**Tasks RCU**
-: **Sleep in read**: Yes
-: **Use Case**: Tracing/BPF
+| Variant | Sleep in read | Use Case |
+|---------|---------------|----------|
+| RCU | No | General purpose |
+| SRCU | Yes | Sleeping readers |
+| Tasks RCU | Yes | Tracing/BPF |
 
 ## Memory Ordering
 - rcu_dereference() includes read barrier
