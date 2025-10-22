@@ -71,9 +71,12 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 **Principle**: Many bugs require tracing execution flow up to callers or down to callees. Group these checks to minimize redundant traversals.
 
-#### CS-001: Callee analysis (down the stack)
+**Optimization notes**:
+- Perform CS-* patterns in a single pass when tracing call chains
+- Load caller/callee context once, apply all CS checks together
+- Use TodoWrite to avoid redundant traversals
 
-**Risk**: Various
+#### CS-001: Callee analysis (down the stack)
 
 **When to check**: Functions modified or newly added that call other functions
 
@@ -99,9 +102,7 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 #### CS-002: Caller analysis (up the stack)
 
-**Risk**: Various
-
-**When to check**: Functions with modified signatures, return values, or argument constraints
+**When to check**: Modified functions, return values, or argument constraints
 
 **NULL passing**: Trace callers for NULL passing, especially cleanup paths
 
@@ -139,14 +140,30 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 **Note**: Track complete data flow in TodoWrite
 
-**Optimization notes**:
-- Perform CS-* patterns in a single pass when tracing call chains
-- Load caller/callee context once, apply all CS checks together
-- Use TodoWrite to avoid redundant traversals
-
 ### 2. Resource Management [RM]
 
 **Principle**: Every resource must have balanced lifecycle: alloc→init→use→cleanup→free
+
+**Key Notes**:
+- All pointers have the same size, "char \*foo" takes as much room as "int \*foo"
+  - but for code clarity, if we're allocating an array of pointers, and using
+    sizeof(type \*) to calculate the size, we should use the correct type
+- Trace original resources through the entire code path to make sure they are not leaked
+- alloc/free and get/put matching in ALL paths
+- State preservation: resource state consistent with return contract
+- refcount_t counters do not get incremented after dropping to zero
+- Async cleanup (RCU callbacks/work queues) may access uninitialized fields if init fails
+- Caller expectation tracing: What does the caller expect to happen to the resource it passed?
+- css_get() adds an additional reference, so this results in both sk and newsk having one reference each:
+```
+     memcg = mem_cgroup_from_sk(sk);
+     if (memcg)
+             css_get(&memcg->css);
+     newsk->sk_memcg = sk->sk_memcg;
+```
+- If you find a type mismatch (using \*foo instead of foo etc), trace the type
+  fully and check against the expected type to make sure you're flagging it
+  correctly
 
 #### RM-001: Resource lifecycle management
 
@@ -190,19 +207,16 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 **Common Location**: foo = func(foo) patterns
 
+When assigning over a pointer, make sure we don't accidentally
+lose track of the previous object.
+
 #### RM-007: List removal with proper handling
 
 **Risk**: Memory leak
 
 **Details**: list_del() without return/use may leak
 
-#### RM-008: Assorted reference counts
-
-**Risk**: Memory leak/Use-after-free
-
-**Details**: load definitions of ref counting functions to make sure you understand them correctly
-
-#### RM-009: Function resource contracts
+#### RM-008: Function resource contracts
 
 **Risk**: Resource abandonment
 
@@ -215,7 +229,7 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 **Note**: For caller expectation verification, see CS-002
 
-#### RM-010: Object cleanup and reinitialization
+#### RM-009: Object cleanup and reinitialization
 
 **Risk**: Incomplete initialization
 
@@ -230,7 +244,7 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 **Note**: For checking if callees initialize variables, see CS-001
 
-#### RM-011: Variable and field initialization
+#### RM-010: Variable and field initialization
 
 **Risk**: uninit memory usage
 
@@ -261,27 +275,19 @@ Category Summary: X/Y patterns analyzed, Z issues found
 - by default most usage charges memory to the task's memcg
 - Ensure new __GFP_ACCOUNT usage is consistent with the charging model used in the rest of the surrounding code
 
-**Key Notes**:
-- All pointers have the same size, "char \*foo" takes as much room as "int \*foo"
-  - but for code clarity, if we're allocating an array of pointers, and using
-    sizeof(type \*) to calculate the size, we should use the correct type
-- Trace original resources through the entire code path to make sure they are not leaked
-- alloc/free and get/put matching in ALL paths
-- State preservation: resource state consistent with return contract
-- refcount_t counters do not get incremented after dropping to zero
-- Async cleanup (RCU callbacks/work queues) may access uninitialized fields if init fails
-- Caller expectation tracing: What does the caller expect to happen to the resource it passed?
-- css_get() adds an additional reference, so this results in both sk and newsk having one reference each:
-```
-     memcg = mem_cgroup_from_sk(sk);
-     if (memcg)
-             css_get(&memcg->css);
-     newsk->sk_memcg = sk->sk_memcg;
-```
-- If you find a type mismatch (using \*foo instead of foo etc), trace the type
-  fully and check against the expected type to make sure you're flagging it
-  correctly
 ### 3. Concurrency & Locking [CL]
+
+**Lock Context Compatibility Matrix**:
+| Lock Type | Process | Softirq | Hardirq | Sleeps |
+|-----------|---------|---------|---------|--------|
+| spin_lock | ✓ | ✓ | ✓ | ✗ |
+| spin_lock_bh | ✓ | ✗ | ✗ | ✗ |
+| spin_lock_irqsave | ✓ | ✓ | ✓ | ✗ |
+| mutex/rwsem | ✓ | ✗ | ✗ | ✓ |
+
+- READ_ONCE() is not required when the data structure being read is protected by a lock we're currently holding
+- Resource switching detection: Flag any path where function returns different resource than it was meant to modify, ensure the proper locks are held or released as needed.
+- Caller expectation tracing: What does the caller expect to happen to the resource it passed?
 
 #### CL-001: Lock type and ordering
 
@@ -366,19 +372,11 @@ Category Summary: X/Y patterns analyzed, Z issues found
 - **Step 5**: Check for synchronization (locks, atomic ops, memory barriers)
 - Track analysis in TodoWrite with resource name, contexts, and values
 
-**Lock Context Compatibility Matrix**:
-| Lock Type | Process | Softirq | Hardirq | Sleeps |
-|-----------|---------|---------|---------|--------|
-| spin_lock | ✓ | ✓ | ✓ | ✗ |
-| spin_lock_bh | ✓ | ✗ | ✗ | ✗ |
-| spin_lock_irqsave | ✓ | ✓ | ✓ | ✗ |
-| mutex/rwsem | ✓ | ✗ | ✗ | ✓ |
-
-- READ_ONCE() is not required when the data structure being read is protected by a lock we're currently holding
-- Resource switching detection: Flag any path where function returns different resource than it was meant to modify, ensure the proper locks are held or released as needed.
-- Caller expectation tracing: What does the caller expect to happen to the resource it passed?
-
 ### 4. Error Handling [EH]
+
+**Notes**:
+- If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you can provide concrete evidence of that condition existing via code snippets and call traces
+- if (WARN_ON(foo)) { return; } might exit a function early, check for incomplete initialization or other mistakes that leave data structures in an inconsistent state
 
 #### EH-001: NULL safety verification
 
@@ -428,11 +426,9 @@ Category Summary: X/Y patterns analyzed, Z issues found
 
 **Details**: Ops structs with required functions per documentation
 
-**Additional Notes**:
-- If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you can provide concrete evidence of that condition existing via code snippets and call traces
-- if (WARN_ON(foo)) { return; } might exit a function early, check for incomplete initialization or other mistakes that leave data structures in an inconsistent state
-
 ### 5. Bounds & Validation [BV]
+
+**Important**: Never suggest defensive bounds checks unless you can prove the source is untrusted.
 
 #### BV-001: Bounds and validation at point of use
 
@@ -474,8 +470,6 @@ Category Summary: X/Y patterns analyzed, Z issues found
 - For flag/constant changes: Trace what values are used in the documented problem case, not all theoretical values
   - theoretical bugs should not be flagged
 - Check if A && B became just B (logic weakening without explanation)
-
-**Important**: Never suggest defensive bounds checks unless you can prove the source is untrusted.
 
 ### 6. Code Movement [CM]
 
@@ -528,18 +522,18 @@ Category Summary: X/Y patterns analyzed, Z issues found
 - Check alignment of both memory AND size fields
 - Use DIV_ROUND_UP when needed, not size >> PAGE_SHIFT for rounding up
 
-### 9. Documentation Enforcement
+#### MT-002: Size Conversion Patterns
 
-**Principle**: When commit messages or new comments contain assertions or constraints, validate they are honored in the new code
-
-#### Size Conversion Patterns
-
-**Bytes to pages (round down)**: `size >> PAGE_SHIFT` (only when truncation intended)
+**When to check:** Bytes to pages (round down) `size >> PAGE_SHIFT` (only when truncation intended)
 
 **Requirements**:
 - Determine the alignment of sizes sent through rounding functions, make sure nothing is lost
 - Check for alignment validation of the data represented, not just size validation
 - track the alignment not just to the memory allocated, but also of the size field itself. Ensure data is not lost due to size truncation.
+
+### 9. Documentation Enforcement
+
+**Principle**: When commit messages or new comments contain assertions or constraints, validate they are honored in the new code
 
 #### Common Mistakes
 
