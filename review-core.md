@@ -171,8 +171,14 @@ it is relevant.
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives
 
-- mark this complete if there are no regressions found
-- If regressions are found, load `false-positive-guide.md` and follow the steps
+1. If NO regressions found:
+  - Mark this task complete
+  - Proceed to Task 4
+2. If regressions are found:
+  - [ ] Do not proceed until you complete all steps below
+  - [ ] Load `false-positive-guide.md` using Read tool
+  - [ ] Create TodoWrite items for every section and checklist item in the false positive guide
+  - [ ] Only mark TASK 3 complete after all verification steps are done
 
 ### TASK 4: Reporting []
 **Goal**: Create clear, actionable report
