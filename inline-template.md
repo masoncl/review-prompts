@@ -56,13 +56,20 @@ Create a TodoWrite for these items, all of which your report should include:
   front of your new text.
 - [ ] Place your questions as close as possible to the buggy section of code.
 
-- [ ] If there are hunks of the diff unrelated to your review, you may snip
-  them out of the report and replace them with '[ ... ]'.  You may remove
-  multiple hunks, but do not snip partial hunks.  You may snip large partial
-  hunks that span multiple functions.
-
-- [ ] You may snip entire files, but make sure the file headers for any hunks
-  you do comment on stay in the report.
+- [ ] Snip portions of the quoted content unrelated to your review
+  - [ ] Create a TodoWrite with every hunk in the diff.  Check every hunk
+        to see if it is relevant to the review comments.
+  - [ ] ensure diff headers are retained for the files owning any hunks keep
+    - Never include diff headers for entirely snipped files
+  - [ ] Replace any content you snip with [ ... ]
+  - [ ] snip entire files unrelated to the review comments
+  - [ ] snip entire hunks from quoted files if they unrelated to the review
+  - [ ] snip entire functions from the quoted hunks unrelated to the review
+  - [ ] snip any portions of large functions from quoted hunks if unrelated to the review
+  - [ ] ensure you only keep enough quoted material for the review to make sense
+  - [ ] snip trailing hunks and files after your last review comments unless
+        you need them for the review to make sense
+  - [ ] The review should contain only the portions of hunks needed to explain the review's concerns.
 
 Sample:
 
