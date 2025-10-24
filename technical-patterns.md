@@ -549,4 +549,6 @@ lose track of the previous object.
 - **Migration disabled**: Stay on current CPU but may be preempted
 - **typeof() safety**: Can be used with container_of() before init
 - **Self-tests**: Memory leaks/FD leaks acceptable unless crash system
+- **likely()/unlikely()**: don't report on changes to compiler hinting unless
+  they introduce larger logic bugs
 
