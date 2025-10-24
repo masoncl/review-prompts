@@ -106,6 +106,9 @@ positive.
 - Simplicity/maintainability was prioritized
 - It's optimizing for a different use case
 
+### 9. Intentional backwards compatibility
+- Leaving stub sysfs or procfs files is not required, but also not a regression
+
 **ONLY REPORT**: if you can prove the resource contract has been broken
 
 ## TASK POSITIVE.1 Verification Checklist
