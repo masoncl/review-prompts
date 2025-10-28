@@ -28,11 +28,6 @@ Load the appropriate delta file when patch modifies subsystem code:
 - DAX operations → `dax.md`
 - block layer or nvme → `block.md`
 
-### Batching
-- technical-patterns.md has a batching procedure for the prompts contained
-there.  Apply similar sized batching to any prompts that you loud from subsystem
-specific files.
-
 ## EXCLUSIONS
 - Ignore fs/bcachefs regressions
 - Ignore test program issues unless system crash
@@ -44,25 +39,38 @@ specific files.
 - Exception: Keep all context for Phase 4 reporting if regressions found
 - Report any context obtained outside semcode MCP tools
 
-0. Acknowledge that kernel source files are large and will exhaust your context
-windows when you read the whole file.
-  - Use grep or semcode to search, or read partial files and carefully manage context,
-  but do not read large files, you will exhaust context and fail the review
-
-1. Plan your entire context gathering phase after finding the diff and before making any additional tool calls
-   - Before gathering full context
+1. Plan your initial context gathering phase after finding the diff and before making any additional tool calls
+   - Before gathering context
      - Think about the diff you're analyzing, and understand the commit's purpose
      - Document the commit's intent before analyzing patterns
    - Classify the kinds of changes introduced by the diff
      - Use this classification to help limit patterns you will fully process
    - Plan entire context gathering phase
-     - identify the minimum context needed to answer each pattern check
      - Unless you're running out of context space, try to load all required context once and only once
    - Don't fetch caller/callee context unless you can explain why it's needed for a specific pattern
    - reason about likely outcomes before verifying
 2. You may need to load additional context in order to properly analyze the review patterns.
 
 ## REVIEW TASKS
+
+### MANDATORY COMPLETION VERIFICATION
+
+Before outputting ANY response to the user after starting a review:
+
+1. **Self-check completion status**:
+- [ ] Have you marked ALL tasks (1, 2A, 2B, 3, 4) as "COMPLETED" or "BLOCKED"?
+- [ ] Have you stated "FINAL REGRESSIONS FOUND: <number>"?
+- [ ] Have you stated "FINAL TOKENS USED: <total>"?
+- [ ] Have you stated "FINAL PATTERNS TRIGGERED: <list>"?
+- [ ] If a regression was found, have you created review-inline.txt and verified it is non-zero size
+
+2. **If ANY of the above are missing**:
+- DO NOT respond to the user yet
+- Output: "INCOMPLETE REVIEW DETECTED - RESTARTING"
+- Clear context and restart the review
+- Complete ALL remaining tasks before responding
+
+3. **No exceptions**: Finding a bug early does NOT allow skipping remaining tasks
 
 ### TASK 1: Context Gathering []
 **Goal**: Build complete understanding of changed code
@@ -89,18 +97,10 @@ windows when you read the whole file.
 
 2. **Without semcode (fallback)**:
    - Use git diff to identify changes
-   - Manually trace function definitions and relationships
+   - Manually find function definitions and relationships with grep and other tools
    - Document any missing context that affects review quality
 
-3. **Special attention for**:
-   - Function removals → check headers, function tables, ops structures
-   - Struct changes → verify all users use the new struct correctly
-   - Public API changes → verify documentation updates
-   - For functions that take resources as parameters,document the expected contract
-   - Identify functions that can return different resources than they received
-   - Flag resource ownership transfers between functions
-
-4. Never use fragments of code from the diff without first trying to find the
+3. Never use fragments of code from the diff without first trying to find the
 entire function or type in the sources.  Always prefer full context over
 diff fragments.
 
@@ -109,65 +109,100 @@ diff fragments.
 ### TASK 2A: Pattern Relevance Assessment []
 **Goal**: Determine which pattern categories apply to the code changes
 
+**TodoWrite Format Required:**
+For every change in the diff create a TodoWrite in this exact format:
+
+Change at file : line: [ filename, line numbers from diff header ]
+unified diff: [ exact unified diff hunk ]
+types of changes: [ categories ]
+patterns to analyze: [ list ] 
+pattern analysis complete: [check list]
+
 1. **Analyze and think about the type of code changes in the diff**:
-  - What type of changes? (refactoring, new features, bug fixes, etc.)
-  - What operations are involved? (allocation, locking, data flow, etc.)
-  - If the diff is completely trivial, changing only comments or string literals
+  - Track all diff hunks in TodoWrite in the following format:
+    - hunk [number]
+    - types of changes [list]
+      - refactor, features, bug fixes etc
+    - operations involved [list]
+      - examples: locking, allocations, error handling, data flow, etc
+    - relevant subsystems [list of subsystems]
+      - examples: mm, networking, scheduler, bpf
+    - trivial change [y/n]
+  - identify type of changes
+  - identify what operations are involved?
+  - identify what systems are relevant?
+  - If every hunk in the diff diff is completely trivial, changing only comments or string literals:
     - do a basic check for correctness, don't bother loading all the patterns
     - Even trivial new files need to be fully read to check for basic errors
     - Still check for copy paste errors
     - Complete Task 2, proceed to Task 3.
-  - What systems are being modified? (memory management, networking, etc.)
 2. **Read all pattern categories** from technical-patterns.md
-3. **Think about Create relevance mapping**:
+  - Place each pattern into a separate TodoWrite with the format:
+    - Pattern ID [name]
+    - relevance [decision]
+3. Read subsystem specific categories if they apply
+  - Place them into the pattern TodoWrite as well
+4. IMPORTANT: the default relevance is HIGHLY_RELEVANT.  You must actively
+   decide a pattern does not need to be applied.
+5. **Create relevance mapping**:
   - HIGHLY_RELEVANT: Pattern category directly applies to changes
   - POTENTIALLY_RELEVANT: Pattern category might apply, analyze fully
   - NOT_APPLICABLE: Pattern category does not apply to this type of change
     - Think about changes before marking them as NOT_APPLICABLE
-4. **Justify each categorization** with a few words
+
+**Mandatory Self-verification gate:**
+
+Before marking Task 2A complete, you MUST answer these questions in your output:
+  1. How many patterns were found at each relevance level? [number]
+  2. How many pattern TodoWrite entries did you gather? [number]
+  3. How many diff hunk TodoWrite entries did you gather? [number]
+  4. Which patterns will be fully analyzed [list]
+  5. Which patterns will be skipped [list]
+
+  If you cannot answer all 5 questions with evidence, repeat Task 2A
 
 **Complete**: State "RELEVANCE ASSESSMENT COMPLETE" with summary
+- Keep the pattern TodoWrite we've created for use in TASK 2B
 
 ### TASK 2B: Pattern Analysis []
-**Goal**: Apply technical patterns systematically
 
-+**Apply patterns efficiently**: Focus analysis on patterns relevant to the
-code changes, but +read the full pattern, not just the name, before deciding if
-it is relevant.
+**Apply patterns systematically**:
+- it is very important that our reviews are repeatable and deterministic.
 
-1. Create a check list of patterns to be applied.
+1. Use TodoWrite from Task 2A
    - Never complete TASK 2B without considering all of the patterns.
 
 2. **Apply patterns by relevance level**:
    - HIGHLY_RELEVANT: Full analysis required
-   - POTENTIALLY_RELEVANT: Quick scan
-   - NOT_APPLICABLE: Skip
+   - POTENTIALLY_RELEVANT: Full analysis still required
+   - NOT_APPLICABLE: Skip.  This is the only pattern type you can skip.
 
-3. **Priority order**:
-   - Resource management (Pattern IDs: RM-*)
-   - Error paths (Pattern IDs: EH-*)
-   - Concurrency (Pattern IDs: CL-*)
-   - Bounds/validation (Pattern IDs: BV-*)
-   - Other patterns as applicable
+3. **For EACH pattern from the Task 2A TodoWrite, in order:**
+  a. skip patterns if they were found to be NOT_APPLICABLE in TASK 2A
+    - IMPORTANT: fully analyze every HIGHLY_RELEVANT or POTENTIALLY_RELEVANT pattern.
+    - IMPORTANT: Never skip any patterns just because you found a bug in another pattern.
+    - IMPORTANT: Bugs you find may be false positives.  Never change your systematic approach just because you found a bug.
+  b. State: "Starting pattern [ID]"
+  c. IMPORTANT: Ensure pattern file is fully loaded
+  e. IMPORTANT: fully follow every step in the pattern definition
+    - Note pattern ID when issue found
+  e. Complete the "Mandatory Self-verification gate"
+  f. State: "Completed pattern [ID]" or "Skipped pattern [ID]"
 
-4. **For each pattern**:
-   - read the full pattern and think before deciding if it applies to code
-   - Note pattern ID when issue found
-   - Never skip any patterns just because you found a bug in another pattern.
-   - Never skip any patterns unless they don't apply to the code at hand
+3. **For each pattern**:
 
-5. **Pattern Analysis Enforcement**:
-    - MANDATORY: Use TodoWrite tool to create checklist with ALL patterns before analysis
-    - Add a Todo for fully reading each pattern you plan on analyzing
-    - Each pattern MUST be explicitly documented as: [CLEAR/ISSUE/NOT-APPLICABLE]
+**Mandatory Self-verification gate:**
 
-6. **Completion Verification**:
-  - Count total patterns analyzed or skipped vs. total patterns loaded
-  - Intentionally skipping a pattern based on TASK 2A analysis, or analyzing it in
-  TASK 2B counts as checking the pattern
-  - If you haven't checked every pattern loaded, you have failed to complete TASK 2B,
-  restart the TASK.
-  - State "PATTERN ANALYSIS COMPLETE: X/X patterns checked"
+Before marking Task 2B complete, you MUST answer these questions in your output:
+  1. How many patterns were analyzed or skipped? [number]
+    - Intentionally skipping a pattern based on TASK 2A analysis, or analyzing it in TASK 2B counts as checking the pattern
+  2. How many TodoWrite entries did you gather? [number]
+  3. Which patterns were fully analyzed [list]
+  4. Which patterns were skipped [list]
+  5. Was every pattern marked as HIGHLY RELEVANT or PARTIALLY RELEVANT fully analyzed? [yes/no]
+  6. Was the self-verification gate run for every pattern fully analyzed? [y/n]
+
+  If you cannot answer all 5 questions with evidence, repeat Task 2B.
 
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives
@@ -188,6 +223,8 @@ it is relevant.
 - Mark complete and provide summary
 - Note any context limitations
 
+This step must not be skipped if there are regressions found.
+
 **If regressions found**:
 0. Clear any context not related to the regressions themselves
 1. Load `inline-template.md`
@@ -196,7 +233,10 @@ it is relevant.
 4. Never include bugs that you identified as false positives in the report
 5. Verify the ./review-inline.txt file exists if regressions are found
 
-This step must not be skipped if there are regressions found.
+### MANDATORY COMPLETION VERIFICATION
+
+If regressions are found and ./review-inline.txt does not exist, repeat
+Task 4.
 
 ## COMMUNICATION GUIDELINES
 
