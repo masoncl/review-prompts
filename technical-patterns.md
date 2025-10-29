@@ -41,8 +41,7 @@ After each pattern:
 **IMPORTANT:** Process the CS patterns first to build the global template
 
 **Patterns**:
-- **CS-001** (patterns/CS-001.md): Callee analysis (down the stack) — Required for all non-trivial changes
-- **CS-002** (patterns/CS-002.md): Caller analysis (up the stack) — Required for all non-trivial changes
+- **CS-001** (patterns/CS-001.md): Call analysis (up and down the stack) — Required for all non-trivial changes
 - **CS-003** (patterns/CS-003.md): Cross-function data flow — Mandatory when variables passed between functions, or data format changes, or encoding changes
 
 ### 2. Resource Management [RM]
