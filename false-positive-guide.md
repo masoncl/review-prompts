@@ -146,6 +146,7 @@ Before reporting ANY regression, verify:
    - [ ] Prove these conditions are actually possible
 7. **Did I hallucinate a problem that doesn't actually exist?**
    - [ ] Check the bug report actually matches the code
+   - [ ] Check your math.  Dividing by zero requires a zero in the denominator
 8. **Did I check for future fixes in the same patch series?**
    - [ ] Check forward in git history (not back), only on this branch
 9. **Debate yourself**
