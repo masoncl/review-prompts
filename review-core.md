@@ -12,17 +12,20 @@ not provided, assume it is the same directory as the prompt file.
 1. `technical-patterns.md` - Consolidated pattern reference with IDs
 
 ### Subsystem Deltas (LOAD ONLY IF PATCH TOUCHES)
-Load the appropriate delta file when patch modifies subsystem code:
-- Network code (`net/`, `skb_`, `socket`) → `networking.md`
-- Memory management (`mm/`, page/folio ops) → `mm.md`
-- VFS operations (`inode_`, `dentry_`, `vfs_`) → `vfs.md`
-- Locking primitives (`spin_lock`, `mutex_`) → `locking.md`
-- Scheduler code (`kernel/sched/`, `sched_`, `schedule`, runqueue, `wake_up`) → `scheduler.md`
-- BPF code (`kernel/bpf/`, `bpf_`, verifier) → `bpf.md`
-- RCU operations (`rcu_read_lock`, `call_rcu`) → `rcu.md`
-- Encryption (`crypto_`, `fscrypt_`) → `fscrypt.md`
-- Tracing (`trace_`, tracepoints) → `tracing.md`
-- workqueue functions (`struct workqueue_struct`, `struct work_struct` etc),  → `workqueue.md`
+
+Please these subsystem categories into a TodoWrite.  Check the TodoWrite during 
+Task 2A to make sure you've loaded all of the related categories.
+
+- Network code (net/, or drivers/net, or skb_ functions, or sockets) → `networking.md`
+- Memory management (mm/, or page/folio ops, or memory allocation/free) → `mm.md`
+- VFS operations (inode, or dentry, or vfs_, fs/*.c) → `vfs.md`
+- Locking primitives (spin_lock*, or mutex_*, or semaphores) → `locking.md`
+- Scheduler code (kernel/sched/, or sched_, or schedule, or runqueue, or wake_up) → `scheduler.md`
+- BPF (kernel/bpf/, or bpf, or verifier, or bpf kfuncs) → `bpf.md`
+- RCU operations (rcu*, or call_rcu) → `rcu.md`
+- Encryption (crypto, or fscrypt_) → `fscrypt.md`
+- Tracing (trace_, or tracepoints) → `tracing.md`
+- workqueue functions (kernel/workqueue.c, or struct workqueue_struct, or struct work_struct etc),  → `workqueue.md`
 - adding or changing syscalls → `syscall.md`
 - btrfs filesystem → `btrfs.md`
 - DAX operations → `dax.md`
@@ -127,6 +130,7 @@ pattern analysis complete: [check list]
       - examples: locking, allocations, error handling, data flow, etc
     - relevant subsystems [list of subsystems]
       - examples: mm, networking, scheduler, bpf
+    - Additional subsystem prompt files that need to be loaded [list]
     - trivial change [y/n]
   - identify type of changes
   - identify what operations are involved?
@@ -140,7 +144,9 @@ pattern analysis complete: [check list]
   - Place each pattern into a separate TodoWrite with the format:
     - Pattern ID [name]
     - relevance [decision]
-3. Read subsystem specific categories if they apply
+3. Check subsystem specific categories
+  - Ensure that you've loaded all subsystem files after identifying subsystems in step 1. [ Y/N ]
+  - Do not proceed until you're sure all subsystems have been loaded.
   - Place them into the pattern TodoWrite as well
 4. IMPORTANT: the default relevance is HIGHLY_RELEVANT.  You must actively
    decide a pattern does not need to be applied.
@@ -158,8 +164,10 @@ Before marking Task 2A complete, you MUST answer these questions in your output:
   3. How many diff hunk TodoWrite entries did you gather? [number]
   4. Which patterns will be fully analyzed [list]
   5. Which patterns will be skipped [list]
+  6. Did you check the subsystem category TodoWrite? [y/n]
+  7. How many subsystem .md files did you read after checking the subsystem TodoWrite? [number]
 
-  If you cannot answer all 5 questions with evidence, repeat Task 2A
+  If you cannot answer all 7 questions with evidence, repeat Task 2A
 
 **Complete**: State "RELEVANCE ASSESSMENT COMPLETE" with summary
 - Keep the pattern TodoWrite we've created for use in TASK 2B
