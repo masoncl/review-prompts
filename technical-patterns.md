@@ -74,6 +74,7 @@ After each pattern:
 - **RM-007** (patterns/RM-007.md): Object cleanup and reinitialization — Mandatory when objects are freed, torn down or unregistered
 - **RM-008** (patterns/RM-008.md): Variable and field initialization — For any non-trivial changes
 - **RM-009** (patterns/RM-009.md): memcg accounting — Mandatory when page, slab or vmalloc APIs are used (skip otherwise)
+- **RM-010** (patterns/RM-010.md): cleanup.h helpers (__free, guard, DEFINE_FREE, DEFINE_GUARD) are used
 
 ### 3. Concurrency & Locking [CL]
 
