@@ -111,6 +111,13 @@ positive.
 
 **ONLY REPORT**: if you can prove the resource contract has been broken
 
+### 10. Patch series
+- look forward in git history on the current branch.  If this commit is
+part of a series of related patches, check to see if later patches in the
+series resolve the bug you found.
+- Never search backwards in commit history.
+- Never search other branches.  Only the current branch.
+
 ## TASK POSITIVE.1 Verification Checklist
 
 Before reporting ANY regression, verify:
@@ -139,7 +146,9 @@ Before reporting ANY regression, verify:
    - [ ] Prove these conditions are actually possible
 7. **Did I hallucinate a problem that doesn't actually exist?**
    - [ ] Check the bug report actually matches the code
-8. **Debate yourself**
+8. **Did I check for future fixes in the same patch series?**
+   - [ ] Check forward in git history (not back), only on this branch
+9. **Debate yourself**
    - Do these two in order:
    - 8.1 [ ] Pretend you are the author of this patch.  Think extremely hard about
          the review, and try to prove the review is incorrect.
