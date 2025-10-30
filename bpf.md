@@ -22,6 +22,10 @@
 - Field access must be within ctx structure size
 - Some fields require specific program types
 
+## BPF Kernel Functions (kfuncs)
+- __bpf_kfunc, BTF_KFUNCS*, KF_* flags, etc
+- read `Documentation/bpf/kfuncs.rst` to better understand these
+
 ## Quick Checks
 - Helpers marked with BPF_RET_PTR_TO_MAP_VALUE_OR_NULL need NULL checks
 - ARG_PTR_TO_MEM arguments need size validation
