@@ -40,7 +40,8 @@ Create a TodoWrite for these items, all of which your report should include:
 - [ ] Author: line from the commit
 - [ ] One line subject from the commit
 
-- [ ] A brief (max 3 sentence) summary of the commit
+- [ ] A brief (max 3 sentence) summary of the commit.  Use the full commit
+message if the bug is in the commit message itself.
 
 - [ ] Any Link: tags from the commit header
 

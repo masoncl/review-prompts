@@ -227,7 +227,11 @@ Before marking Task 2B complete, you MUST answer these questions in your output:
 ### TASK 4: Reporting []
 **Goal**: Create clear, actionable report
 
+IMPORTANT: subjective issues flagged by SR-* patterns count as regressions
+
 **If no regressions found**:
+- check: were subjective issues found? [ Y/N]
+  - If yes, these are regresssions, go to "If regressions found" section
 - Mark complete and provide summary
 - Note any context limitations
 

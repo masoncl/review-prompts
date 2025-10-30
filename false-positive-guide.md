@@ -118,6 +118,12 @@ series resolve the bug you found.
 - Never search backwards in commit history.
 - Never search other branches.  Only the current branch.
 
+### 11. Subjective review patterns
+- problems flagged by SR-* patterns are not bugs, they are opinions.
+- But, they can still be wrong.  Focus on checking against the commit message,
+nearby code, nearby comments, and the "debate yourself" section of the
+verification checklist.
+
 ## TASK POSITIVE.1 Verification Checklist
 
 Before reporting ANY regression, verify:

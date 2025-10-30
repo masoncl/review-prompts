@@ -138,9 +138,8 @@ After each pattern:
 - **MT-001** (patterns/MT-001.md): Math and rounding correctness — When numbers are shifted or rounded up or down
 - **MT-002** (patterns/MT-002.md): Size Conversion Patterns — When bytes converted to pages (round down) `size >> PAGE_SHIFT` (only when truncation intended)
 
-### 9. Documentation Enforcement
-
-**Principle**: When commit messages or new comments contain assertions or constraints, validate they are honored in the new code
+### 9. Subject Review Patterns
+- **SR-001** (patterns/SR-001.md): Subjective general assessment — For all non-trivial changes
 
 ## Special Considerations
 
