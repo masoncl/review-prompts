@@ -139,7 +139,7 @@ After each pattern:
 - **MT-002** (patterns/MT-002.md): Size Conversion Patterns — When bytes converted to pages (round down) `size >> PAGE_SHIFT` (only when truncation intended)
 
 ### 9. Subject Review Patterns
-- **SR-001** (patterns/SR-001.md): Subjective general assessment — For all non-trivial changes
+- **SR-001** (patterns/SR-001.md): Subjective general assessment — only when the prompt explicitly requests this pattern
 
 ## Special Considerations
 
