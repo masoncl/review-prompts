@@ -24,6 +24,9 @@ the author.
 
 - Vary your question phrasing.  Don't start with "Does this code ..." every time.
 
+- If the bug came from SR-* patterns, it is a subjective review.  Don't put a big
+  SUBJECTIVE header on it, simply say something similar to: "this isn't a bug, but ..."
+
 - Ask your question specifically about the sources you're referencing:
   - If the regression is a leak, don't call it a 'resource leak', ask
     specifically about the resource you seek leaking.  'Does this code leak the
@@ -124,6 +127,9 @@ updates are getting lost.
 > +		/*
 > +		 * Scan only one fragment cluster is good enough. Order 0
 > +		 * allocation will surely success, and large allocation
+> +		 * allocation will surely success, and large allocation
+                 ^^^^^^^^ this isn't a bug, but you've duplicated this line
+
 > +		 * failure is not critical. Scanning one cluster still
 > +		 * keeps the list rotated and reclaimed (for HAS_CACHE).
 > +		 */
