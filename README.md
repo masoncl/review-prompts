@@ -13,7 +13,7 @@ commits.  This lets me grade success rate, which is currently at 50% for a set
 of 300 regressions fixed between 6.16 and 6.17.
 
 Running reviews against upstream -next branches.  This tends to find
-regressions in about 10% of the patches.  The false positive rate is about 50%
+regressions in about 10% of the patches.  The false positive rate is about 20-30%%
 so far.
 
 ## Basic usage
