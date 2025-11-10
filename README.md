@@ -68,6 +68,19 @@ generally accurate at finding details in the kernel tree, so if it claims
 there is a use-after-free, ask for the call chains or what conditions it might
 happen.  These really help nail things down.
 
+## review-stats.md
+
+The BPF CI sends reviews based on these prompts to the BPF mailing list.
+review-stats.md can be used to compile a report about how effective these
+reviews are.  The idea is to compile a list of all the message-ids from
+the automated reviews, and then have AI use semcode to pull down those
+threads and analyze the results one at a time.
+
+It outputs two files, (review-analysis.txt and review-details.txt), and they
+are meant to be concatenated together after the run is done.
+
+Sample output is in examples/review-stat.txt
+
 ## Patches are welcome
 
 Right now I'm more focused on reducing false positives than finding every bug.
