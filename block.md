@@ -9,3 +9,7 @@
   rules about what bios are allowed to be mixed together.  If you find a bug
   related to chains of bios, first make sure the merging rules allows that
   chain to exist
+
+Load block specific rules:
+- **BLOCK-001** (patterns/BLOCK-001.md): Mandatory when struct bios are passed or used
+
