@@ -13,7 +13,7 @@ commits.  This lets me grade success rate, which is currently at 50% for a set
 of 300 regressions fixed between 6.16 and 6.17.
 
 Running reviews against upstream -next branches.  This tends to find
-regressions in about 10% of the patches.  The false positive rate is about 20-30%%
+regressions in about 10% of the patches.  The false positive rate is about 20-30%
 so far.
 
 ## Basic usage
@@ -41,7 +41,7 @@ which is why there are per-subsystem context files.  We'll never get down
 to zero false positives, but the goal is to build up enough knowledge that
 AI tools can lead us in the right direction.
 
-The false positive rate is pretty high right now, at ~50%.
+The false positive rate is improving, currently at ~20-30%.
 
 Generally speaking claude sonnet is:
 
