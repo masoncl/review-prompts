@@ -30,6 +30,7 @@ Task 2A to make sure you've loaded all of the related categories.
 - btrfs filesystem → `btrfs.md`
 - DAX operations → `dax.md`
 - block layer or nvme → `block.md`
+- NFSD (fs/nfsd/*, fs/lockd/*, or fs/nfs_common/*) → `nfsd.md`
 
 ## EXCLUSIONS
 - Ignore fs/bcachefs regressions
