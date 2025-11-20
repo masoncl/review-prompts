@@ -124,6 +124,10 @@ series resolve the bug you found.
 nearby code, nearby comments, and the "debate yourself" section of the
 verification checklist.
 
+### 12. Uninitialized variables
+- assigning to a variable is the same as initializing it.
+- only report reading from uninitialized variables, not writing to them.
+
 ## TASK POSITIVE.1 Verification Checklist
 
 Before reporting ANY regression, verify:
@@ -153,6 +157,9 @@ Before reporting ANY regression, verify:
 7. **Did I hallucinate a problem that doesn't actually exist?**
    - [ ] Check the bug report actually matches the code
    - [ ] Check your math.  Dividing by zero requires a zero in the denominator
+   - [ ] Check the actual code.  When reporting a bug on a line of code,
+         you must reread that line of code and make sure it matches your
+         expected context.
 8. **Did I check for future fixes in the same patch series?**
    - [ ] Check forward in git history (not back), only on this branch
 9. **Debate yourself**
