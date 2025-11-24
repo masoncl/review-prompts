@@ -31,6 +31,7 @@ Task 2A to make sure you've loaded all of the related categories.
 - DAX operations → `dax.md`
 - block layer or nvme → `block.md`
 - NFSD (fs/nfsd/*, fs/lockd/*, or fs/nfs_common/*) → `nfsd.md`
+- io_uring (io_uring/*, or IORING_OP_*, or io_kiocb, or zero-copy operations) → `io_uring.md`
 
 ### Commit Message Tags (load if subjective reviews are requested in prompt)
 
