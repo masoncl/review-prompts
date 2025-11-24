@@ -32,10 +32,12 @@ Task 2A to make sure you've loaded all of the related categories.
 - block layer or nvme → `block.md`
 - NFSD (fs/nfsd/*, fs/lockd/*, or fs/nfs_common/*) → `nfsd.md`
 
-### Commit Message Tags (ALWAYS LOAD)
+### Commit Message Tags (load if subjective reviews are requested in prompt)
 
-- Fixes: tag in commit message → `fixes-tag.md`
-- NO Fixes: tag in commit message → `missing-fixes-tag.md`
+These default to off
+
+- Fixes: tag in commit message and subjective reviews requested → `fixes-tag.md`
+- NO Fixes: tag in commit message and subjective reviews requested → `missing-fixes-tag.md`
 
 ## EXCLUSIONS
 - Ignore fs/bcachefs regressions
