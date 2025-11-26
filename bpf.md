@@ -31,3 +31,8 @@
 - ARG_PTR_TO_MEM arguments need size validation
 - Tail calls limited to 33 levels
 - Stack usage limited to 512 bytes
+
+## BPF Patterns
+
+Conditionally load these additional patterns
+- LIBBPF-001 (tools/lib/bpf*) → `patterns/LIBBPF-001.md`
