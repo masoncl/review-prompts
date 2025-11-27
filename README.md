@@ -26,6 +26,9 @@ claude> Using the prompt ../review/review-core.md and the review prompt director
 
 You can also feed it incremental diffs.
 
+If you want to use this in GitHub workflows, see [this document](./docs/github-actions-claude-integration.md)
+for integration instructions.
+
 ## Output
 
 Claude will chat its way through the code review, and that output is
