@@ -126,48 +126,58 @@ verification checklist.
 
 ### 12. Uninitialized variables
 - assigning to a variable is the same as initializing it.
+- passing uninitialized variables to a function is fine if that function writes
+to them before reading them
 - only report reading from uninitialized variables, not writing to them.
 
 ## TASK POSITIVE.1 Verification Checklist
 
-Before reporting ANY regression, verify:
+Please all of these steps into a TodoWrite
+
+Verify Before reporting ANY regression, verify:
 
 1. **Can I prove this path executes?**
-   - [ ] Found calling code that reaches here
-   - [ ] No impossible conditions blocking the path
-   - [ ] Not in dead code or disabled features
+   - [ ] Found calling code that reaches here [ full path of calling code with sniipets ]
+   - [ ] No impossible conditions blocking the path [ y / n ]
+   - [ ] Not in dead code or disabled features [ y / n]
 2. **Is the bad behavior guaranteed?**
-   - [ ] Not just "might happen" but "will happen"
-   - [ ] Not just "increases risk" but "causes failure"
-   - [ ] Concrete sequence leads to the issue
+   - [ ] Not just "might happen" but "will happen" [ full explanation of conditions ]
+   - [ ] Not just "increases risk" but "causes failure" [ full explanation of conditions ]
+   - [ ] Concrete sequence leads to the issue [ full explanation of conditions ]
 3. **Did I check the full context?**
-   - [ ] Examined calling functions (2-3 levels up)
-   - [ ] Checked initialization and cleanup paths
-   - [ ] Verified subsystem conventions
+   - [ ] Examined calling functions (2-3 levels up) [ list of functions ]
+   - [ ] Checked initialization and cleanup paths [ list of paths ]
+   - [ ] Verified subsystem conventions [ list of subsystems checked ]
 4. **Is this actually wrong?**
-   - [ ] Not an intentional design choice
-   - [ ] Not a documented limitation
-   - [ ] Not test code that's allowed to be imperfect
-   - [ ] Not a potential future bug if the code changes, but a bug today
+   - [ ] Not an intentional design choice [ y / n]
+   - [ ] Not a documented limitation [ y / n]
+   - [ ] Not test code that's allowed to be imperfect [ y / n]
+   - [ ] Not a potential future bug if the code changes, but a bug today [ y / n]
 5. **Did I check the commit message and surrounding comments?**
-   - [ ] The entire commit message was read and checked for explanations
-   - [ ] All surroudning code comments were checked for explanations
+   - [ ] The entire commit message was read and checked for explanations [ y / n]
+   - [ ] All surrouding code comments were checked for explanations [ y / n]
 6. **When complex multi-step conditions are required for the bug to exist**
-   - [ ] Prove these conditions are actually possible
-7. **Did I hallucinate a problem that doesn't actually exist?**
+   - [ ] Prove these conditions are actually possible [ explanation ]
+7. **Did I hallucinate a problem that doesn't actually exist?** [ y / n]
    - [ ] Check the bug report actually matches the code
+   - [ ] Reread the file, check the code in context EXACTLY matches the contents of the file [ snippet ]
    - [ ] Check your math.  Dividing by zero requires a zero in the denominator
-8. **Did I check for future fixes in the same patch series?**
+8. **Did I check for future fixes in the same patch series?** [ y / n ]
    - [ ] Check forward in git history (not back), only on this branch
-9. **Debate yourself**
+9. **Debate yourself** [ pass / fail ]
    - Do these two in order:
-   - 8.1 [ ] Pretend you are the author of this patch.  Think extremely hard about
+   - 9.1 [ ] Pretend you are the author of this patch.  Think extremely hard about
          the review, and try to prove the review is incorrect.
          - Make sure to double check for hallucinations or other places the
          review is simply inventing false information.
-   - 8.2 [ ] Now pretend you're the reviewer.  Think extremely hard about any
+   - 9.2 [ ] Now pretend you're the reviewer.  Think extremely hard about any
          arguments from the theoritcal author and decide if this review is
          correct
+
+### Mandatory Validation 
+
+- Were all 9 Steps added to the TodoWrite? [ y / n]
+- If you don't have answers or explanations for all 9 steps, you must repeat TASK POSITIVE.1
 
 ## Special Cases
 
@@ -196,7 +206,9 @@ Before reporting ANY regression, verify:
 Before adding to report, think about the regression and ask:
 1. **Do I have proof, not just suspicion?**
   - Code snippets showing all components required to trigger the bug count as proof
+    - ONLY if the conditions are also proven to be possible
   - Existing defensive pattern checks for the same condition also count as proof.
+    - ONLY if you can prove the condition can occur
   - Existing WARN_ON()/BUG_ON() don't count as proof.
 2. **Would an expert see this as a real issue?**
 3. **Is this worth the maintainer's time?**
