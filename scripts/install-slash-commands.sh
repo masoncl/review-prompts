@@ -27,21 +27,19 @@ if [ ! -d "$PROJECT_DIR" ]; then
     exit 1
 fi
 
-# Validate required files exist
-if [ ! -f "$PROMPTS_DIR/review-core.md" ]; then
-    echo "Error: review-core.md not found in $PROMPTS_DIR"
+# Validate required directories exist
+if [ ! -d "$PROMPTS_DIR/slash-commands" ]; then
+    echo "Error: slash-commands directory not found in $PROMPTS_DIR"
     exit 1
 fi
 
-if [ ! -f "$PROMPTS_DIR/debugging.md" ]; then
-    echo "Error: debugging.md not found in $PROMPTS_DIR"
-    exit 1
-fi
-
-if [ ! -f "$PROMPTS_DIR/false-positive-guide.md" ]; then
-    echo "Error: false-positive-guide.md not found in $PROMPTS_DIR"
-    exit 1
-fi
+# Validate required slash command templates exist
+for cmd in kreview kdebug kverify; do
+    if [ ! -f "$PROMPTS_DIR/slash-commands/$cmd.md" ]; then
+        echo "Error: slash-commands/$cmd.md not found in $PROMPTS_DIR"
+        exit 1
+    fi
+done
 
 # Create .claude/commands directory
 COMMANDS_DIR="$PROJECT_DIR/.claude/commands"
@@ -49,37 +47,24 @@ mkdir -p "$COMMANDS_DIR"
 
 echo "Installing slash commands to $COMMANDS_DIR"
 
-# Create /review command
-cat > "$COMMANDS_DIR/review.md" << EOF
-Using the prompt $PROMPTS_DIR/review-core.md and the review prompt directory $PROMPTS_DIR, review the top commit.
-EOF
-echo "  ✓ Created /review command"
-
-# Create /debug command
-cat > "$COMMANDS_DIR/debug.md" << EOF
-Using the debugging guide at $PROMPTS_DIR/debugging.md and the review prompt directory $PROMPTS_DIR, help analyze and debug the current issue.
-EOF
-echo "  ✓ Created /debug command"
-
-# Create /verify command
-cat > "$COMMANDS_DIR/verify.md" << EOF
-Using the false positive guide at $PROMPTS_DIR/false-positive-guide.md, verify the current regression analysis and eliminate any false positives.
-
-Apply all verification steps systematically to ensure the findings are accurate.
-EOF
-echo "  ✓ Created /verify command"
+# Install each slash command by substituting placeholders
+for cmd in kreview kdebug kverify; do
+    sed "s|REVIEW_DIR|$PROMPTS_DIR|g" \
+        "$PROMPTS_DIR/slash-commands/$cmd.md" > "$COMMANDS_DIR/$cmd.md"
+    echo "  ✓ Created /$cmd command"
+done
 
 echo ""
 echo "Installation complete!"
 echo ""
 echo "Available commands in $PROJECT_DIR:"
-echo "  /review - Review the top commit for regressions"
-echo "  /debug  - Debug current issues using kernel debugging guide"
-echo "  /verify - Verify findings against false positive patterns"
+echo "  /kreview - Review the top commit for regressions"
+echo "  /kdebug  - Debug current issues using kernel debugging guide"
+echo "  /kverify - Verify findings against false positive patterns"
 echo ""
 echo "Usage:"
 echo "  cd $PROJECT_DIR"
-echo "  claude -p \"/review\""
+echo "  claude -p \"/kreview\""
 echo "  # or in interactive mode:"
 echo "  claude"
-echo "  > /review"
+echo "  > /kreview"
