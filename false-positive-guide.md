@@ -111,20 +111,13 @@ positive.
 
 **ONLY REPORT**: if you can prove the resource contract has been broken
 
-### 10. Patch series
-- look forward in git history on the current branch.  If this commit is
-part of a series of related patches, check to see if later patches in the
-series resolve the bug you found.
-- Never search backwards in commit history.
-- Never search other branches.  Only the current branch.
-
-### 11. Subjective review patterns
+### 10. Subjective review patterns
 - problems flagged by SR-* patterns are not bugs, they are opinions.
 - But, they can still be wrong.  Focus on checking against the commit message,
 nearby code, nearby comments, and the "debate yourself" section of the
 verification checklist.
 
-### 12. Uninitialized variables
+### 11. Uninitialized variables
 - assigning to a variable is the same as initializing it.
 - passing uninitialized variables to a function is fine if that function writes
 to them before reading them
@@ -178,6 +171,17 @@ Verify Before reporting ANY regression, verify:
 
 - Were all 9 Steps added to the TodoWrite? [ y / n]
 - If you don't have answers or explanations for all 9 steps, you must repeat TASK POSITIVE.1
+
+## Patch series
+- You may only use this exact method to look forward in git history.
+- NEVER invent other methods to look forward in git history.
+- If the prompt included a range of git commits to check, look forward
+  through that range for later patches that might resolve the bug you found.
+- Never search backwards in commit history.
+
+### Patch series Mandatory Validation
+- Was a git range provided in the prompt? [ y / n, range ]
+- Did you use it to search forward? [ y / n ]
 
 ## Special Cases
 
