@@ -1,5 +1,11 @@
 # False Positive Prevention Guide
 
+It is critical this prompt is fully processed in a careful, systematic way.
+It is used during the false positive section of the review, where avoiding
+false positives is of utmost importance.  You need to shift all bias
+away from efficient processing and focus on following these instructions
+as carefully as possible.
+
 ## Core Principle
 **If you cannot prove an issue exists with concrete evidence, do not report it.**
 
@@ -123,12 +129,19 @@ verification checklist.
 to them before reading them
 - only report reading from uninitialized variables, not writing to them.
 
+### 12. Implicit Guard Conditions
+
+**Before reporting NULL dereference**:
+- Load and fully analyze patterns/null.md for NULL pointer dereference guidance
+- Load and fully analyze patterns/guards.md for EVERY NULL pointer
+
 ## TASK POSITIVE.1 Verification Checklist
 
 Please all of these steps into a TodoWrite
 
 Verify Before reporting ANY regression, verify:
 
+0. Did I load patterns/null.md and patterns/guards.md for NULL pointer dereferences? [ y / n ]
 1. **Can I prove this path executes?**
    - [ ] Found calling code that reaches here [ full path of calling code with sniipets ]
    - [ ] No impossible conditions blocking the path [ y / n ]
@@ -163,14 +176,35 @@ Verify Before reporting ANY regression, verify:
          the review, and try to prove the review is incorrect.
          - Make sure to double check for hallucinations or other places the
          review is simply inventing false information.
+         - **For NULL safety issues, ask yourself as the author:**
+           * "Did the reviewer search for similar code in my subsystem that accesses this same pointer?"
+           * "If reporting missing NULL check, did they explain why OTHER code in my subsystem HAS that check?"
+           * "Did they verify lifecycle dependencies or just analyze syntactically?"
+           * "Is there semantic coupling between the guard condition and pointer validity that they missed?"
+           * "Would adding the check they suggest actually be redundant/paranoid given the invariants?"
+           * "Did they compare guard patterns - why does code path A check NULL but path B doesn't?"
+         - **For locking issues, ask yourself as the author:**
+           * "Did the reviewer check what locks my caller holds?"
+           * "Did they understand the lock context (process/softirq/hardirq/RCU)?"
+           * "Is there a lock held higher in the call chain they missed?"
+         - **For resource leaks, ask yourself as the author:**
+           * "Did the reviewer trace ownership transfer?"
+           * "Did they check for async cleanup mechanisms?"
+           * "Is the resource stored somewhere for later cleanup?"
+         - **For all issues, ask yourself as the author:**
+           * "Did they check if this is intentional based on commit message or comments?"
+           * "Did they verify the conditions for the bug are actually possible?"
+           * "Are they being overly defensive about theoretical issues?"
    - 9.2 [ ] Now pretend you're the reviewer.  Think extremely hard about any
-         arguments from the theoritcal author and decide if this review is
+         arguments from the theoretical author and decide if this review is
          correct
+         - Respond to each author argument with evidence
+         - If you cannot refute the author's arguments with code evidence, the review is likely wrong
 
 ### Mandatory Validation 
 
-- Were all 9 Steps added to the TodoWrite? [ y / n]
-- If you don't have answers or explanations for all 9 steps, you must repeat TASK POSITIVE.1
+- Were all 10 Steps added to the TodoWrite? [ y / n]
+- If you don't have answers or explanations for all 10 steps, you must repeat TASK POSITIVE.1
 
 ## Patch series
 - You may only use this exact method to look forward in git history.
@@ -208,17 +242,19 @@ Verify Before reporting ANY regression, verify:
 ## Final Filter
 
 Before adding to report, think about the regression and ask:
-1. **Do I have proof, not just suspicion?**
+1. **Do I have proof, not just suspicion?** [ yes / no ]
   - Code snippets showing all components required to trigger the bug count as proof
     - ONLY if the conditions are also proven to be possible
   - Existing defensive pattern checks for the same condition also count as proof.
     - ONLY if you can prove the condition can occur
   - Existing WARN_ON()/BUG_ON() don't count as proof.
-2. **Would an expert see this as a real issue?**
-3. **Is this worth the maintainer's time?**
-4. **Am I being overly defensive?**
+2. **Would an expert see this as a real issue?** [ yes / no ]
+3. **Is this worth the maintainer's time?** [ yes / no ]
+4. **Am I being overly defensive?** [ yes / no ]
 
-If any answer is "no" or "maybe", investigate further or discard.
+### MANDATORY Final Filter validation
+
+If you didn't answer yes to all 4 questions, investigate further or discard
 
 ## Remember
 - **False positives waste everyone's time**
