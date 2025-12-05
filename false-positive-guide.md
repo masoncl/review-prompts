@@ -135,6 +135,46 @@ to them before reading them
 - Load and fully analyze patterns/null.md for NULL pointer dereference guidance
 - Load and fully analyze patterns/guards.md for EVERY NULL pointer
 
+### 13. Patch series false positive removal
+
+Large changes are broken up into small logical units in order to make them
+easier to understand and review.
+
+- Example correct patch series:
+  - PATCH 1: add a new API
+  - PATCH 2: change one subsystem or one file to use the new API
+  - PATCH 3-N: change all the other subsystems or files to use new API
+  - PATCH N+1: delete the old API
+
+Do not try to review the judgements made in breaking up large changes.  Just
+look for objective bugs as per the review prompts and false positive guide.
+
+If our potential bug is simply work in progress that is completed later in the series,
+it is a false positive and should be ignored.
+
+- Example incorrect patch series:
+  - PATCH 1: create a regression (crash, overflow, various bugs)
+  - PATCH 2: fix that regression
+
+We expect each patch in the series to be working toward a larger goal, BUT
+we require each patch to be self contained and correct.  Specifically:
+
+- Each patch must compile
+- New bugs must not be introduced
+
+Intermediate patches in a series may intentionally introduce performance issues
+that are fixed later in the series.  The commit message or comments in the code
+should explain how this was intentional.
+
+If you've identified a real regression fixed later in the patch series, you
+must still report this regression []
+  - BUT, you must indicate in the bug report that you found the fix later in
+    the series []
+
+#### Patch series Mandatory Validation
+- Was a git range provided in the prompt? [ y / n, range ]
+- Did you use it to search forward? [ y / n ]
+
 ## TASK POSITIVE.1 Verification Checklist
 
 Please all of these steps into a TodoWrite
@@ -170,6 +210,9 @@ Verify Before reporting ANY regression, verify:
    - [ ] Check your math.  Dividing by zero requires a zero in the denominator
 8. **Did I check for future fixes in the same patch series?** [ y / n ]
    - [ ] Check forward in git history (not back), only on this branch
+   - [ ] Found fix later in the series [ y / n ]
+     - reported as real bug with later fix [ y / n ]
+     - ignored as false positive [ y / n ]
 9. **Debate yourself** [ pass / fail ]
    - Do these two in order:
    - 9.1 [ ] Pretend you are the author of this patch.  Think extremely hard about
@@ -212,10 +255,6 @@ Verify Before reporting ANY regression, verify:
 - If the prompt included a range of git commits to check, look forward
   through that range for later patches that might resolve the bug you found.
 - Never search backwards in commit history.
-
-### Patch series Mandatory Validation
-- Was a git range provided in the prompt? [ y / n, range ]
-- Did you use it to search forward? [ y / n ]
 
 ## Special Cases
 
