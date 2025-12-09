@@ -59,9 +59,13 @@ positive.
 ### 4. Locking False Positives
 **Before reporting** a locking issue:
 - Check ALL calling functions for held locks
+  - Output: list each caller and locks it holds (e.g., "caller() holds mutex_x at file:line")
 - Trace up 2-3 levels to find lock context
+  - Output: full lock chain from entry point to issue site
 - Verify the actual lock requirements
+  - Output: quote lock documentation or convention (e.g., "must hold rcu_read_lock")
 - Consider RCU and other lockless mechanisms
+  - Output: RCU/lockless mechanism found or "none applicable"
 
 **Common mistakes**:
 - Missing that caller holds the required lock
@@ -76,7 +80,9 @@ positive.
 
 **Verification**:
 - Trace the exact sequence of operations
+  - Output: sequence showing "alloc@loc → use@loc → free@loc → use@loc" or "no UAF found"
 - Check if object ownership was transferred
+  - Output: ownership transfer point or "ownership retained"
 
 ### 6. Resource Leak Misconceptions
 **Not a leak if**:
@@ -86,9 +92,12 @@ positive.
 - It's in test code and doesn't affect the system
 
 **Verify by**:
-- Tracing object ownership changes
-- Checking for async cleanup mechanisms
-- Understanding subsystem ownership models
+- Trace object ownership changes
+  - Output: ownership chain "alloc@loc → stored in X@loc → freed by Y@loc" or "leak confirmed"
+- Check for async cleanup mechanisms
+  - Output: cleanup callback or workqueue handler, or "no async cleanup found"
+- Understand subsystem ownership models
+  - Output: quote subsystem convention or "no documented model"
 
 ### 7. Order Changes
 **Don't report** order changes unless you can prove:
@@ -99,43 +108,46 @@ positive.
 
 ### 8. Races
 **You're especially bad at finding races, assume you're wrong unless you have concrete proof**
-- [ ] identify the EXACT data structure names and definitions
-- [ ] identify the locks that should protect them
-- [ ] prove the race exists with CODE SNIPPETS
+- Identify the EXACT data structure names and definitions
+  - Output: struct name and location
+- Identify the locks that should protect them
+  - Output: lock name and where it's defined
+- Prove the race exists with CODE SNIPPETS
+  - Output: two code paths that can execute concurrently, with locations
 
 **Just because** operations moved doesn't mean it's wrong.
 
-### 8. Performance Tradeoffs
+### 9. Performance Tradeoffs
 **Not a regression if**:
 - Lower performance was an intentional tradeoff
 - Commit message explains the performance impact
 - Simplicity/maintainability was prioritized
 - It's optimizing for a different use case
 
-### 9. Intentional backwards compatibility
+### 10. Intentional backwards compatibility
 - Leaving stub sysfs or procfs files is not required, but also not a regression
 
 **ONLY REPORT**: if you can prove the resource contract has been broken
 
-### 10. Subjective review patterns
+### 11. Subjective review patterns
 - problems flagged by SR-* patterns are not bugs, they are opinions.
 - But, they can still be wrong.  Focus on checking against the commit message,
 nearby code, nearby comments, and the "debate yourself" section of the
 verification checklist.
 
-### 11. Uninitialized variables
+### 12. Uninitialized variables
 - assigning to a variable is the same as initializing it.
 - passing uninitialized variables to a function is fine if that function writes
 to them before reading them
 - only report reading from uninitialized variables, not writing to them.
 
-### 12. Implicit Guard Conditions
+### 13. Implicit Guard Conditions
 
 **Before reporting NULL dereference**:
 - Load and fully analyze patterns/null.md for NULL pointer dereference guidance
 - Load and fully analyze patterns/guards.md for EVERY NULL pointer
 
-### 13. Patch series false positive removal
+### 14. Patch series false positive removal
 
 Large changes are broken up into small logical units in order to make them
 easier to understand and review.
@@ -177,77 +189,93 @@ must still report this regression []
 
 ## TASK POSITIVE.1 Verification Checklist
 
-Please all of these steps into a TodoWrite
+Complete each verification step below and produce the required output.
+Do not skip steps. Do not claim completion without producing the output.
 
-Verify Before reporting ANY regression, verify:
+Before reporting ANY regression, verify:
 
-0. Did I load patterns/null.md and patterns/guards.md for NULL pointer dereferences? [ y / n ]
+0. For NULL pointer dereferences, load patterns/null.md and patterns/guards.md
+   - Output: "loaded" or "not applicable - not a NULL dereference issue"
 1. **Can I prove this path executes?**
-   - [ ] Found calling code that reaches here [ full path of calling code with sniipets ]
-   - [ ] No impossible conditions blocking the path [ y / n ]
-   - [ ] Not in dead code or disabled features [ y / n]
+   - Find calling code that reaches here
+     - Output: quote the call chain with locations (e.g., "caller@file:line → target@file:line")
+   - Check for impossible conditions blocking the path
+     - Output: list conditions checked and their evaluation
+   - Verify not in dead code or disabled features
+     - Output: enabled-by config option or "always enabled"
 2. **Is the bad behavior guaranteed?**
-   - [ ] Not just "might happen" but "will happen" [ full explanation of conditions ]
-   - [ ] Not just "increases risk" but "causes failure" [ full explanation of conditions ]
-   - [ ] Concrete sequence leads to the issue [ full explanation of conditions ]
+   - Prove "will happen" not just "might happen"
+     - Output: step-by-step execution path with function names and locations showing the failure
+   - Prove "causes failure" not just "increases risk"
+     - Output: the specific failure mode and triggering condition
 3. **Did I check the full context?**
-   - [ ] Examined calling functions (2-3 levels up) [ list of functions ]
-   - [ ] Checked initialization and cleanup paths [ list of paths ]
-   - [ ] Verified subsystem conventions [ list of subsystems checked ]
+   - Examine calling functions (2-3 levels up)
+     - Output: list each caller checked with a random line from each
+   - Check initialization and cleanup paths
+     - Output: init/cleanup functions examined with locations
+   - Verify subsystem conventions
+     - Output: conventions found and whether code follows them
 4. **Is this actually wrong?**
-   - [ ] Not an intentional design choice [ y / n]
-   - [ ] Not a documented limitation [ y / n]
-   - [ ] Not test code that's allowed to be imperfect [ y / n]
-   - [ ] Not a potential future bug if the code changes, but a bug today [ y / n]
+   - Check if intentional design choice
+     - Output: quote commit message or comment if explains intent, else "no explanation found"
+   - Check if documented limitation
+     - Output: quote documentation if found, else "not documented"
+   - Verify not test code allowed to be imperfect
+     - Output: "production code" or "test code - severity adjusted"
+   - Confirm bug exists today, not just if code changes later
+     - Output: current triggering path or "theoretical future issue only"
 5. **Did I check the commit message and surrounding comments?**
-   - [ ] The entire commit message was read and checked for explanations [ y / n]
-   - [ ] All surrouding code comments were checked for explanations [ y / n]
+   - Read the entire commit message
+     - Output: quote any text explaining this behavior, or "no explanation found"
+   - Read surrounding code comments
+     - Output: quote relevant comments, or "no relevant comments"
 6. **When complex multi-step conditions are required for the bug to exist**
-   - [ ] Prove these conditions are actually possible [ explanation ]
-7. **Did I hallucinate a problem that doesn't actually exist?** [ y / n]
-   - [ ] Check the bug report actually matches the code
-   - [ ] Reread the file, check the code in context EXACTLY matches the contents of the file [ snippet ]
-   - [ ] Check your math.  Dividing by zero requires a zero in the denominator
-8. **Did I check for future fixes in the same patch series?** [ y / n ]
-   - [ ] Check forward in git history (not back), only on this branch
-   - [ ] Found fix later in the series [ y / n ]
-     - reported as real bug with later fix [ y / n ]
-     - ignored as false positive [ y / n ]
-9. **Debate yourself** [ pass / fail ]
-   - Do these two in order:
-   - 9.1 [ ] Pretend you are the author of this patch.  Think extremely hard about
-         the review, and try to prove the review is incorrect.
-         - Make sure to double check for hallucinations or other places the
-         review is simply inventing false information.
-         - **For NULL safety issues, ask yourself as the author:**
-           * "Did the reviewer search for similar code in my subsystem that accesses this same pointer?"
-           * "If reporting missing NULL check, did they explain why OTHER code in my subsystem HAS that check?"
-           * "Did they verify lifecycle dependencies or just analyze syntactically?"
-           * "Is there semantic coupling between the guard condition and pointer validity that they missed?"
-           * "Would adding the check they suggest actually be redundant/paranoid given the invariants?"
-           * "Did they compare guard patterns - why does code path A check NULL but path B doesn't?"
-         - **For locking issues, ask yourself as the author:**
-           * "Did the reviewer check what locks my caller holds?"
-           * "Did they understand the lock context (process/softirq/hardirq/RCU)?"
-           * "Is there a lock held higher in the call chain they missed?"
-         - **For resource leaks, ask yourself as the author:**
-           * "Did the reviewer trace ownership transfer?"
-           * "Did they check for async cleanup mechanisms?"
-           * "Is the resource stored somewhere for later cleanup?"
-         - **For all issues, ask yourself as the author:**
-           * "Did they check if this is intentional based on commit message or comments?"
-           * "Did they verify the conditions for the bug are actually possible?"
-           * "Are they being overly defensive about theoretical issues?"
-   - 9.2 [ ] Now pretend you're the reviewer.  Think extremely hard about any
-         arguments from the theoretical author and decide if this review is
-         correct
-         - Respond to each author argument with evidence
-         - If you cannot refute the author's arguments with code evidence, the review is likely wrong
+   - Prove these conditions are actually possible
+     - Output: code path showing each condition can be true simultaneously
+7. **Did I hallucinate a problem that doesn't actually exist?**
+   - Verify the bug report matches the actual code
+     - Output: quote the exact code snippet from the file
+   - Reread the file and confirm code matches your analysis
+     - Output: file:line and verbatim code
+   - Check your math (division by zero requires zero in denominator, etc.)
+     - Output: arithmetic verification or "no arithmetic involved"
+8. **Did I check for future fixes in the same patch series?**
+   - Search forward in git history (not back), only on this branch
+     - Output: commits checked or "no git range provided"
+   - If fix found later in series
+     - Output: "found fix in [commit] - reporting as real bug with later fix" or "no fix found"
+9. **Debate yourself**
+   - Do these two steps in order:
+   - 9.1 Pretend you are the author. Think extremely hard about the review and try to prove it incorrect.
+     - Check for hallucinations or invented information
+     - **For NULL safety, ask as the author:**
+       * Did reviewer search for similar code in my subsystem accessing this pointer?
+       * If reporting missing NULL check, did they explain why OTHER code in my subsystem HAS that check?
+       * Did they verify lifecycle dependencies or just analyze syntactically?
+       * Is there semantic coupling between guard condition and pointer validity they missed?
+       * Would adding their suggested check be redundant/paranoid given the invariants?
+       * Did they compare guard patterns - why does path A check NULL but path B doesn't?
+     - **For locking, ask as the author:**
+       * Did reviewer check what locks my caller holds?
+       * Did they understand lock context (process/softirq/hardirq/RCU)?
+       * Is there a lock held higher in the call chain they missed?
+     - **For resource leaks, ask as the author:**
+       * Did reviewer trace ownership transfer?
+       * Did they check for async cleanup mechanisms?
+       * Is the resource stored somewhere for later cleanup?
+     - **For all issues, ask as the author:**
+       * Did they check if this is intentional based on commit message or comments?
+       * Did they verify the conditions for the bug are actually possible?
+       * Are they being overly defensive about theoretical issues?
+     - Output: strongest argument against reporting this bug
+   - 9.2 Now pretend you're the reviewer. Think extremely hard about the author's arguments and decide if the review is correct.
+     - Address each author argument with code evidence
+     - Output: code evidence refuting the author, or "cannot refute with code - likely false positive"
 
-### Mandatory Validation 
+### Mandatory Validation
 
-- Were all 10 Steps added to the TodoWrite? [ y / n]
-- If you don't have answers or explanations for all 10 steps, you must repeat TASK POSITIVE.1
+- If any Output requirement above is blank or skipped, repeat that step
+- If you cannot produce code evidence for your conclusion, the bug is likely a false positive
 
 ## Patch series
 - You may only use this exact method to look forward in git history.
