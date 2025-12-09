@@ -1,8 +1,12 @@
 # NULL Pointer Dereference Guide
 
+This is a reference guide. Review the examples carefully before analyzing
+NULL pointer dereferences. Misunderstanding what constitutes a dereference
+causes false positives.
+
 **What's a NULL pointer dereference?**
 
-You often get this wrong.
+You always get this wrong when you've read and understood the details below:
 
 ## Dereference Types
 

@@ -4,12 +4,12 @@
 
 **When to check**: Mandatory when code accesses bio data fields (bi_io_vec, bi_vcnt) or calls helpers that access these fields
 
-**Pattern-specific TodoWrite fields**:
-- Functions accessing bio data: [function] - [field/helper accessed] - [operation types supported]
-- Call sites reaching function: [call site] - [operation types possible]
+Place each step defined below into TodoWrite.
 
 **Mandatory bio operation type validation:**
 - step 1: Place into TodoWrite all functions that receive bio or request parameters (new or modified)
+  - Output: function name, and a random line from anywhere in each definition
+    - you must prove you read the function
 - step 2: for each function, place all accesses to bio data fields into TodoWrite:
   - Direct: bio->bi_io_vec, bio->bi_vcnt, bio->bi_iter.bi_bvec_done
   - Indirect: bio_get_first_bvec(), bio_get_last_bvec(), bio_for_each_bvec(), bio_for_each_segment()
@@ -27,13 +27,4 @@
 - step 6: verify that unsafe accesses are guarded by bio_has_data() or op_is_write()/op_is_discard() checks
   - When bi_io_vec is NULL, bio_has_data() or other guards must be used to prevent crashes
 
-**Mandatory Self-verification gate:**
-
-**Pattern-specific questions**:
-  1. How many functions tracked with bio access? [number]
-  2. How many bios tracked in TodoWrite? [number]
-  3. How many bios of each OP type tracked in TodoWrite? [number per type]
-  4. How many bio access sites tracked in TodoWrite? [number]
-  5. How many bio access sites would crash without bio_has_data() guards? [number]
-
-If you cannot answer ALL questions with evidence, RESTART BLOCK-001 from the beginning.
+**After analysis:** Issues found: [none OR list]

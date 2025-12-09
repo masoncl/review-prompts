@@ -24,25 +24,24 @@ not provided, assume it is the same directory as the prompt file.
 
 ### Subsystem Deltas (LOAD ONLY IF PATCH TOUCHES)
 
-Please these subsystem categories into a TodoWrite.  Check the TodoWrite during 
-Task 2A to make sure you've loaded all of the related categories.
+Load these files based on what the patch touches:
 
-- Network code (net/, or drivers/net, or skb_ functions, or sockets) → `networking.md`
-- Memory management (mm/, or page/folio ops, or memory allocation/free) → `mm.md`
-- VFS operations (inode, or dentry, or vfs_, fs/*.c) → `vfs.md`
-- Locking primitives (spin_lock*, or mutex_*, or semaphores) → `locking.md`
-- Scheduler code (kernel/sched/, or sched_, or schedule, or runqueue, or wake_up) → `scheduler.md`
-- BPF (kernel/bpf/, or bpf, or verifier, or bpf kfuncs) → `bpf.md`
-- RCU operations (rcu*, or call_rcu) → `rcu.md`
-- Encryption (crypto, or fscrypt_) → `fscrypt.md`
-- Tracing (trace_, or tracepoints) → `tracing.md`
-- workqueue functions (kernel/workqueue.c, or struct workqueue_struct, or struct work_struct etc),  → `workqueue.md`
-- adding or changing syscalls → `syscall.md`
-- btrfs filesystem → `btrfs.md`
-- DAX operations → `dax.md`
-- block layer or nvme → `block.md`
-- NFSD (fs/nfsd/*, fs/lockd/*, or fs/nfs_common/*) → `nfsd.md`
-- io_uring (io_uring/*, or IORING_OP_*, or io_kiocb, or zero-copy operations) → `io_uring.md`
+- Network code (net/, drivers/net, skb_, sockets) → `networking.md`
+- Memory management (mm/, page/folio ops, alloc/free) → `mm.md`
+- VFS operations (inode, dentry, vfs_, fs/*.c) → `vfs.md`
+- Locking primitives (spin_lock*, mutex_*) → `locking.md`
+- Scheduler code (kernel/sched/, sched_, schedule) → `scheduler.md`
+- BPF (kernel/bpf/, bpf, verifier) → `bpf.md`
+- RCU operations (rcu*, call_rcu) → `rcu.md`
+- Encryption (crypto, fscrypt_) → `fscrypt.md`
+- Tracing (trace_, tracepoints) → `tracing.md`
+- Workqueue (kernel/workqueue.c, work_struct) → `workqueue.md`
+- Syscalls → `syscall.md`
+- btrfs → `btrfs.md`
+- DAX → `dax.md`
+- Block/nvme → `block.md`
+- NFSD (fs/nfsd/*, fs/lockd/*) → `nfsd.md`
+- io_uring → `io_uring.md`
 
 ### Commit Message Tags (load if subjective reviews are requested in prompt)
 
@@ -132,117 +131,67 @@ diff fragments.
 ### TASK 2A: Pattern Relevance Assessment []
 **Goal**: Determine which pattern categories apply to the code changes
 
-**TodoWrite Format Required:**
-For every change in the diff create a TodoWrite in this exact format:
+1. **Analyze the diff**:
+  - Identify change types, operations involved, relevant subsystems
+  - If entirely trivial (only comments/strings): do basic correctness check, skip full pattern analysis
+  - Still check for copy-paste errors even in trivial changes
 
-Change at file : line: [ filename, line numbers from diff header ]
-unified diff: [ exact unified diff hunk ]
-types of changes: [ categories ]
-patterns to analyze: [ list ] 
-pattern analysis complete: [check list]
+2. **Assess pattern relevance** using shortcuts from technical-patterns.md:
+  - For each pattern, check APPLIES/SKIP hints to fast-path the decision
+  - Default is APPLIES — only SKIP when clearly inapplicable
+  - Output:
+    ```
+    Subsystems: [list] → files to load: [list]
+    Patterns to analyze: [list with one-line justification each]
+    ```
 
-1. **Analyze and think about the type of code changes in the diff**:
-  - Track all diff hunks in TodoWrite in the following format:
-    - hunk [number]
-    - types of changes [list]
-      - refactor, features, bug fixes etc
-    - operations involved [list]
-      - examples: locking, allocations, error handling, data flow, etc
-    - relevant subsystems [list of subsystems]
-      - examples: mm, networking, scheduler, bpf
-    - Additional subsystem prompt files that need to be loaded [list]
-    - trivial change [y/n]
-  - identify type of changes
-  - identify what operations are involved?
-  - identify what systems are relevant?
-  - If every hunk in the diff diff is completely trivial, changing only comments or string literals:
-    - do a basic check for correctness, don't bother loading all the patterns
-    - Even trivial new files need to be fully read to check for basic errors
-    - Still check for copy paste errors
-    - Complete Task 2, proceed to Task 3.
-2. **Read all pattern categories** from technical-patterns.md
-  - Place each pattern into a separate TodoWrite with the format:
-    - Pattern ID [name]
-    - relevance [decision]
-3. Check subsystem specific categories
-  - Ensure that you've loaded all subsystem files after identifying subsystems in step 1. [ Y/N ]
-  - Do not proceed until you're sure all subsystems have been loaded.
-  - Place them into the pattern TodoWrite as well
-4. IMPORTANT: the default relevance is HIGHLY_RELEVANT.  You must actively
-   decide a pattern does not need to be applied.
-5. **Create relevance mapping**:
-  - HIGHLY_RELEVANT: Pattern category directly applies to changes
-  - POTENTIALLY_RELEVANT: Pattern category might apply, analyze fully
-  - NOT_APPLICABLE: Pattern category does not apply to this type of change
-    - Think about changes before marking them as NOT_APPLICABLE
+3. **Load subsystem files** identified in step 2
 
-**Mandatory Self-verification gate:**
-
-Before marking Task 2A complete, you MUST answer these questions in your output:
-  1. How many patterns were found at each relevance level? [number]
-  2. How many pattern TodoWrite entries did you gather? [number]
-  3. How many diff hunk TodoWrite entries did you gather? [number]
-  4. Which patterns will be fully analyzed [list]
-  5. Which patterns will be skipped [list]
-  6. Did you check the subsystem category TodoWrite? [y/n]
-  7. How many subsystem .md files did you read after checking the subsystem TodoWrite? [number]
-
-  If you cannot answer all 7 questions with evidence, repeat Task 2A
-
-**Complete**: State "RELEVANCE ASSESSMENT COMPLETE" with summary
-- Keep the pattern TodoWrite we've created for use in TASK 2B
+**Complete**: State "RELEVANCE ASSESSMENT COMPLETE"
 
 ### TASK 2B: Pattern Analysis []
 
-**Apply patterns systematically**:
-- it is very important that our reviews are repeatable and deterministic.
+**Apply patterns systematically** (repeatable and deterministic):
 
-1. Use TodoWrite from Task 2A
-   - Never complete TASK 2B without considering all of the patterns.
+The patterns contain systematic instructions for patch research and have details
+about the project that you don't know or understand.   If you fail to read
+the patterns, your analysis will fail.
 
-2. **Apply patterns by relevance level**:
-   - HIGHLY_RELEVANT: Full analysis required
-   - POTENTIALLY_RELEVANT: Full analysis still required
-   - NOT_APPLICABLE: Skip.  This is the only pattern type you can skip.
+You're going to want to take shortcuts, and assume the knowledge you gained
+from assessing pattern relevance is enough to complete the research without
+reading the patterns.  These shortcuts will make the research fail.
 
-3. **For EACH pattern from the Task 2A TodoWrite, in order:**
-  a. skip patterns if they were found to be NOT_APPLICABLE in TASK 2A
-    - IMPORTANT: fully analyze every HIGHLY_RELEVANT or POTENTIALLY_RELEVANT pattern.
-    - IMPORTANT: Never skip any patterns just because you found a bug in another pattern.
-    - IMPORTANT: Bugs you find may be false positives.  Never change your systematic approach just because you found a bug.
-  b. State: "Starting pattern [ID]"
-  c. IMPORTANT: Ensure pattern file is fully loaded
-  e. IMPORTANT: fully follow every step in the pattern definition
-    - Note pattern ID when issue found
-  e. Complete the "Mandatory Self-verification gate"
-  f. State: "Completed pattern [ID]" or "Skipped pattern [ID]"
+It is CRITICAL that you read the pattern files you've found relevant in Task 1A.
 
-3. **For each pattern**:
+Note: these patterns exist because you do not have enough knowledge to complete
+this research without them.  Skipping steps in the patterns will make the research
+fail.
 
-**Mandatory Self-verification gate:**
+1. For each pattern in "Patterns to analyze" from Task 2A:
+   a. Add pattern to TodoWrite.  You may not complete the TodoWrite until the pattern
+      is fully analyzed
+   b. State: "Analyzing [ID]"
+   c. **MANDATORY:** Read pattern file
+   d. Output: pattern name, number of lines in pattern, Risks pattern is targeting
+   e. Follow pattern steps
+   f. Run pattern's self-verification gate if it has one
+   g. State: "Completed [ID]"
+2. Never skip patterns just because you found a bug - bugs may be false positives
 
-Before marking Task 2B complete, you MUST answer these questions in your output:
-  1. How many patterns were analyzed or skipped? [number]
-    - Intentionally skipping a pattern based on TASK 2A analysis, or analyzing it in TASK 2B counts as checking the pattern
-  2. How many TodoWrite entries did you gather? [number]
-  3. Which patterns were fully analyzed [list]
-  4. Which patterns were skipped [list]
-  5. Was every pattern marked as HIGHLY RELEVANT or PARTIALLY RELEVANT fully analyzed? [yes/no]
-  6. Was the self-verification gate run for every pattern fully analyzed? [y/n]
-
-  If you cannot answer all 5 questions with evidence, repeat Task 2B.
+**Mandatory self-verification gate:**
+- All patterns analyzed? [yes/no]
+- Number of pattern files read [number]
+- Number of lines of pattern files read [number]
+- Issues found: [none OR list with pattern IDs]
 
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives
 
-1. If NO regressions found:
-  - Mark this task complete
-  - Proceed to Task 4
-2. If regressions are found:
-  - [ ] Do not proceed until you complete all steps below
-  - [ ] Load `false-positive-guide.md` using Read tool
-  - [ ] Create TodoWrite items for every section and checklist item in the false positive guide
-  - [ ] Only mark TASK 3 complete after all verification steps are done
+1. If NO regressions found: Mark complete, proceed to Task 4
+2. If regressions found:
+   - Load `false-positive-guide.md`
+   - Apply each verification check from the guide
+   - Only mark complete after all verification done
 
 ### TASK 4: Reporting []
 **Goal**: Create clear, actionable report

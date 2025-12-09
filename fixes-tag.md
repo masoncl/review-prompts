@@ -11,21 +11,16 @@ A Fixes: tag indicates that a patch fixes a bug in a previous commit. The tag:
 - Is used by automated backporting tools (e.g., AUTOSEL)
 - Should be included even for bugs that don't require stable backporting
 
-## Pattern-specific TodoWrite fields
-
-For each Fixes: tag found in the commit message, create a TodoWrite entry:
-- Fixes tag text: [full tag as written]
-- Commit SHA-1: [the commit ID from tag]
-- SHA-1 length: [number of characters]
-- Subject in quotes: [YES/NO]
-- Single line: [YES/NO - note if wrapped]
-- Tag location: [sign-off area/below ---/other]
-- Commit exists: [YES/NO - verification command]
-- Commit reachable: [YES/NO - verification command]
-- Subject matches original: [YES/NO - show both if different]
-- Bug actually fixed: [YES/NO/UNCLEAR - reasoning]
-- Stable tag present: [YES/NO/NOT_NEEDED - reasoning]
-- Issues found: [list any problems]
+**TodoWrite format** (one entry per Fixes: tag):
+```
+Fixes tag: [full tag text]
+SHA-1: [commit ID] - length [N chars], exists ✓/✗ (git cat-file -t), reachable ✓/✗ (git merge-base)
+Format: quotes ✓/✗, single line ✓/✗, location [sign-off area/below ---/other]
+Subject: matches original ✓/✗ - [show both if different]
+Bug fixed: ✓/✗/unclear - [reasoning]
+Stable tag: present ✓/✗ / not needed - [reasoning]
+Issues: [none OR list]
+```
 
 ## Format Requirements [FIXES-001]
 
@@ -208,25 +203,7 @@ Usage: `git log -1 --pretty=fixes <commit-id>`
 
 ## Mandatory Self-verification gate
 
-Before completing Fixes: tag verification, answer these questions:
-
-**Pattern-specific questions:**
-  1. How many Fixes: tags did you find in the commit message? [number]
-  2. How many Fixes: tags have TodoWrite entries? [number]
-  3. How many tags have SHA-1 shorter than 12 characters? [number]
-  4. How many tags are missing quotes around the subject? [number]
-  5. How many tags are wrapped across multiple lines? [number]
-  6. How many tags reference commits that don't exist? [number]
-  7. How many tags have subject lines that don't match the original?
-     [number]
-  8. How many tags appear below the `---` separator? [number]
-  9. Does the bug actually exist in the referenced commit(s)? [YES/NO/
-     UNCLEAR for each]
- 10. If bug affects stable, is Cc: stable@vger.kernel.org present?
-     [YES/NO/NOT_APPLICABLE]
-
-If you cannot answer ALL questions with evidence, RESTART fixes-tag
-verification from the beginning.
+**After analysis:** Issues found: [none OR list]
 
 ## Quick Reference
 

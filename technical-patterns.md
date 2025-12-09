@@ -1,4 +1,4 @@
-# Linux Kernel Technical Review Patterns
+# Linux Kernel Technical Deep-dive Patterns
 
 ## Core instructions
 
@@ -34,15 +34,44 @@ After each pattern:
 - Intermediate analysis steps
 - Redundant function parameter details
 
+## Pattern Classification
+
+Assess each pattern's relevance using semantic reasoning, but use these shortcuts to decide quickly:
+
+**Relevance levels:**
+- APPLIES: Pattern is relevant, analyze it
+- SKIP: Pattern clearly does not apply to this diff
+
+**Default is APPLIES** — only SKIP when you're certain the pattern cannot trigger. When in doubt, analyze the pattern.
+
+**Decision shortcuts** (use these to fast-path your decision):
+- If the diff doesn't touch the construct a pattern protects, SKIP
+- If you see the exact keywords/operations a pattern targets, APPLIES
+- If uncertain whether pattern applies, APPLIES (err on the side of analysis)
+
+**Output format:**
+```
+Patterns to analyze: [list with one-line justification each]
+```
+
 ## Core Pattern Categories
+
+As you identify patterns that need to be fully analyzed, add each pattern
+that you will apply into a TodoWrite.  Only make them complete in the TodoWrite
+when you've analyzed each one.
 
 ### 1. Call Stack Analysis [CS]
 
 **IMPORTANT:** Process the CS patterns first to build the global template
 
 **Patterns**:
-- **CS-001** (patterns/CS-001.md): Call analysis (up and down the stack) — Required for all non-trivial changes
-- **CS-003** (patterns/CS-003.md): Cross-function data flow — Mandatory when variables passed between functions, or data format changes, or encoding changes
+- **CS-001** (patterns/CS-001.md): Correctness — required for all non-trivial changes
+  - APPLIES: any non-trivial patches
+  - SKIP: pure comment/whitespace changes only
+
+- **CS-003** (patterns/CS-003.md): Cross-function data flow
+  - APPLIES: variables passed between functions change meaning, data format changes, encoding changes
+  - SKIP: no cross-function data flow changes
 
 ### 2. Resource Management [RM]
 
@@ -53,6 +82,7 @@ After each pattern:
   - but for code clarity, if we're allocating an array of pointers, and using
     sizeof(type \*) to calculate the size, we should use the correct type
 - refcount_t counters do not get incremented after dropping to zero
+- refcount_dec_and_test returns true only at zero
 - css_get() adds an additional reference, ex: this results in both sk and newsk having one reference each:
 ```
      memcg = mem_cgroup_from_sk(sk);
@@ -61,20 +91,44 @@ After each pattern:
      newsk->sk_memcg = sk->sk_memcg;
 ```
 - If you find a type mismatch (using \*foo instead of foo etc), trace the type
-  fully and check against the expected type to make sure you're flagging it
-  correctly
-- refcount_dec_and_test returns true only at zero
+  fully and check against the expected type to make sure you're flagging it correctly
 
 **Patterns**:
-- **RM-002** (patterns/RM-002.md): Init-once enforcement for static resources — When global objects are initialized or changed
-- **RM-003** (patterns/RM-003.md): No access after release/enqueue — When memory is freed or handed over to asynchronous workers
-- **RM-004** (patterns/RM-004.md): Object state preservation in reassignment — When pointers to allocated memory are overwritten
-- **RM-005** (patterns/RM-005.md): List removal with proper handling — When removing resources from lists (ex: list_del())
-- **RM-006** (patterns/RM-006.md): Function resource contracts — For all function calls with arguments
-- **RM-007** (patterns/RM-007.md): Object cleanup and reinitialization — Mandatory when objects are freed, torn down or unregistered
-- **RM-008** (patterns/RM-008.md): Variable and field initialization — For any non-trivial changes
-- **RM-009** (patterns/RM-009.md): memcg accounting — Mandatory when page, slab or vmalloc APIs are used (skip otherwise)
-- **RM-010** (patterns/RM-010.md): cleanup.h helpers (__free, guard, DEFINE_FREE, DEFINE_GUARD) are used
+- **RM-002** (patterns/RM-002.md): Init-once enforcement for static resources
+  - APPLIES: global/static objects initialized or changed, `__init` functions modified
+  - SKIP: no static/global resource initialization
+
+- **RM-003** (patterns/RM-003.md): No access after release/enqueue
+  - APPLIES: `kfree`, `put_`, `release`, `queue_work`, `schedule_work`, or handoff to async context
+  - SKIP: no memory free or async handoff operations
+
+- **RM-004** (patterns/RM-004.md): Object state preservation in reassignment
+  - APPLIES: pointers to allocated memory overwritten, object reassignment
+  - SKIP: no pointer reassignment
+
+- **RM-005** (patterns/RM-005.md): List removal with proper handling
+  - APPLIES: `list_del`, `list_move`, `hlist_del` or similar list operations
+  - SKIP: no list manipulation
+
+- **RM-006** (patterns/RM-006.md): Function resource contracts — for all function calls with arguments
+  - APPLIES: functions with refcount/ownership semantics, `_get`/`_put` patterns, or any function args that might transfer ownership
+  - SKIP: no function calls, or only pure/stateless function calls
+
+- **RM-007** (patterns/RM-007.md): Object cleanup and reinitialization
+  - APPLIES: objects freed, torn down, unregistered, or reused
+  - SKIP: no cleanup or teardown paths modified
+
+- **RM-008** (patterns/RM-008.md): Variable and field initialization
+  - APPLIES: always check for non-trivial patches
+  - SKIP: trivial patches only
+
+- **RM-009** (patterns/RM-009.md): memcg accounting
+  - APPLIES: page, slab, or vmalloc APIs — `__GFP_`, `page_`, `folio_`, `kmalloc`, `kmem_cache_`, `vmalloc`, `alloc_pages` or similar
+  - SKIP: no page/slab/vmalloc operations
+
+- **RM-010** (patterns/RM-010.md): cleanup.h helpers
+  - APPLIES: `__free`, `guard(`, `scoped_guard`, `DEFINE_FREE`, `DEFINE_GUARD`, `no_free_ptr`, `return_ptr`
+  - SKIP: no cleanup.h helper usage
 
 ### 3. Concurrency & Locking [CL]
 
@@ -92,12 +146,29 @@ After each pattern:
 - Caller expectation tracing: What does the caller expect to happen to the resource it passed?
 
 **Patterns**:
-- **CL-001** (patterns/CL-001.md): Lock type and ordering — When locks are taken or released
-- **CL-002** (patterns/CL-002.md): Lock handoff and balance — When locked objects are returned or passed between functions
-- **CL-004** (patterns/CL-004.md): Race window analysis — When concurrent access to shared datastructures is possible
-- **CL-005** (patterns/CL-005.md): Memory ordering for lockless access — When shared fields accessed without locks
-- **CL-007** (patterns/CL-007.md): Cleanup ordering — When memory is freed
-- **CL-012** (patterns/CL-012.md): New concurrent access to shared resources — With any writes to shared resources
+- **CL-001** (patterns/CL-001.md): Lock type and ordering
+  - APPLIES: `spin_lock`, `mutex_`, `down_read/write`, `rwsem` operations added/removed/changed
+  - SKIP: no locking operations in diff
+
+- **CL-002** (patterns/CL-002.md): Lock handoff and balance
+  - APPLIES: locked objects returned or passed between functions, lock scope changes
+  - SKIP: no lock handoff patterns
+
+- **CL-004** (patterns/CL-004.md): Race window analysis
+  - APPLIES: shared data structures accessed, check-then-act patterns, concurrent access possible
+  - SKIP: purely local/stack variables with no shared access
+
+- **CL-005** (patterns/CL-005.md): Memory ordering for lockless access
+  - APPLIES: `READ_ONCE`, `WRITE_ONCE`, `smp_`, `barrier`, lockless shared field access
+  - SKIP: all shared access is lock-protected
+
+- **CL-007** (patterns/CL-007.md): Cleanup ordering
+  - APPLIES: memory freed, ordering between cleanup operations matters
+  - SKIP: no cleanup/free operations
+
+- **CL-012** (patterns/CL-012.md): New concurrent access to shared resources
+  - APPLIES: writes to shared data structures, new fields accessed concurrently
+  - SKIP: no new shared data access
 
 ### 4. Error Handling [EH]
 
@@ -106,39 +177,73 @@ After each pattern:
 - if (WARN_ON(foo)) { return; } might exit a function early, check for incomplete initialization or other mistakes that leave data structures in an inconsistent state
 
 **Patterns**:
-- **EH-001** (patterns/EH-001.md): NULL safety verification — Mandatory when pointers are dereferenced
-- **EH-002** (patterns/EH-002.md): ERR_PTR vs NULL consistency — When pointers are returned or checked against NULL/ERR_PTR
-- **EH-003** (patterns/EH-003.md): Error value preservation — When error values overwritten before action taken
-- **EH-004** (patterns/EH-004.md): Return value changes handled — When return values or types change
-- **EH-005** (patterns/EH-005.md): Required interface handling — When ops structs, created, changed, or any calls of ops struct members are found
+- **EH-001** (patterns/EH-001.md): NULL safety verification
+  - APPLIES: always check for non-trivial patches
+  - SKIP: trivial patches only
+
+- **EH-002** (patterns/EH-002.md): ERR_PTR vs NULL consistency
+  - APPLIES: `ERR_PTR`, `IS_ERR`, `PTR_ERR` used, pointer return value semantics
+  - SKIP: no ERR_PTR patterns
+
+- **EH-003** (patterns/EH-003.md): Error value preservation
+  - APPLIES: error values captured then used later, `goto` error paths, error variable reassignment
+  - SKIP: no error handling changes
+
+- **EH-004** (patterns/EH-004.md): Return value changes handled
+  - APPLIES: function return value or type changes, callers may need updates
+  - SKIP: no return value changes
+
+- **EH-005** (patterns/EH-005.md): Required interface handling
+  - APPLIES: ops structs created/changed, calls to ops struct members (`->callback()`), interface contracts
+  - SKIP: no ops struct or interface changes
 
 ### 5. Bounds & Validation [BV]
 
 **Important**: Never suggest defensive bounds checks unless you can prove the source is untrusted.
 
 **Patterns**:
-- **BV-001** (patterns/BV-001.md): Bounds and validation at point of use — When array or buffer indexing occurs
-- **BV-002** (patterns/BV-002.md): Integer overflow/underflow/truncation before use — When integer arithmetic or type conversions occur
-- **BV-003** (patterns/BV-003.md): Logic change completeness — For all non-trivial changes
+- **BV-001** (patterns/BV-001.md): Bounds and validation at point of use
+  - APPLIES: array/buffer indexing with variables, loop bounds, user-controlled indices
+  - SKIP: no array indexing or only constant indices
+
+- **BV-002** (patterns/BV-002.md): Integer overflow/underflow/truncation before use
+  - APPLIES: integer arithmetic on sizes, type conversions/casts, `<<` `>>` shifts
+  - SKIP: no integer arithmetic or type conversions
+
+- **BV-003** (patterns/BV-003.md): Logic change completeness
+  - APPLIES: all non-trivial changes
+  - SKIP: trivial patches only
 
 ### 6. Code Movement [CM]
 
 **Patterns**:
-- **CM-001** (patterns/CM-001.md): Code movement validation — For all non-trivial changes
-- **CM-002** (patterns/CM-002.md): Data format and return value changes — When data encoding or interpretation changes for a variable or structure
+- **CM-001** (patterns/CM-001.md): Code movement validation — for all non-trivial changes
+  - APPLIES: any non-trivial change
+  - SKIP: trivial patches only (comments, whitespace)
+
+- **CM-002** (patterns/CM-002.md): Data format and return value changes
+  - APPLIES: data encoding/interpretation changes, struct layout changes, byte order
+  - SKIP: no data format changes
 
 ### 7. State Machines & Flags [SM]
 
 **Patterns**:
-- **SM-001** (patterns/SM-001.md): State machine completeness — When state or flag variables are modified
+- **SM-001** (patterns/SM-001.md): State machine completeness
+  - APPLIES: `state =`, `flags |=`, `flags &=`, `set_bit`, `clear_bit`, `test_bit`, state transitions
+  - SKIP: no state or flag modifications
 
 ### 8. Math [MT]
 
 **Patterns**:
-- **MT-001** (patterns/MT-001.md): Math and rounding correctness — When numbers are shifted or rounded up or down
-- **MT-002** (patterns/MT-002.md): Size Conversion Patterns — When bytes converted to pages (round down) `size >> PAGE_SHIFT` (only when truncation intended)
+- **MT-001** (patterns/MT-001.md): Math and rounding correctness
+  - APPLIES: `PAGE_SHIFT`, `round_up`, `round_down`, `DIV_ROUND`, division, modulo
+  - SKIP: no rounding or division operations
 
-### 9. Subject Review Patterns
+- **MT-002** (patterns/MT-002.md): Size Conversion Patterns — bytes to pages (round down) only when truncation intended
+  - APPLIES: bytes↔pages conversions, `>> PAGE_SHIFT`, size calculations where truncation matters
+  - SKIP: no size unit conversions
+
+### 9. Subjective Review Patterns
 - **SR-001** (patterns/SR-001.md): Subjective general assessment — only when the prompt explicitly requests this pattern
 
 ## Special Considerations

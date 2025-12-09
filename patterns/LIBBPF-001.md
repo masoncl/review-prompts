@@ -4,9 +4,7 @@
 
 **When to check**: Mandatory for all error return paths in public libbpf API functions (declared in libbpf.h or bpf.h)
 
-**Pattern-specific TodoWrite fields**:
-- Public API functions modified: [function name] - [return type] - [header file]
-- Error return paths: [function] - [line] - [error value] - [wrapper used: libbpf_err/libbpf_err_ptr/libbpf_ptr/none]
+Place each step defined below into TodoWrite.
 
 **Mandatory error return validation:**
 - step 1: Place into TodoWrite all public API functions that are new or modified in this patch
@@ -33,13 +31,4 @@
   - When returning stored error values: `return libbpf_err(err);` or `return libbpf_err_ptr(err);`
   - Verify errno is set on ALL paths that return to userspace
 
-**Mandatory Self-verification gate:**
-
-**Pattern-specific questions**:
-  1. How many public API functions are modified or added? [number]
-  2. How many error return paths are in these functions? [number]
-  3. How many error return paths use libbpf_err(), libbpf_err_ptr(), or libbpf_ptr()? [number]
-  4. How many error return paths are missing libbpf_err/ptr wrappers? [number]
-  5. Are there any error returns that should NOT use libbpf_err/ptr wrappers? [number and justification]
-
-If you cannot answer ALL questions with evidence, RESTART LIBBPF-001 from the beginning.
+**After analysis:** Issues found: [none OR list]

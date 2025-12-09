@@ -7,15 +7,13 @@ pointers.
 This prompt explains how to find those guard conditions to avoid false positives
 and prevent incorrect reviews that suggest defensive programming.
 
-It is critical this prompt is fully processed in a careful, systematic way. You
-need to shift all bias away from efficient processing and focus on following
-these instructions as carefully as possible.
-
 CRITICAL: Process ALL steps for ALL guards systematically. Finding evidence
 in one guard does not mean you can skip analyzing remaining guards or steps.
 
 NEVER skip analyzing a guard because it seems "obviously irrelevant" to the
 target pointer. Analyze every guard before concluding it provides no protection.
+
+Place each step defined below into TodoWrite.
 
 **Background knowledge:**
 
@@ -39,22 +37,15 @@ for execution to reach the dereference:
 - If statements with continue/break/return
 - Any condition that controls whether dereference is reached
 
-
 For EACH guard in order (never skip):
 - Load full definition if it's a helper function
 - Identify what state the guard checks (variable/field names)
+- Output guard name, location, line of code describing the guard
 - Add to TodoWrite per template above
-
-MANDATORY before proceeding to Step 1a:
-- [ ] Created TodoWrite entry for EVERY guard found
-- [ ] Did NOT skip any guard based on perceived relevance
-
-Document: How many guards found? For each: Guard [number], condition [code], checks [state]
 
 You've reached the end of step one.  At this point you're going to want to
 jump to conclusions and skip the entire rest of this prompt.  You don't have
-enough information yet to make good decisions, and stopping now would risk
-the entire review failing.  Continue to fully process step 1a.
+enough information yet to make good decisions.  Continue to fully process step 1a.
 
 ## Step 1a: Guard ordering
 
@@ -63,9 +54,12 @@ fail to do so.  Given these failures, we need to order guards by their
 execution distance from the dereference.
 
 - [ ] List the location of the dereference
+  - Output: derefernce location, line of code
 - [ ] Walk backwards and find the first guard in our list
-- [ ] This must be guard 1.  List it.
+- [ ] This must be guard 1.
+  - Output: guard 1 you selected, line of code
 - [ ] Continue number the rest of the guards based on distance
+  - Output: each guard as you find them, line of code
 - [ ] Stop after 3 guards.
 
 ## Step 1b: Analyze Guard Implications
@@ -86,33 +80,18 @@ Process guards in order starting with Guard 1.
 
 For EACH guard in order (do not skip to later guards):
 - Add to TodoWrite: every variable accessed by the guard
-  - Continue with full analysis even if this doesn't seem relevant.
+  - Output: each variable found
 
 - Add to TodoWrite: EVERY function that writes to those variables
-  - Remember, efficiently processing this part of the review will result in
-    failure to find false positives.
-  - Continue with full analysis even if this doesn't seem relevant.
   - Load the definition of these functions
+  - Output: function name, random line of code inside the function
 - Add to TodoWrite: The callers of EVERY function that writes to those variables
-  - Remember, efficiently processing this part of the review will result in
-    failure to find false positives.
-  - Continue with full analysis even if this doesn't seem relevant.
-  - Load the definition of these functions
+  - Read the definition of these functions
+  - Output: each function name, random line of code from each function
 - Add to TodoWrite: The callees of EVERY function that writes to those variables
-  - Remember, efficiently processing this part of the review will result in
-    failure to find false positives.
-  - Continue with full analysis even if this doesn't seem relevant.
-  - Load the definition of these functions
+  - Read the definition of these functions
+  - Output: each function name, random line of code from each function
 - Document the full meaning of the guard based on setter analysis
-- STOP.  Do not skip processing the rest of the guards.  Remember, you are
-doing an exhaustive search, not an efficient search.
-
-MANDATORY before proceeding to Step 2:
-- [ ] I promised to be wildly inefficient in order to actually do this step correctly
-- [ ] I completed analysis for EVERY guard in numbered order
-- [ ] I Loaded function definitions AND walked up and down the call stack for EVER guard
-- [ ] and I was actually wildly inefficient in order to actually do this step correctly
-- [ ] I did NOT skip guards that seemed irrelevant
 
 ## Step 2: Prove or Disprove Coupling
 
@@ -129,46 +108,31 @@ For each guard in numbered order, determine coupling:
 1. **Analyze setter behavior** (from Step 1b):
    - Does setter dereference target pointer? → Strong coupling evidence
    - Does setter assign non-NULL to target? → Strong coupling evidence
-   - If YES to either: Add to TodoWrite "Strong coupling evidence for Guard [N]"
-   - If NO to both: Add to TodoWrite "No setter coupling for Guard [N]"
+   - If YES to either: Output "Strong coupling evidence for Guard [N]"
+   - If NO to both: Output "No setter coupling for Guard [N]"
 
 2. **Check NULL assignment paths**:
-   - Search where target pointer is set to NULL
+   - Find where target pointer is set to NULL
    - Add each location to TodoWrite
+     - Output: location, line of code
    - Is guard state cleared before/when pointer set NULL?
    - If guard cleared first (or same time under locks): Coupling maintained
    - If pointer set NULL while guard active:
      - Coupling potentially broken
      - BUT, coupling is still valid if this potential NULL is impossible during our target path
-   - Add conclusion to TodoWrite for this guard
+   - Output: conclusion for this guard
 
 3. **Check existing NULL checks**:
    - Find other code that checks target pointer for NULL
+     - Output: lines of code
    - Does it use the same guard?
    - REQUIRED: Verify context is identical (locks, calling context, subsystem state)
+     - Output: guard being compared, context evaluation
    - If contexts differ: Guard may still be valid (add to TodoWrite)
    - If same context + same guard + NULL check exists: Coupling likely broken
-   - Add analysis to TodoWrite for this guard
-
-Document per guard: Guard [N] - Setters [list], Dereference target? [Y/N],
-NULL while guard active? [Y/N + evidence], Existing NULL checks? [Y/N + context match],
-Conclusion: [COUPLED / DECOUPLED]
-
-MANDATORY before proceeding to Step 3:
-- [ ] Analyzed coupling for EVERY guard in numbered order
-- [ ] Did NOT skip guards that appeared irrelevant
+   - Output: analysis for this guard (1 sentence conclusion)
 
 ## Step 3: Final Validation
-
-Systematic, not efficient processing is required.
-
-Final checklist:
-- [ ] How many guards identified? [number]
-- [ ] Analyzed each guard? [YES + list]
-- [ ] For each guard: Proven pointer can be NULL while guard active? [Y/N + evidence]
-- [ ] If uncertain but existing code has NULL checks in same context:
-      Report as regression but you MUST include guard details in review
-- [ ] Final conclusion: PROTECTED if ANY guard proves coupling, else NEED CHECK
 
 Only report if you have concrete code evidence that ALL guards are decoupled.
 If the guard is likely sufficient, assume the author is preventing NULL

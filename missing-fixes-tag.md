@@ -13,19 +13,17 @@ Fixes: tags make it harder to:
 - Understand fix context during code review
 - Correlate fixes with their original bugs
 
-## Pattern-specific TodoWrite fields
-
-Create a TodoWrite entry to track missing Fixes: tag detection:
-- Commit has Fixes tag: [YES/NO]
-- Subject line keywords: [list STRONG/MODERATE indicators found]
-- Body bug indicators: [list indicators found or NONE]
-- Code change patterns: [list bug fix patterns found or NONE]
-- Stable tag present: [YES/NO]
-- Reported-by present: [YES/NO]
-- Link to bug tracker: [YES/NO - show link if present]
-- Confidence level: [HIGH/MEDIUM/LOW]
-- Recommendation: [should ask about Fixes tag / note only / no action]
-- Reasoning: [explain the determination]
+**TodoWrite format** (one entry per commit):
+```
+Commit: [subject]
+Has Fixes tag: ✓/✗
+Indicators: subject [STRONG/MODERATE/none], body [bug indicators], code [fix patterns]
+Context: stable tag ✓/✗, Reported-by ✓/✗, Link ✓/✗ [show URL if present]
+Confidence: [HIGH/MEDIUM/LOW]
+Recommendation: [ask about Fixes / note only / no action]
+Reasoning: [explain determination]
+Issues: [none OR description]
+```
 
 ## When to Flag Missing Fixes: Tags [MISSING-FIXES-001]
 
@@ -307,24 +305,7 @@ Consolidate three similar functions into one helper.
 
 ## Mandatory Self-verification gate
 
-Before completing missing Fixes: tag detection, answer these questions:
-
-**Pattern-specific questions:**
-  1. Is there already a Fixes: tag in the commit message? [YES/NO]
-  2. How many STRONG bug fix keywords found in subject? [number]
-  3. How many MODERATE bug fix keywords found in subject? [number]
-  4. How many bug indicators found in commit body? [number]
-  5. How many bug fix code patterns found? [number]
-  6. Is Cc: stable@vger.kernel.org present? [YES/NO]
-  7. Is Reported-by: present? [YES/NO]
-  8. Are there Links: to bug trackers? [YES/NO - list if present]
-  9. What is the confidence level? [HIGH/MEDIUM/LOW]
- 10. What is the recommendation? [ask about Fixes / note only / no
-     action]
- 11. Did you check for exception cases? [YES/NO - list if applicable]
-
-If you cannot answer ALL questions with evidence, RESTART
-missing-fixes-tag detection from the beginning.
+**After analysis:** Issues found: [none OR list]
 
 ## Integration with Review Process
 
