@@ -182,6 +182,7 @@ If you've identified a real regression fixed later in the patch series, you
 must still report this regression []
   - BUT, you must indicate in the bug report that you found the fix later in
     the series []
+  - When reporting, include both the commit sha and the commit subject line []
 
 #### Patch series Mandatory Validation
 - Was a git range provided in the prompt? [ y / n, range ]
