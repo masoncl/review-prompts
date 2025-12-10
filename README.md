@@ -21,8 +21,13 @@ so far.
 Put these prompts somewhere, and then tell claude to use them:
 
 ```
-claude> Using the prompt ../review/review-core.md and the review prompt directory ../review, review the top commit
+claude> Using the prompt ../review/review-core.md run a deep dive regression analysis of the top commit
 ```
+
+Claude has a internal definition of what "reviewing" code means, so if we call
+it a review, it will generally follow that internal definition.  We can nudge it
+slightly, but calling it a deep dive regression analysis leads to better
+compliance with the prompts.
 
 You can also feed it incremental diffs.
 
