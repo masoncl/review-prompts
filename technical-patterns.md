@@ -102,16 +102,12 @@ when you've analyzed each one.
   - APPLIES: `kfree`, `put_`, `release`, `queue_work`, `schedule_work`, or handoff to async context
   - SKIP: no memory free or async handoff operations
 
-- **RM-004** (patterns/RM-004.md): Object state preservation in reassignment
-  - APPLIES: pointers to allocated memory overwritten, object reassignment
-  - SKIP: no pointer reassignment
-
 - **RM-005** (patterns/RM-005.md): List removal with proper handling
   - APPLIES: `list_del`, `list_move`, `hlist_del` or similar list operations
   - SKIP: no list manipulation
 
 - **RM-006** (patterns/RM-006.md): Function resource contracts — for all function calls with arguments
-  - APPLIES: functions with refcount/ownership semantics, `_get`/`_put` patterns, or any function args that might transfer ownership
+  - APPLIES: functions with refcount/ownership semantics, `_get`/`_put` patterns, pointer reassignment, or any function args that might transfer ownership
   - SKIP: no function calls, or only pure/stateless function calls
 
 - **RM-007** (patterns/RM-007.md): Object cleanup and reinitialization
