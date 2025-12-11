@@ -147,7 +147,7 @@ when you've analyzed each one.
 
 **Patterns**:
 - **CL-001** (patterns/CL-001.md): Lock type and ordering
-  - APPLIES: `spin_lock`, `mutex_`, `down_read/write`, `rwsem` operations added/removed/changed
+  - APPLIES: any locks are held, taken, or released in modified functions.  Includes every kind of lock (spin_lock, mutex, rwsem, seqlocks, etc)
   - SKIP: no locking operations in diff
 
 - **CL-002** (patterns/CL-002.md): Lock handoff and balance
@@ -155,7 +155,7 @@ when you've analyzed each one.
   - SKIP: no lock handoff patterns
 
 - **CL-004** (patterns/CL-004.md): Race window analysis
-  - APPLIES: shared data structures accessed, check-then-act patterns, concurrent access possible
+  - APPLIES: shared data structures accessed, writes to shared resources, any concurrent access possible
   - SKIP: purely local/stack variables with no shared access
 
 - **CL-005** (patterns/CL-005.md): Memory ordering for lockless access
@@ -165,10 +165,6 @@ when you've analyzed each one.
 - **CL-007** (patterns/CL-007.md): Cleanup ordering
   - APPLIES: memory freed, ordering between cleanup operations matters
   - SKIP: no cleanup/free operations
-
-- **CL-012** (patterns/CL-012.md): New concurrent access to shared resources
-  - APPLIES: writes to shared data structures, new fields accessed concurrently
-  - SKIP: no new shared data access
 
 ### 4. Error Handling [EH]
 
