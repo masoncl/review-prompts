@@ -89,6 +89,33 @@ are meant to be concatenated together after the run is done.
 
 Sample output is in examples/review-stat.txt
 
+## Writing new prompts
+
+The existing prompts catch a wide variety of bugs, and most subsystems won't
+need special instructions.  If you're finding false positives or missed bugs,
+it can help to add a few notes to help AI get the review right.
+patterns/BLOCK-001.md and patterns/LIBBPF-001.md are two examples where we fill
+in extra details that you can use as a guide.
+
+The basic structure of the prompts continues to change, and should decrease in
+complexity now that we have a good baseline.  But subsystem specific prompts
+usually just add a few specific details, and can be very short.
+
+### Structure of existing prompts
+
+technical-patterns.md includes most individual patterns, and
+review-core.md includes subsystem specific prompts.  This lets us
+limit tokens spent to only the prompts that are relevant to the patch.
+
+Beyond that, the existing prompts are structured to try and make sure
+AI actually follows the steps.  The basic idea:
+
+- Explain when to run this prompt
+- Add additional knowledge about code or data structures
+- Put a series of steps into a TodoWrite
+- Gather context needed to review the code
+- Make AI produce output at each step to prove it is following instructions
+
 ## Patches are welcome
 
 Right now I'm more focused on reducing false positives than finding every bug.
