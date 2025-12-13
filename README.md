@@ -22,7 +22,7 @@ it a review, it will generally follow that internal definition.  We can nudge it
 slightly, but calling it a deep dive regression analysis leads to better
 compliance with the prompts.
 
-You can also feed it incremental diffs, or using debugging.md with an oops
+You can also feed it incremental diffs, or use debugging.md with an oops
 or stack trace.
 
 If you want to use this in GitHub workflows, see [this document](./docs/github-actions-claude-integration.md)
