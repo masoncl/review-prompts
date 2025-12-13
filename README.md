@@ -1,27 +1,20 @@
 # Kernel patch review prompts
 
-These prompts give claude code enough extra context to more effectively review
-kernel code.  They are meant to be paired with semcode, which makes the review
-sessions a faster and more accurate by providing function definitions and call
-graphs.  semcode isn't released yet, but claude can usually find these things
-pretty well, so these prompts work well enough to start discussing them.
+These prompts give AI extra context to more effectively review
+kernel code.  They can be paired with semcode, which makes the review
+sessions faster and more accurate by indexing the kernel tree, reducing the
+time AI spends grepping for function/type definitions, and call graphs.
 
-I've been testing them in two basic ways:
+The [semcode github repository](https://github.com/facebookexperimental/semcode)
+has instructions on setting up the indexing and MCP server, but if you're just
+getting started, you can do the quick start without semcode.
 
-Collecting Fixes: patches and running the prompts against the known bad
-commits.  This lets me grade success rate, which is currently at 50% for a set
-of 300 regressions fixed between 6.16 and 6.17.
-
-Running reviews against upstream -next branches.  This tends to find
-regressions in about 10% of the patches.  The false positive rate is about 20-30%
-so far.
-
-## Basic usage
+## Quick start
 
 Put these prompts somewhere, and then tell claude to use them:
 
 ```
-claude> Using the prompt ../review/review-core.md run a deep dive regression analysis of the top commit
+claude> Using the prompt ../review-prompts/review-core.md run a deep dive regression analysis of the top commit
 ```
 
 Claude has a internal definition of what "reviewing" code means, so if we call
@@ -29,7 +22,8 @@ it a review, it will generally follow that internal definition.  We can nudge it
 slightly, but calling it a deep dive regression analysis leads to better
 compliance with the prompts.
 
-You can also feed it incremental diffs.
+You can also feed it incremental diffs, or using debugging.md with an oops
+or stack trace.
 
 If you want to use this in GitHub workflows, see [this document](./docs/github-actions-claude-integration.md)
 for integration instructions.
@@ -44,24 +38,12 @@ sample.txt has examples of regressions.
 
 ## False positives
 
-Many of the false positives are just claude not understanding the kernel,
+Many of the false positives are just AI not understanding the kernel,
 which is why there are per-subsystem context files.  We'll never get down
 to zero false positives, but the goal is to build up enough knowledge that
 AI tools can lead us in the right direction.
 
 The false positive rate is improving, currently at ~20-30%.
-
-Generally speaking claude sonnet is:
-
-- Good at following code logic
-- Good at spotting use-after-frees
-- Good at ABBA style deadlocks, or flat out missing locks
-- Fair at reference counting.  We do this in a lot of different ways and
-claude tries his best.
-- Bad at array bounds violations
-- Really bad at race conditions
-
-Longer explanations are more likely to be false positives.
 
 ## Prompt structure
 
@@ -75,19 +57,6 @@ regression report into an AI agent and ask questions.  The agents are
 generally accurate at finding details in the kernel tree, so if it claims
 there is a use-after-free, ask for the call chains or what conditions it might
 happen.  These really help nail things down.
-
-## review-stats.md
-
-The BPF CI sends reviews based on these prompts to the BPF mailing list.
-review-stats.md can be used to compile a report about how effective these
-reviews are.  The idea is to compile a list of all the message-ids from
-the automated reviews, and then have AI use semcode to pull down those
-threads and analyze the results one at a time.
-
-It outputs two files, (review-analysis.txt and review-details.txt), and they
-are meant to be concatenated together after the run is done.
-
-Sample output is in examples/review-stat.txt
 
 ## Writing new prompts
 
@@ -116,6 +85,20 @@ AI actually follows the steps.  The basic idea:
 - Gather context needed to review the code
 - Make AI produce output at each step to prove it is following instructions
 
+## review-stats.md
+
+The BPF CI sends reviews based on these prompts to the BPF mailing list.
+review-stats.md can be used to compile a report about how effective these
+reviews are.  The idea is to compile a list of all the message-ids from
+the automated reviews, and then have AI use semcode to pull down those
+threads and analyze the results one at a time.
+
+It outputs two files, (review-analysis.txt and review-details.txt), and they
+are meant to be concatenated together after the run is done.
+
+Sample output is in examples/review-stat.txt
+
+
 ## Patches are welcome
 
 Right now I'm more focused on reducing false positives than finding every bug.
@@ -125,5 +108,7 @@ and then we can start adding it into CI systems.
 With that said, patches to firm up any of the subsystem specific details or
 help it find new classes of bugs are very much appreciated.
 
-I've been using claude, but I also welcome patches to make these more
-effective with any of the AI agents.
+The prompts have been developed against claude, but gemini also works well.
+These should be generic enough that other agents work too, but please send patches
+if we can improve performance with any of the other agents.
+
