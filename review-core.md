@@ -128,6 +128,18 @@ diff fragments.
 
 **Complete**: State "COMPLETED" or "BLOCKED(reason)"
 
+### TASK 1B: Categorize changes
+
+- The change you're analyzing may have multiple components.  Think about the
+  changes made, and break it up into a few categories
+  - Output: categories found and their functions
+- Add each categories and the modified, new, or deleted functions into TodoWrite
+- Pay special attention to changes in function return values or conditions,
+  these often have side effects elsewhere in the call stack.
+- These categories will be referenced by the pattern prompts.  Call them
+  CHANGE-1, CHANGE-2, etc.  The prompts will call them CHANGE CATEGORIES
+- You'll need to repeat pattern analysis for each of the categories identified.
+
 ### TASK 2A: Pattern Relevance Assessment []
 **Goal**: Determine which pattern categories apply to the code changes
 
