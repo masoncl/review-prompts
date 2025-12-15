@@ -48,7 +48,7 @@ must complete task POSITIVE.1 before completing the false positive check.
 - Read the entire commit message.  If the commit message explains a given bug,
 ex: "For now, ignore this problem", consider the bug a false positive.
 - Read the surrounding code comments.  If you find a bug and a comment
-explictly explaining why they have chosen to add the bug, consider it a false
+explicitly explaining why they have chosen to add the bug, consider it a false
 positive.
 
 **Only report if**:

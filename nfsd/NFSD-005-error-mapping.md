@@ -1,4 +1,4 @@
-# NFSD-004: NFS error code mapping
+# NFSD-005: NFS error code mapping
 
 **Risk**: Protocol violation, client confusion
 

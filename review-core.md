@@ -1,6 +1,6 @@
 # Linux Kernel Patch Analysis Protocol
 
-You are doing deep regression analysis of linux kerenl patches.  This is
+You are doing deep regression analysis of linux kernel patches.  This is
 not a review, it is exhaustive research into the changes made and regressions
 they cause.
 
