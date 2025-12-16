@@ -20,14 +20,14 @@ not provided, assume it is the same directory as the prompt file.
 ## FILE LOADING INSTRUCTIONS
 
 ### Core Files (ALWAYS LOAD FIRST)
-1. `technical-patterns.md` - Consolidated pattern reference with IDs
+1. `technical-patterns.md` - Consolidated guide to kernel topics
 
 ### Subsystem Deltas (LOAD ONLY IF PATCH TOUCHES)
 
 Load these files based on what the patch touches:
 
 - Network code (net/, drivers/net, skb_, sockets) → `networking.md`
-- Memory management (mm/, page/folio ops, alloc/free) → `mm.md`
+- Memory management (mm/, page/folio ops, alloc/free, slab, or vmalloc APIs — `__GFP_`, `page_`, `folio_`, `kmalloc`, `kmem_cache_`, `vmalloc`, `alloc_pages` or similar → `mm.md`
 - VFS operations (inode, dentry, vfs_, fs/*.c) → `vfs.md`
 - Locking primitives (spin_lock*, mutex_*) → `locking.md`
 - Scheduler code (kernel/sched/, sched_, schedule) → `scheduler.md`
@@ -42,6 +42,11 @@ Load these files based on what the patch touches:
 - Block/nvme → `block.md`
 - NFSD (fs/nfsd/*, fs/lockd/*) → `nfsd.md`
 - io_uring → `io_uring.md`
+- cleanup API (`__free`, `guard(`, `scoped_guard`, `DEFINE_FREE`, `DEFINE_GUARD`, `no_free_ptr`, `return_ptr`) → cleanup.md
+
+#### Subjective Review Patterns
+- **SR-001** (patterns/SR-001.md): Subjective general assessment — load only when the prompt explicitly requests this pattern
+
 
 ### Commit Message Tags (load if subjective reviews are requested in prompt)
 
@@ -58,7 +63,7 @@ These default to off
 ## Task 0: CONTEXT MANAGEMENT
 - Discard non-essential details after each task to manage token limits
   - Don't discard function or type context if you'll use it later on
-- Exception: Keep all context for Phase 4 reporting if regressions found
+- Exception: Keep all context for Task 4 reporting if regressions found
 - Report any context obtained outside semcode MCP tools
 
 1. Plan your initial context gathering phase after finding the diff and before making any additional tool calls
@@ -66,33 +71,11 @@ These default to off
      - Think about the diff you're analyzing, and understand the commit's purpose
      - Document the commit's intent before analyzing patterns
    - Classify the kinds of changes introduced by the diff
-     - Use this classification to help limit patterns you will fully process
    - Plan entire context gathering phase
      - Unless you're running out of context space, try to load all required context once and only once
-   - Don't fetch caller/callee context unless you can explain why it's needed for a specific pattern
-   - reason about likely outcomes before verifying
 2. You may need to load additional context in order to properly analyze the research patterns.
 
 ## RESEARCH TASKS
-
-### MANDATORY COMPLETION VERIFICATION
-
-Before outputting ANY response to the user after starting your deep dive:
-
-1. **Self-check completion status**:
-- [ ] Have you marked ALL tasks (1, 2A, 2B, 3, 4) as "COMPLETED" or "BLOCKED"?
-- [ ] Have you stated "FINAL REGRESSIONS FOUND: <number>"?
-- [ ] Have you stated "FINAL TOKENS USED: <total>"?
-- [ ] Have you stated "FINAL PATTERNS TRIGGERED: <list>"?
-- [ ] If a regression was found, have you created review-inline.txt and verified it is non-zero size
-
-2. **If ANY of the above are missing**:
-- DO NOT respond to the user yet
-- Output: "INCOMPLETE REVIEW DETECTED - RESTARTING"
-- Clear context and restart the research
-- Complete ALL remaining tasks before responding
-
-3. **No exceptions**: Finding a bug early does NOT allow skipping remaining tasks
 
 ### TASK 1: Context Gathering []
 **Goal**: Build complete understanding of changed code
@@ -126,8 +109,6 @@ Before outputting ANY response to the user after starting your deep dive:
 entire function or type in the sources.  Always prefer full context over
 diff fragments.
 
-**Complete**: State "COMPLETED" or "BLOCKED(reason)"
-
 ### TASK 1B: Categorize changes
 
 - The change you're analyzing may have multiple components.  Think about the
@@ -140,61 +121,14 @@ diff fragments.
   CHANGE-1, CHANGE-2, etc.  The prompts will call them CHANGE CATEGORIES
 - You'll need to repeat pattern analysis for each of the categories identified.
 
-### TASK 2A: Pattern Relevance Assessment []
-**Goal**: Determine which pattern categories apply to the code changes
+### Task 2: Analyze the changes for regressions
 
-1. **Analyze the diff**:
-  - Identify change types, operations involved, relevant subsystems
-  - If entirely trivial (only comments/strings): do basic correctness check, skip full pattern analysis
-  - Still check for copy-paste errors even in trivial changes
+1. If the patch is non-trivial: read and fully analyze patterns/CS-001.md
+  - **MANDATORY VALIDATION**: Have you read and patterns/CS-001.md for non-trivial changes? [ y / n ]
+  - Output: Risk heading from patterns/CS-001.md if changes are non-trivial
 
-2. **Assess pattern relevance** using shortcuts from technical-patterns.md:
-  - For each pattern, check APPLIES/SKIP hints to fast-path the decision
-  - Default is APPLIES — only SKIP when clearly inapplicable
-  - Output:
-    ```
-    Subsystems: [list] → files to load: [list]
-    Patterns to analyze: [list with one-line justification each]
-    ```
-
-3. **Load subsystem files** identified in step 2
-
-**Complete**: State "RELEVANCE ASSESSMENT COMPLETE"
-
-### TASK 2B: Pattern Analysis []
-
-**Apply patterns systematically** (repeatable and deterministic):
-
-The patterns contain systematic instructions for patch research and have details
-about the project that you don't know or understand.   If you fail to read
-the patterns, your analysis will fail.
-
-You're going to want to take shortcuts, and assume the knowledge you gained
-from assessing pattern relevance is enough to complete the research without
-reading the patterns.  These shortcuts will make the research fail.
-
-It is CRITICAL that you read the pattern files you've found relevant in Task 1A.
-
-Note: these patterns exist because you do not have enough knowledge to complete
-this research without them.  Skipping steps in the patterns will make the research
-fail.
-
-1. For each pattern in "Patterns to analyze" from Task 2A:
-   a. Add pattern to TodoWrite.  You may not complete the TodoWrite until the pattern
-      is fully analyzed
-   b. State: "Analyzing [ID]"
-   c. **MANDATORY:** Read pattern file
-   d. Output: pattern name, number of lines in pattern, Risks pattern is targeting
-   e. Follow pattern steps
-   f. Run pattern's self-verification gate if it has one
-   g. State: "Completed [ID]"
-2. Never skip patterns just because you found a bug - bugs may be false positives
-
-**Mandatory self-verification gate:**
-- All patterns analyzed? [yes/no]
-- Number of pattern files read [number]
-- Number of lines of pattern files read [number]
-- Issues found: [none OR list with pattern IDs]
+2. Using the context loaded, and any additional context you need, analyze
+the change for regressions.
 
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives
@@ -231,32 +165,8 @@ This step must not be skipped if there are regressions found.
 If regressions are found and ./review-inline.txt does not exist, repeat
 Task 4.
 
-## COMMUNICATION GUIDELINES
-
-### Tone Requirements
-- **Conversational**: Target kernel experts, not beginners
-- **Factual**: No drama, just technical observations
-- **Questions**: Frame as questions about the code, not accusations
-- **Terminology**: Call issues "regressions" not "bugs" or "critical"
-
-### Question Phrasing
-- ❌ "Did you corrupt memory here?"
-- ✅ "Can this corrupt memory?"
-- ❌ "Does this loop have a bounds checking issue?"
-- ✅ "Does this code overflow xyz[]?"
-
-### Formatting Rules
-- Reference functions by name, not line numbers
-- Use call chains for clarity: funcA()→funcB()
-
-## KEY REQUIREMENTS
-- Complete ALL phases (no early exit)
-- Report confidence levels for each finding
-- State "COMPLETED" or "BLOCKED(reason)" after each phase
-
 ## OUTPUT FORMAT
 Always conclude with:
-- `FINAL REGRESSIONS FOUND: <number>`
-- `FINAL TOKENS USED: <total tokens used in the entire session>`
-- `FINAL PATTERNS TRIGGERED <list of patterns that caught regressions>`
-- Any false positives eliminated
+- Output: `FINAL REGRESSIONS FOUND: <number>`
+- Output: `FINAL TOKENS USED: <total tokens used in the entire session>`
+- Output: Any false positives eliminated

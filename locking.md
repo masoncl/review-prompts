@@ -77,5 +77,21 @@ the usage is wildly wrong.
   Don't try to find memory barrier or ordering bugs with respect to atomics.
 - percpu-rwsem for frequent read, rare write patterns
 
+## Lock release and reaquire
+- Whenever locks are dropped and taken again, verify protected objects are not stale
+
+## When functions return with different locks than originally held
+- verify original locked object's locking was properly handled
+- verify the callers knows which lock to release
+
 ## Complex combinations
 - When code reassigns over a previously locked data structure, find if we've properly unlocked that datastructure, or if the lock is mistakenly held forever
+
+## Lock Context Compatibility Matrix
+
+| Lock Type | Process | Softirq | Hardirq | Sleeps |
+|-----------|---------|---------|---------|--------|
+| spin_lock | ✓ | ✓ | ✓ | ✗ |
+| spin_lock_bh | ✓ | ✗ | ✗ | ✗ |
+| spin_lock_irqsave | ✓ | ✓ | ✓ | ✗ |
+| mutex/rwsem | ✓ | ✗ | ✗ | ✓ |

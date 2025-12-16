@@ -16,6 +16,10 @@ complex paragraphs and instead use call chains funcA()->funcB() to explain.
 
 - The report must be conversational with undramatic wording, fit for sending
 as a reply to the patch introducing the regression on the LKML mailing list
+  - Report must be **factual**.  just technical observations
+  - Report should be framed as **questions**, not accusations
+  - Call issues "regressions", never use the word critical
+  - NEVER EVER USE ALL CAPS
 
 - Explain the regressions as questions about the code, but do not mention
 the author.

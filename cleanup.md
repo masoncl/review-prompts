@@ -1,12 +1,8 @@
-# RM-010: Scope-based cleanup helper usage
-
-**Risk**: Resource leak, use-after-free, incorrect cleanup ordering, cleanup function incompatibility
+# cleanup and guard API details
 
 **When to check**: mandatory when cleanup.h helpers (__free, guard, DEFINE_FREE, DEFINE_GUARD) are used
 
 **Common location**: Functions using __free, guard(), DEFINE_FREE, DEFINE_GUARD, no_free_ptr, return_ptr
-
-Place each step defined below into TodoWrite.
 
 **Mandatory cleanup function compatibility validation:**
 - step 1: For EVERY __free() variable, identify the cleanup function

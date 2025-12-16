@@ -62,6 +62,18 @@
 : **Reclaim**: Limited
 : **Use Case**: Avoid FS recursion
 
+## __GFP_ACCOUNT
+
+- slabs created with SLAB_ACCOUNT implicitly have __GFP_ACCOUNT on every allocation
+
+**Mandatory memcg accounting validation:**
+- step 1: when using __GFP_ACCOUNT, ensure the correct memcg is charged
+  - old = set_active_memcg(memcg) ; work ; set_active_memcg(old)
+- step 2: most usage does not need set_active_memcg(), but:
+  - kthreads switching context between many memcgs may need it
+  - helpers operating on objects (e.g., BPF maps) with stored memcg may need it
+- step 3: ensure new __GFP_ACCOUNT usage is consistent with surrounding code
+
 ## Migration Invariants
 - Migration entries must maintain PTE state consistency
 - NUMA balancing expects valid PTE combinations
