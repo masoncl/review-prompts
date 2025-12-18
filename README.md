@@ -85,10 +85,10 @@ AI actually follows the steps.  The basic idea:
 - Gather context needed to review the code
 - Make AI produce output at each step to prove it is following instructions
 
-## review-stats.md
+## review-stat.md
 
 The BPF CI sends reviews based on these prompts to the BPF mailing list.
-review-stats.md can be used to compile a report about how effective these
+review-stat.md can be used to compile a report about how effective these
 reviews are.  The idea is to compile a list of all the message-ids from
 the automated reviews, and then have AI use semcode to pull down those
 threads and analyze the results one at a time.

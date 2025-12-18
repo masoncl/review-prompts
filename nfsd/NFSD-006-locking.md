@@ -1,4 +1,4 @@
-# NFSD-005: Locking correctness
+# NFSD-006: Locking correctness
 
 **Risk**: Deadlock, race condition, data corruption
 

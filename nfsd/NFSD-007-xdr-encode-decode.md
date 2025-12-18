@@ -1,4 +1,4 @@
-# NFSD-006: XDR encode/decode failure handling
+# NFSD-007: XDR encode/decode failure handling
 
 **Risk**: State corruption, incomplete responses
 

@@ -54,7 +54,7 @@ fail to do so.  Given these failures, we need to order guards by their
 execution distance from the dereference.
 
 - [ ] List the location of the dereference
-  - Output: derefernce location, line of code
+  - Output: dereference location, line of code
 - [ ] Walk backwards and find the first guard in our list
 - [ ] This must be guard 1.
   - Output: guard 1 you selected, line of code
