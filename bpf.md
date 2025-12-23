@@ -28,82 +28,91 @@
 
 ### Kfunc Argument Validation by the Verifier
 
-The BPF verifier performs extensive validation of kfunc arguments at program load time.
-Understanding what the verifier guarantees is critical to avoid false positive bug reports.
+The BPF verifier performs validation of kfunc arguments at program load time.
+Understanding what the verifier actually guarantees is critical to correctly
+identify real bugs.
 
 #### Scalar and Enum Arguments
 
 When a kfunc takes a scalar argument (int, u32, enum, etc.), the verifier:
 
-1. **Tracks the register type**: Ensures the register is `SCALAR_VALUE` (not a pointer)
-2. **Tracks value ranges**: Maintains min/max bounds for scalar values
-3. **Tracks constant values**: When values are compile-time constants, the verifier knows the exact value via `tnum_is_const(reg->var_off)`
+1. **Checks register type**: Ensures the register is `SCALAR_VALUE` (not a pointer)
+2. **Tracks value ranges**: Maintains min/max bounds for scalar values internally
+3. **For `__const` annotated args**: Requires value to be known at verification time
 
-**Important**: Enum types in BTF are treated as scalars (`btf_type_is_scalar()` returns true for both integers and enums). See `include/linux/btf.h`:
+**Critical**: The verifier does NOT enforce that enum values are valid members
+of the enum. Enum types are treated identically to plain integers - the verifier
+only checks it's a scalar, not that it falls within valid enum range.
 
+From `check_kfunc_args()` in kernel/bpf/verifier.c:
 ```c
-static inline bool btf_type_is_scalar(const struct btf_type *t)
-{
-    return btf_type_is_int(t) || btf_type_is_enum(t);
+if (btf_type_is_scalar(t)) {
+    if (reg->type != SCALAR_VALUE) {
+        verbose(env, "R%d is not a scalar\n", regno);
+        return -EINVAL;
+    }
+    // ... handles __const and special cases ...
+    continue;  // No enum range validation!
 }
 ```
 
-#### Why Enum Bounds Checks Are Often Unnecessary in Kfuncs
+#### Kfuncs MUST Include Bounds Checks for Array Indices
 
-When a BPF program uses enum constants (e.g., `MEMCG_OOM`, `PGFAULT`, `NR_ANON_MAPPED`):
+Because the verifier does not validate enum ranges, kfuncs that use enum or
+integer parameters as array indices MUST include runtime bounds checks.
 
-1. **Source of enum values**: BPF programs include `vmlinux.h`, which is generated from the kernel's BTF. This file contains the authoritative enum definitions directly from the running kernel.
-
-2. **Compile-time substitution**: The C compiler substitutes enum constants with their integer values at compile time. The BPF program literally cannot reference an enum value that doesn't exist in the kernel.
-
-3. **Verifier sees constants**: When a BPF program passes `MEMCG_OOM` to a kfunc, the verifier sees a constant scalar value (the actual integer). The verifier tracks this as a known constant via `tnum_is_const()`.
-
-4. **No runtime user input**: Unlike syscall parameters, kfunc enum arguments come from the compiled BPF program, not from runtime user input. There's no attack vector for passing arbitrary values.
-
-**Example - this bounds check is UNNECESSARY**:
+**Example - correct bounds checking**:
 ```c
-// The BPF program can only pass valid enum values from vmlinux.h
+__bpf_kfunc unsigned long bpf_mem_cgroup_page_state(struct mem_cgroup *memcg, int idx)
+{
+    if (idx < 0 || idx >= MEMCG_NR_STAT)  // Required!
+        return (unsigned long)-1;
+    return memcg_page_state_output(memcg, idx);
+}
+```
+
+**For enum parameters**, the check must handle negative values because enums
+are signed int in C:
+```c
 __bpf_kfunc unsigned long bpf_mem_cgroup_memory_events(struct mem_cgroup *memcg,
                         enum memcg_memory_event event)
 {
-    // This check is defensive but not strictly necessary:
-    // if (event >= MEMCG_NR_MEMORY_EVENTS)
-    //     return (unsigned long)-1;
+    // Must check BOTH bounds - enum is signed int, negative values bypass >= check
+    if ((unsigned int)event >= MEMCG_NR_MEMORY_EVENTS)
+        return (unsigned long)-1;
+    // OR: if (event < 0 || event >= MEMCG_NR_MEMORY_EVENTS)
 
-    // BPF programs using enum constants from vmlinux.h cannot pass invalid values
     return atomic_long_read(&memcg->memory_events[event]);
 }
 ```
 
-#### When Bounds Checks ARE Necessary
+**Why negative check matters**: If `event = -1`:
+- Signed comparison: `-1 >= 10` is FALSE (check passes incorrectly)
+- Function accesses `memory_events[-1]` - out-of-bounds read
 
-Bounds checking IS required when:
+#### When Values Are Guaranteed Safe
 
-1. **Plain integer parameters**: If the kfunc takes `int idx` instead of `enum foo idx`, the type system doesn't constrain the value. Example:
-   ```c
-   // idx is int, not an enum - bounds check needed
-   __bpf_kfunc unsigned long bpf_mem_cgroup_page_state(struct mem_cgroup *memcg, int idx)
-   {
-       if (idx < 0 || idx >= MEMCG_NR_STAT)  // Necessary!
-           return (unsigned long)-1;
-       return memcg_page_state_output(memcg, idx);
-   }
-   ```
+The only case where bounds checks are truly unnecessary:
 
-2. **Values derived from BPF map lookups**: If the enum/index value comes from a map (user-controlled data), validation is required.
+1. **`__const` annotated parameters**: The verifier requires `tnum_is_const()`,
+   meaning only compile-time constants from vmlinux.h can be passed.
 
-3. **Values computed at runtime**: If the BPF program computes the index value rather than using a constant, the verifier may not know the exact value.
+Without `__const`, BPF programs can pass values from:
+- Map lookups (user-controlled)
+- Runtime computations
+- Any scalar register
 
-#### Summary: Kfunc Enum Argument Safety
+#### Summary: Kfunc Scalar/Enum Argument Safety
 
 | Scenario | Bounds Check Needed? | Reason |
 |----------|---------------------|--------|
-| Enum type parameter with constant | No | Compiler substitutes valid value from vmlinux.h |
-| Enum type parameter from map/computation | Yes | Value not known at compile time |
-| Plain int/u32 parameter | Yes | No type constraint on values |
-| Pointer parameters | N/A | Verifier validates pointer types separately |
+| `__const` annotated enum/int | No | Verifier enforces constant value |
+| Enum parameter (no `__const`) | Yes | Verifier doesn't check enum ranges |
+| Plain int/u32 parameter | Yes | No constraint on values |
+| Any index used for array access | Yes | Must prevent OOB access |
 
-**DO NOT report as bugs**: Kfuncs that take enum-typed parameters and use constants from vmlinux.h without explicit bounds checks. The verifier and compiler together guarantee these values are valid.
+**REPORT as bugs**: Kfuncs that use enum or integer parameters as array indices
+without proper bounds checking (including negative value check for signed types).
 
 ## Quick Checks
 - Helpers marked with BPF_RET_PTR_TO_MAP_VALUE_OR_NULL need NULL checks
