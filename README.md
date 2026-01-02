@@ -28,6 +28,10 @@ or stack trace.
 If you want to use this in GitHub workflows, see [this document](./docs/github-actions-claude-integration.md)
 for integration instructions.
 
+## Kernel patch review helper scripts
+See [scripts/scripts.md](scripts/scripts.md) for description of how to run
+a review of multiple commits in parallel.
+
 ## Output
 
 Claude will chat its way through the code review, and that output is
