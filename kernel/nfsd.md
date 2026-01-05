@@ -25,7 +25,6 @@ files based on what code areas are being modified:
 **Concurrency and state:**
 - [NFSD-006: Locking correctness](nfsd/NFSD-006-locking.md)
 - [NFSD-008: Client state transitions](nfsd/NFSD-008-client-state.md)
-- [NFSD-012: Stateid and delegation/lock state](nfsd/NFSD-012-stateid-delegation.md)
 - [NFSD-013: Session slot state and SEQUENCE operations](nfsd/NFSD-013-session-slots.md)
 
 **Security:**
