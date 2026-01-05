@@ -39,6 +39,10 @@ correct - otherwise report them as regressions.
 
 ### Subsystem Deltas (LOAD ONLY IF PATCH TOUCHES)
 
+Load the appropriate file based on what the patch touches. Some
+subsystems have coordinator patterns (in subdirectories) that provide
+file-to-pattern dispatch tables; others have simple delta files.
+
 Load these files based on what the patch touches:
 
 - Network code (net/, drivers/net, skb_, sockets) → `networking.md`
