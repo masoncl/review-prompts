@@ -2,8 +2,6 @@
 
 **Risk**: Buffer overflow from untrusted network input
 
-**Applies**: BV-001, BV-002 when processing XDR data
-
 ## NFSD-specific untrusted data sources
 
 - All data decoded from XDR streams (xdr_stream_decode_*)

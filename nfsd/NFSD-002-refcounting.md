@@ -2,7 +2,7 @@
 
 **Risk**: Use-after-free, double-free, resource leak
 
-**Applies**: Generic patterns CS-001, RM-003 to NFSD-specific objects
+**Applies**: Generic pattern CS-001 to NFSD-specific objects
 
 ## NFSD uses three reference counting patterns
 
