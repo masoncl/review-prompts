@@ -1,4 +1,4 @@
-# NFSD-009: Security-critical input validation
+# NFSD-010: Security-critical input validation
 
 **Risk**: Authentication bypass, unauthorized access
 
