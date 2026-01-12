@@ -69,6 +69,12 @@ These default to off
 1. Plan your initial context gathering phase after finding the diff and before making any additional tool calls
    - Before gathering context
      - Think about the diff you're analyzing, and understand the commit's purpose
+     - Read the full diff line-by-line and understand each hunk before proceeding to context
+       gathering.
+     - Never just read the commit message and jump ahead.  This is an in depth
+       analysis, and you're expected to proceed systematically through the changes
+     - If you find suspect bugs, place them into a TodoWrite, but do not begin
+       full analysis until you've started Task 2.
      - Document the commit's intent before analyzing patterns
    - Classify the kinds of changes introduced by the diff
    - Plan entire context gathering phase
@@ -111,15 +117,31 @@ diff fragments.
 
 ### TASK 1B: Categorize changes
 
+NOTE: don't jump ahead and start analyzing any changes until you're done gathering context
+and you've fully processed TASK 1B and TASK 1C, even if you think you immediately spot a problem.
+You're probably wrong.
+
+This deep dive analysis will take a long time, don't skip steps.
+
 - The change you're analyzing may have multiple components.  Think about the
-  changes made, and break it up into a few categories
-  - Output: categories found and their functions
-- Add each categories and the modified, new, or deleted functions into TodoWrite
-- Pay special attention to changes in function return values or conditions,
-  these often have side effects elsewhere in the call stack.
+  changes made, and break it up into fine grained categories.
+- **For each modified function**: create separate categories for:
+  - control flow: one category PER loop, one category PER changed return/break/continue
+    - Make sure you have separate categories for inner and outer loops, do not
+      combine them
+  - changes in function return values or conditions,
+    these often have side effects elsewhere in the call stack.
+  - resource management: allocations, frees
+  - resource management: object initialization
+  - locking
+- Add each category and the modified, new, or deleted functions into TodoWrite
 - These categories will be referenced by the pattern prompts.  Call them
   CHANGE-1, CHANGE-2, etc.  The prompts will call them CHANGE CATEGORIES
 - You'll need to repeat pattern analysis for each of the categories identified.
+
+### TASK 1C: CHANGE category printing
+- Output: categories from TASK 1B found
+    - template: CHANGE-N: short description, random line of code from the change
 
 ### Task 2: Analyze the changes for regressions
 
