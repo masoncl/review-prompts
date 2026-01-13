@@ -98,7 +98,7 @@ fi
 if [ -n "$ARG_MODEL" ]; then
     CLAUDE_MODEL="$ARG_MODEL"
 elif [ -z "$CLAUDE_MODEL" ]; then
-    CLAUDE_MODEL="sonnet"
+    CLAUDE_MODEL="opus"
 fi
 
 export WORKING_DIR
