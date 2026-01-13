@@ -9,6 +9,26 @@ The [semcode github repository](https://github.com/facebookexperimental/semcode)
 has instructions on setting up the indexing and MCP server, but if you're just
 getting started, you can do the quick start without semcode.
 
+## Installation
+
+For Claude Code users, run the setup script to install the kernel skill and
+slash commands:
+
+```bash
+./scripts/claude-setup.sh
+```
+
+This installs:
+- **Kernel skill** (`~/.claude/skills/kernel/SKILL.md`) - Automatically loads
+  kernel-specific context when working in kernel trees
+- **Slash commands** (`~/.claude/commands/`) - Quick access to common operations:
+  - `/kreview` - Review commits for regressions
+  - `/kdebug` - Debug kernel crashes and warnings
+  - `/kverify` - Verify findings against false positive patterns
+
+The skill and commands reference the prompts directory where you cloned this
+repository, so don't move it after installation.
+
 ## Quick start
 
 Put these prompts somewhere, and then tell claude to use them:
