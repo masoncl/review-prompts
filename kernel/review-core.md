@@ -310,10 +310,9 @@ by AI.
 
 Create a json file in the current directory named ./review-metadata.json
 
-Identify an issue severity score "low", "medium", "high", "urgent" for anything
-reported in ./review-inline.txt. Scores would increase in severity based on
-user-visible errors such as system crashes, instability, security problems, or
-incorrect system behavior.
+Identify an issue severity score "low", "medium", "high", "critical" for anything
+reported in ./review-inline.txt. Refer to `severity.md` for the guidance on
+how to assess severity of kernel issues.
 
 Create a one sentence explanation for your issue severity score.  If there are no
 issues, just use "none"
@@ -336,7 +335,7 @@ subject: <string commit subject>
 AI-authorship-score: <low/medium/high>
 AI-authorship-explanation: <string, result of Task 5>
 issues-found: <number>
-issue-severity-score: <low/medium/high>
+issue-severity-score: <low/medium/high/critical>
 issue-severity-explanation: <string, result of Task 6 analysis>
 ```
 
