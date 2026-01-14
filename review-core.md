@@ -152,6 +152,27 @@ This deep dive analysis will take a long time, don't skip steps.
 2. Using the context loaded, and any additional context you need, analyze
 the change for regressions.
 
+3. If semcode lore is available, check for previous versions of the patch
+  - Kernel patches are discussed on lore, and the discussion usually requires
+    a number of revisions for every patch.  Developers often fail to address
+    comments from one version to another.
+  - Search lore for threads with the same subject as this patch, assume
+    the patch you're reviewing is the latest version.
+  - Identify comments from older versions, ensure they were addressed either
+    in email replies, or in the new version.
+  - Consider any unaddressed comments as potential regressions:
+    - make sure they are valid
+    - run them through the false positive guide, but default to including it
+      in the regression report unless you can prove the complaint is wrong.
+  - Output: subject lines and dates of past versions of the patch
+    ```
+    FINAL UNADDRESSED COMMENTS: NUMBER
+    Found older version: <date> <version> <subject>
+    Found older version: <date> <version2> <subject>
+    ```
+  - When the regression report mentions unaddressed review comments, provide
+    a lore link to the thread in review-inline.txt
+
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives
 

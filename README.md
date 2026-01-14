@@ -9,6 +9,9 @@ The [semcode github repository](https://github.com/facebookexperimental/semcode)
 has instructions on setting up the indexing and MCP server, but if you're just
 getting started, you can do the quick start without semcode.
 
+If you use semcode to index lore archives, the review prompts will search
+through lore as part of the review.
+
 ## Installation
 
 For Claude Code users, run the setup script to install the kernel skill and
