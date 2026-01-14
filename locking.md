@@ -35,14 +35,14 @@
 - synchronize_rcu() waits for all readers
 - call_rcu() callbacks run after grace period
 - SRCU allows sleeping in read sections
-- spin_lock_irq on a raw_spinlock_t prevents preemption and implicitly
-  includes rcu_read_lock().  When PREEMPT_RT is on, this only covers
-  raw_spinlock_t
+- Locking on a spinlock_t and raw_spinlock_t prevents preemption and implicitly
+  include rcu_read_lock(). When PREEMPT_RT is on, it does not disable preemption
+  on spinlock_t.
 
 ## RT (Realtime) Differences
-- Spinlocks become sleeping locks on RT
+- spinlock_t becomes sleeping locks on RT
 - raw_spinlock_t never sleeps (even on RT)
-- local_irq_disable() doesn't disable IRQs on RT
+- local_irq_disable() disables IRQs (even on RT)
 
 ## _irq and _irqsave variants
 - spin_lock_irq and spin_lock_irqsave mask off interrupts.
