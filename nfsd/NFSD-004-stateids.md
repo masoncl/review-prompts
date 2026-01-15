@@ -1,4 +1,4 @@
-# NFSD-003a: NFSv4 stateid lifecycle
+# NFSD-004: NFSv4 stateid lifecycle
 
 **Risk**: Use-after-free, stateid reuse, unauthorized state access
 

@@ -2,8 +2,6 @@
 
 **Risk**: Deadlock, race condition, data corruption
 
-**Applies**: CL-001 for general lock tracking
-
 ## NFSD-specific lock ordering rules
 
 The NFSD subsystem uses a hierarchical locking design with strict
@@ -144,7 +142,7 @@ acquiring st_mutex on both open and lock stateids:
 
 ## Verification specific to NFSD
 
-When CL-001 identifies multiple lock chains, verify:
+When reviewing code with multiple lock chains, verify:
 - They follow `client_lock` → `state_lock` ordering
 - lockdep_assert_held() matches actual lock protection needs
 - No lock held when calling functions that may sleep (fh_verify,
