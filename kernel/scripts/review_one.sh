@@ -15,6 +15,7 @@ usage() {
     echo "  --prompt: path to the review prompt file (default: <script_dir>/../review-core.md)"
     echo "  sha: the git commit SHA to review"
     echo "  --series: optional SHA of the last commit in the series"
+    echo "  --range: optional git range base..last_sha"
     echo "  --working-dir: working directory (default: current directory or WORKING_DIR env)"
     echo "  --model: Claude model to use (default: sonnet or CLAUDE_MODEL env)"
     echo "  --help: show this help message"
@@ -42,6 +43,10 @@ while [[ $# -gt 1 ]]; do
             ;;
         --series)
             SERIES_SHA="$2"
+            shift 2
+            ;;
+        --range)
+            RANGE_SHA="$2"
             shift 2
             ;;
         --working-dir)
@@ -160,10 +165,11 @@ echo "Worktree ready at $DIR"
 echo "SHA: $SHA"
 
 # Build the prompt, optionally including series info
+PROMPT="read prompt $REVIEW_PROMPT and run regression analysis of commit $SHA"
 if [ -n "$SERIES_SHA" ]; then
-    PROMPT="read prompt $REVIEW_PROMPT and run regression analysis of the top commit, which is part of a series ending with $SERIES_SHA"
-else
-    PROMPT="read prompt $REVIEW_PROMPT and run regression analysis of the top commit"
+    PROMPT+=", which is part of a series ending with $SERIES_SHA"
+elif [ -n "$RANGE_SHA" ]; then
+    PROMPT+=", which is part of a series with git range $RANGE_SHA"
 fi
 
 # Build the full claude command
