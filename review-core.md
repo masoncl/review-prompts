@@ -172,8 +172,10 @@ the change for regressions.
   - When the regression report mentions unaddressed review comments, provide
     a lore link to the thread in review-inline.txt
 
-4. Load ./missing-fixes-tag.md to check for missing Fixes: tags for this commit.
-  - If a missing fixes tag was flagged, consider it a full regression and
+4. If we're doing a subjective review:
+  - Load ./missing-fixes-tag.md to check for missing Fixes: tags for this commit.
+  - If a missing fixes tag was flagged, and we're doing a subjective review,
+    consider it a full regression and
     create review-inline.txt, even if no other regressions were found.
   - There's no need to run the false-positive-guide.md if the only regression
     found was the missing Fixes: tag
