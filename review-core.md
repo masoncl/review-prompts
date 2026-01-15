@@ -53,7 +53,6 @@ Load these files based on what the patch touches:
 These default to off
 
 - Fixes: tag in commit message and subjective reviews requested → `fixes-tag.md`
-- NO Fixes: tag in commit message and subjective reviews requested → `missing-fixes-tag.md`
 
 ## EXCLUSIONS
 - Ignore fs/bcachefs regressions
@@ -172,6 +171,15 @@ the change for regressions.
     ```
   - When the regression report mentions unaddressed review comments, provide
     a lore link to the thread in review-inline.txt
+
+4. Load ./missing-fixes-tag.md to check for missing Fixes: tags for this commit.
+  - If a missing fixes tag was flagged, consider it a full regression and
+    create review-inline.txt, even if no other regressions were found.
+  - There's no need to run the false-positive-guide.md if the only regression
+    found was the missing Fixes: tag
+  - Fixes: tag present in lore searches doesn't count if it isn't in
+    the commit being reviewed.
+  - Output: Fixes: tag missing yes/no
 
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives

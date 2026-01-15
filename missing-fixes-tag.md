@@ -13,306 +13,63 @@ Fixes: tags make it harder to:
 - Understand fix context during code review
 - Correlate fixes with their original bugs
 
-**TodoWrite format** (one entry per commit):
-```
-Commit: [subject]
-Has Fixes tag: ✓/✗
-Indicators: subject [STRONG/MODERATE/none], body [bug indicators], code [fix patterns]
-Context: stable tag ✓/✗, Reported-by ✓/✗, Link ✓/✗ [show URL if present]
-Confidence: [HIGH/MEDIUM/LOW]
-Recommendation: [ask about Fixes / note only / no action]
-Reasoning: [explain determination]
-Issues: [none OR description]
-```
-
-## When to Flag Missing Fixes: Tags [MISSING-FIXES-001]
+## When to Flag Missing Fixes: Tags
 
 **Risk**: Lost attribution, incomplete stable backports, poor git
 archaeology
 
-**Mandatory missing tag detection:**
+Consider all of the CHANGE CATEGORIES identified in review-core.md, determine
+if this is a bug fix.
 
-Use TodoWrite to systematically evaluate the commit.
+**NOTE:** linux-next integration fixes are temporary, and they do not count as
+bug fixes.  If the patch exists only to fix merging or integration into
+linux-next, don't consider it a bug fix.
 
-### 1. Subject Line Indicators
-
-Check if the commit subject contains bug fix keywords and record in
-TodoWrite:
-
-**Strong indicators** (very likely a bug fix):
-- fix, fixes, fixed, fixing
-- crash, oops, panic, BUG
-- deadlock, hang, lockup, stall
-- corruption, corrupt
-- leak, memory leak, refcount leak, use-after-free, UAF
-- NULL pointer, null deref, null-ptr-deref
-- race, race condition
-- off-by-one, underflow, overflow
-- regression
-- revert (if reverting a bug, not just a feature)
-
-**Moderate indicators** (might be a bug fix):
-- correct, incorrect
-- missing, add missing
-- wrong, broken
-- error, failure
-- issue, problem
-
-**Examples:**
-- "mm: fix use-after-free in folio_put()" - STRONG indicator ✓
-- "net: correct skb refcounting" - MODERATE indicator ⚠
-- "bpf: add missing null check" - MODERATE indicator ⚠
-- "fs: improve performance" - NOT a bug fix ✗
-
-Record all indicators found in TodoWrite.
-
-### 2. Commit Message Body Analysis
-
-Check the commit description for bug-related language and record in
-TodoWrite:
-
-**Strong indicators:**
-- "This fixes..."
-- "This causes [crash/corruption/...]"
-- "Without this patch..."
-- References to reported bugs (bugzilla, syzkaller, etc.)
-- Describes incorrect behavior being corrected
-- Mentions user-visible regression
-- "This broke when..." or "broke after commit..."
-
-**Moderate indicators:**
-- "This should..."
-- "We need to..." (in context of correctness)
-- Describes edge case handling
-
-**Counter-indicators** (NOT bug fixes):
-- Pure refactoring descriptions
-- Performance optimization without correctness issue
-- New feature additions
-- Code cleanup
-- Documentation updates
-
-Record all indicators found in TodoWrite.
-
-### 3. Code Change Pattern Analysis
-
-Examine the actual changes for bug fix patterns and record in TodoWrite:
-
-**Strong indicators:**
-- Adding null/bounds checks that were missing
-- Fixing lock imbalances (unlock without lock, etc.)
-- Correcting reference counting (get without put, etc.)
-- Reordering operations to fix races
-- Fixing error path cleanup
-- Adding missing error checks
-- Correcting off-by-one errors
-- Fixing memory leaks
-- Initializing previously uninitialized variables
-- Fixing use-after-free by reordering frees
-
-**Moderate indicators:**
-- Adding validation that was missing
-- Changing condition logic
-- Adjusting timeouts or thresholds
-
-**Counter-indicators:**
-- Pure code movement
-- Renaming
-- Adding new functionality
-- Obvious refactoring
-
-Record all patterns found in TodoWrite.
-
-### 4. Context Clues
-
-Check for additional evidence and record in TodoWrite:
-
-- Cc: stable@vger.kernel.org tag (without Fixes: tag)
-  - This is VERY suspicious - stable tag implies bug fix
-- Reported-by: tags (bug reports usually mean bug fixes)
-- Link: tags pointing to bug trackers
-- References to syzbot, syzkaller, or other bug finders
-- Mentions of specific kernel versions where bug appeared
-
-Record all context clues in TodoWrite.
-
-## Evaluation Framework [MISSING-FIXES-002]
-
-**Mandatory evaluation process:**
-
-Use this decision tree and record results in TodoWrite at each step:
+Output:
 
 ```
-1. Does subject contain STRONG bug fix keyword?
-   YES → Record in TodoWrite, set confidence HIGH
-         → Ask: "Should this have a Fixes: tag?"
-   NO → Continue to step 2
-
-2. Does subject contain MODERATE bug fix keyword?
-   YES → Record in TodoWrite
-         → Check commit body and code changes
-         → Both suggest bug fix?
-            Set confidence MEDIUM
-            Ask: "Should this have Fixes: tag?"
-         → Only one suggests bug fix?
-            Set confidence LOW, note as possible
-   NO → Continue to step 3
-
-3. Does commit body describe fixing a bug?
-   YES → Record in TodoWrite
-         → Check code changes
-         → Changes match bug fix pattern?
-            Set confidence MEDIUM
-            Ask: "Should this have Fixes: tag?"
-   NO → Continue to step 4
-
-4. Do code changes show strong bug fix patterns?
-   YES → Record in TodoWrite
-         → Check subject and body again
-         → Describes a fix but no Fixes: tag?
-            Set confidence MEDIUM
-            Ask: "Should this have Fixes: tag?"
-   NO → Continue to step 5
-
-5. Is Cc: stable@vger.kernel.org present without Fixes: tag?
-   YES → Record in TodoWrite, set confidence HIGH
-         → ALWAYS ask: "Should this have Fixes: tag?"
-   NO → Record: No Fixes: tag needed
+BUG FIX DETERMINATION: yes/no
 ```
 
-Record each decision point in TodoWrite.
+## Finding the Fixed Commit
 
-## Exception Cases [MISSING-FIXES-003]
+If this is a bug fix, search git history, either with semcode or git log, find
+the commit being fixed.
 
-**Mandatory exception validation:**
-
-Do NOT flag as missing when (record in TodoWrite if applicable):
-
-1. **Historical bugs**
-   - Commit message notes "bug existed since initial implementation"
-   - Bug predates git history
-   - Commit references Linux 2.4 era or earlier
-
-2. **Intentional omissions**
-   - Commit message explicitly states why no Fixes: tag
-   - Part of large refactoring series where individual commits are not
-     standalone fixes
-
-3. **Unclear causation**
-   - Bug involves complex interaction of multiple commits
-   - No single commit is clearly responsible
-   - Root cause is architecture design, not specific commit
-
-4. **Not actually bug fixes**
-   - Hardening that doesn't fix specific bug
-   - Adding error handling for theoretical future case
-   - Preventive measures without existing bug
-
-Record exception determination in TodoWrite.
-
-## Confidence Levels
-
-When flagging potentially missing Fixes: tags, indicate confidence in
-TodoWrite:
-
-**High confidence** (should definitely ask):
-- STRONG keyword + bug description in body + bug fix code pattern
-- Cc: stable present without Fixes: tag
-- Reported-by: tag with clear bug report reference
-
-**Medium confidence** (worth asking):
-- MODERATE keyword + one of {bug description, bug fix pattern}
-- STRONG keyword in subject but ambiguous description
-- Clear bug fix pattern but vague commit message
-
-**Low confidence** (mention as note):
-- Only MODERATE keywords, unclear context
-- Could be hardening rather than fixing
-- Refactoring that happens to fix edge case
-
-## Question Phrasing
-
-When a Fixes: tag appears to be missing, phrase as a question:
-
-**Good phrasing:**
-- "This appears to fix a bug. Should it include a Fixes: tag?"
-- "The commit mentions a crash/corruption/leak. Would a Fixes: tag be
-  appropriate?"
-- "This has Cc: stable but no Fixes: tag. What commit introduced the
-  bug?"
-
-**Avoid:**
-- Accusatory phrasing
-- Assuming intent
-- Demanding changes
-
-**Include context:**
-- Quote the specific indicator (subject line keyword, commit message
-  text, or code pattern)
-- Explain why it looks like a bug fix
-- Note if stable backporting seems intended
-
-## Examples
-
-### Clear Missing Fixes: Tag
+If you're able to identify a commit being fixed, create a suggested Fixes:
+tag.
 
 ```
-Subject: mm: add missing null check in folio_put
-
-The code crashes when folio is NULL.
-
-[code shows adding: if (!folio) return;]
+Fixes: <short SHA> ("<commit subject>")
 ```
-**Action**: Ask about missing Fixes: tag (HIGH confidence)
-**TodoWrite**: STRONG keyword "crashes", adding null check pattern
 
-### Probable Missing Fixes: Tag
+<short SHA> is the first 12 characters of the SHA
+<commit subject> is the entire subject, surrounded by (" ")
+
+Example:
 
 ```
-Subject: net: correct reference counting
-
-Cc: stable@vger.kernel.org
-
-[code shows adding missing skb_get()]
+Fixes: 54a4f0239f2e ("KVM: MMU: make kvm_mmu_zap_page() return the number of pages it actually freed")
 ```
-**Action**: Ask about missing Fixes: tag (HIGH confidence - has stable
-tag)
-**TodoWrite**: Stable tag present, refcount fix pattern
 
-### Possible Missing Fixes: Tag
+In this case, consider the missing Fixes tag a regression, and make sure it
+gets added into review-inline.txt.  Explain how the commit being reviewed
+fixes the commit identified.
 
-```
-Subject: bpf: improve error handling
+## If no fixed commit can be identified
 
-This adds better validation to prevent issues.
-
-[code shows adding bounds checks]
-```
-**Action**: Note as possible hardening vs. fix (LOW confidence)
-**TodoWrite**: MODERATE indicators, unclear if fixing existing bug
-
-### Not a Bug Fix
+If we're doing a subjective review, consider the missing Fixes: tag a regression
+report:
 
 ```
-Subject: fs: refactor inode allocation
-
-Consolidate three similar functions into one helper.
-
-[code shows pure refactoring]
+This commit appears to fix a bug, but the commit that introduced the bug has
+not been identified.  Please consider searching for the commit being fixed.
 ```
-**Action**: No Fixes: tag needed
-**TodoWrite**: Pure refactoring, no bug indicators
 
-## Mandatory Self-verification gate
+If we're not doing a subjective review, don't consider this a regression.
 
-**After analysis:** Issues found: [none OR list]
+Output:
+```
+Fixes: tag missing (y/n) [Fixes: line if discovered]
+```
 
-## Integration with Review Process
-
-This check should run:
-- **After** Task 1 (commit message is known)
-- **After** Task 2A (code changes are analyzed)
-- **Before** Task 4 (reporting phase)
-
-Add findings to the final report as questions about commit message
-completeness.
