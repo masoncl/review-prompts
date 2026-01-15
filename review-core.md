@@ -27,6 +27,7 @@ not provided, assume it is the same directory as the prompt file.
 Load these files based on what the patch touches:
 
 - Network code (net/, drivers/net, skb_, sockets) → `networking.md`
+  - Remember that you've loaded the networking subsystem, you'll use this later
 - Memory management (mm/, page/folio ops, alloc/free, slab, or vmalloc APIs — `__GFP_`, `page_`, `folio_`, `kmalloc`, `kmem_cache_`, `vmalloc`, `alloc_pages` or similar → `mm.md`
 - VFS operations (inode, dentry, vfs_, fs/*.c) → `vfs.md`
 - Locking primitives (spin_lock*, mutex_*) → `locking.md`
@@ -52,7 +53,6 @@ Load these files based on what the patch touches:
 
 These default to off
 
-- Fixes: tag in commit message and subjective reviews requested → `fixes-tag.md`
 
 ## EXCLUSIONS
 - Ignore fs/bcachefs regressions
@@ -172,10 +172,44 @@ the change for regressions.
   - When the regression report mentions unaddressed review comments, provide
     a lore link to the thread in review-inline.txt
 
-4. If we're doing a subjective review:
+### TASK 2.1 Commit tag verification
+
+1. Consider all of the CHANGE CATEGORIES identified in review-core.md, determine
+  if this is a major bug fix.  Major bug fixes address:
+  - system instability: crashes, hangs, large memory leaks
+  - large, user visible performance problems
+  - user visible behavior problems (commands not working properly)
+  - security flaws
+
+**NOTE:** linux-next integration fixes are temporary, and they do not count as
+bug fixes.  If the patch exists only to fix merging or integration into
+linux-next, don't consider it a bug fix.
+
+Output:
+
+```
+BUG FIX DETERMINATION: major/minor/not a bug fix
+```
+
+2. Determine if we're checking for Fixes: tags
+
+Different subsystems have different preferences for Fixes: tags.
+Identify the subsystem from this change.
+Output:
+```
+Fixes tag check for <subsystem>
+```
+  - Not a bug fix -> NO Fixes: tag check
+  - Minor bugs in any subsystem -> NO Fixes: tag check
+  - Any bugs in networking subsystem -> NO Fixes: tag check
+  - Major bugs in BPF subsystem -> Fixes: tag check
+  - Major bugs in any other subsystem -> Fixes: tag check
+  - Subjective reviews on -> Fixes: tag check
+    - Fixes: tag already in commit message → also load `fixes-tag.md`
+
+3. If you decided to look for Fixes: tags
   - Load ./missing-fixes-tag.md to check for missing Fixes: tags for this commit.
-  - If a missing fixes tag was flagged, and we're doing a subjective review,
-    consider it a full regression and
+  - If a missing fixes tag was flagged, consider it a full regression and
     create review-inline.txt, even if no other regressions were found.
   - There's no need to run the false-positive-guide.md if the only regression
     found was the missing Fixes: tag

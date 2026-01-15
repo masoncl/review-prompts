@@ -18,17 +18,6 @@ Fixes: tags make it harder to:
 **Risk**: Lost attribution, incomplete stable backports, poor git
 archaeology
 
-Consider all of the CHANGE CATEGORIES identified in review-core.md, determine
-if this is a bug fix.
-
-**NOTE:** linux-next integration fixes are temporary, and they do not count as
-bug fixes.  If the patch exists only to fix merging or integration into
-linux-next, don't consider it a bug fix.
-
-Output:
-
-```
-BUG FIX DETERMINATION: yes/no
 ```
 
 ## Finding the Fixed Commit
