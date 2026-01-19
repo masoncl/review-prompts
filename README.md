@@ -70,7 +70,7 @@ which is why there are per-subsystem context files.  We'll never get down
 to zero false positives, but the goal is to build up enough knowledge that
 AI tools can lead us in the right direction.
 
-The false positive rate is improving, currently at ~20-30%.
+The false positive rate is improving, currently at ~10%
 
 ## Prompt structure
 
