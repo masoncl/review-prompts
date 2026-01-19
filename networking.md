@@ -63,6 +63,9 @@
 - VMADDR_PORT_ANY = -1U (must exclude from port allocation)
 - PACKET_HOST/BROADCAST/MULTICAST/OTHERHOST for pkt_type
 
+## Statistics
+- Documentation/networking/statistics.rst lays out rules for driver statistics
+
 ## Quick Checks
 - Header parsing from untrusted sources needs length validation
 - Check for htons/ntohs byte order conversions
