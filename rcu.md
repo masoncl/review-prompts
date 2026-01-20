@@ -30,3 +30,11 @@
 - kfree_rcu() for simple object freeing
 - INIT_RCU_HEAD not needed in modern kernels
 - rcu_read_lock_held() for debug assertions
+
+## RCU Patterns [RCU]
+
+#### RCU-001: Remove before reclaim ordering
+
+**Risk**: Use-after-free
+
+**Details**: Remove from data structure before call_rcu()/synchronize_rcu(). See [patterns/RCU-001.md](patterns/RCU-001.md)
