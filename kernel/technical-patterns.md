@@ -38,6 +38,22 @@
   they introduce larger logic bugs
 - READ_ONCE() is not required when the data structure being read is protected by a lock we're currently holding
 
+### RCU Mandatory Check
+- **CRITICAL**: When you see `call_rcu()`, `synchronize_rcu()`, or `kfree_rcu()`:
+  - IMMEDIATELY load `patterns/RCU-001.md`
+  - Check: does removal from any data structure happen BEFORE or AFTER the call_rcu()?
+  - If removal is in the RCU callback → this is the WRONG pattern, flag as use-after-free
+- The correct order is: **remove from data structure FIRST**, then call_rcu(), then free in callback
+- Common dangerous pattern to watch for:
+  ```
+  call_rcu(&obj->rcu, callback);
+  // In callback:
+  void callback(...) {
+      remove_from_structure(obj);  // WRONG: too late!
+      kfree(obj);
+  }
+  ```
+
 ### list_head APIs
 - list_add(new, head) calls (and others in the list_head API) initialize `new` by writing to it,
   but `head` must have been previously initialized.

@@ -33,7 +33,7 @@ Load these files based on what the patch touches:
 - Locking primitives (spin_lock*, mutex_*) → `locking.md`
 - Scheduler code (kernel/sched/, sched_, schedule) → `scheduler.md`
 - BPF (kernel/bpf/, bpf, verifier) → `bpf.md`
-- RCU operations (rcu*, call_rcu) → `rcu.md`
+- RCU operations (rcu*, call_rcu, synchronize_rcu, kfree_rcu) → `rcu.md` AND `patterns/RCU-001.md` (MANDATORY for call_rcu)
 - Encryption (crypto, fscrypt_) → `fscrypt.md`
 - Tracing (trace_, tracepoints) → `tracing.md`
 - Workqueue (kernel/workqueue.c, work_struct) → `workqueue.md`
@@ -58,6 +58,20 @@ These default to off
 - Ignore fs/bcachefs regressions
 - Ignore test program issues unless system crash
 - Don't report assertion/WARN/BUG removals as regressions
+
+## CRITICAL PATTERN DETECTION (check BEFORE Task 0)
+
+Scan the diff for these patterns and load corresponding files IMMEDIATELY:
+
+| Pattern | Action | Risk |
+|---------|--------|------|
+| `call_rcu(`, `synchronize_rcu(`, `kfree_rcu(` | Load `patterns/RCU-001.md` | Use-after-free |
+| `rhashtable_` + `call_rcu` | Load `patterns/RCU-001.md` - HIGH RISK | Use-after-free |
+| `hlist_del_rcu`, `list_del_rcu` + `call_rcu` | Load `patterns/RCU-001.md` | Use-after-free |
+
+**For any call_rcu()**: Immediately verify removal from lookup structures happens
+BEFORE call_rcu(), not in the callback. If removal is in the callback, this is
+almost certainly a use-after-free bug.
 
 ## Task 0: CONTEXT MANAGEMENT
 - Discard non-essential details after each task to manage token limits
