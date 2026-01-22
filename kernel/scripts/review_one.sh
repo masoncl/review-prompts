@@ -115,13 +115,6 @@ export CLAUDE_MODEL
 
 DIR="$BASE_LINUX.$SHA"
 
-#MCP_STRING="$WORKING_DIR/mcp-config.json"
-MCP_STRING='{"mcpServers":{"semcode":{"command":"semcode-mcp"}}}'
-export MCP_STRING
-
-SEMCODE_ALLOWED="--allowedTools mcp__plugin_semcode_semcode__find_function,mcp__plugin_semcode_semcode__find_type,mcp__plugin_semcode_semcode__find_callers,mcp__plugin_semcode_semcode__find_calls,mcp__plugin_semcode_semcode__find_callchain,mcp__plugin_semcode_semcode__diff_functions,mcp__plugin_semcode_semcode__grep_functions,mcp__plugin_semcode_semcode__vgrep_functions,mcp__plugin_semcode_semcode__find_commit,mcp__plugin_semcode_semcode__vcommit_similar_commits,mcp__plugin_semcode_semcode__lore_search,mcp__plugin_semcode_semcode__dig,mcp__plugin_semcode_semcode__vlore_similar_emails,mcp__plugin_semcode_semcode__indexing_status,mcp__plugin_semcode_semcode__list_branches,mcp__plugin_semcode_semcode__compare_branches"
-export SEMCODE_ALLOWED
-
 export TERM=xterm
 export FORCE_COLOR=0
 
@@ -141,10 +134,9 @@ if [ ! -d "$DIR" ]; then
     done
     if [ -d "$BASE_LINUX/.semcode.db" ]; then
         cp -al "$BASE_LINUX/.semcode.db" "$DIR/.semcode.db"
+	HAVE_MCP=1
     else
         echo "Warning: $BASE_LINUX/.semcode.db not found, skipping MCP configuration" >&2
-        unset MCP_STRING
-        unset SEMCODE_ALLOWED
     fi
 fi
 
@@ -176,6 +168,32 @@ fi
 MCP_ARGS=""
 
 set_claude_opts() {
+	if [ -v HAVE_MCP ]; then
+		MCP_JSON='{"mcpServers":{"semcode":{"command":"semcode-mcp"}}}'
+
+		SC_PFX="mcp__plugin_semcode_semcode"
+
+		MCP_ARGS="--mcp-config"
+		MCP_ARGS+=" '$MCP_JSON'"
+		MCP_ARGS+=" --allowedTools"
+		MCP_ARGS+=" ${SC_PFX}__find_function"
+		MCP_ARGS+=",${SC_PFX}__find_type"
+		MCP_ARGS+=",${SC_PFX}__find_callers"
+		MCP_ARGS+=",${SC_PFX}__find_calls"
+		MCP_ARGS+=",${SC_PFX}__find_callchain"
+		MCP_ARGS+=",${SC_PFX}__diff_functions"
+		MCP_ARGS+=",${SC_PFX}__grep_functions"
+		MCP_ARGS+=",${SC_PFX}__vgrep_functions"
+		MCP_ARGS+=",${SC_PFX}__find_commit"
+		MCP_ARGS+=",${SC_PFX}__vcommit_similar_commits"
+		MCP_ARGS+=",${SC_PFX}__lore_search"
+		MCP_ARGS+=",${SC_PFX}__dig"
+		MCP_ARGS+=",${SC_PFX}__vlore_similar_emails"
+		MCP_ARGS+=",${SC_PFX}__indexing_status"
+		MCP_ARGS+=",${SC_PFX}__list_branches"
+		MCP_ARGS+=",${SC_PFX}__compare_branches"
+	fi
+
 	if [ -z "$CLAUDE_MODEL" ]; then
 		CLAUDE_MODEL="opus"
 	fi
