@@ -177,7 +177,13 @@ MCP_ARGS=""
 if [ -n "$MCP_STRING" ]; then
     MCP_ARGS="--mcp-config '$MCP_STRING' $SEMCODE_ALLOWED"
 fi
-FULL_CMD="claude -p '$PROMPT' $MCP_ARGS --model $CLAUDE_MODEL --verbose --output-format=stream-json | tee review.json | $JSONPROG"
+FULL_CMD="claude"
+FULL_CMD+=" -p '$PROMPT'"
+FULL_CMD+=" $MCP_ARGS"
+FULL_CMD+=" --model $CLAUDE_MODEL"
+FULL_CMD+=" --verbose"
+FULL_CMD+=" --output-format=stream-json"
+FULL_CMD+=" | tee review.json | $JSONPROG"
 #echo "Would run: $FULL_CMD"
 
 start=$(date +%s)
