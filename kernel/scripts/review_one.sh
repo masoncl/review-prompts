@@ -205,9 +205,36 @@ set_claude_opts() {
 	CLI_OUT="--output-format=stream-json | tee $OUTFILE | $JSONPROG"
 }
 
+set_copilot_opts() {
+	if [ -v HAVE_MCP ]; then
+		MCP_JSON='{"mcpServers":{"semcode":{"command":"semcode-mcp","args":[],"tools":["*"]}}}'
+
+		MCP_ARGS="--additional-mcp-config"
+		MCP_ARGS+=" '$MCP_JSON'"
+		MCP_ARGS+=" --allow-tool 'semcode'"
+	fi
+
+	if [ -z "$CLAUDE_MODEL" ]; then
+		CLAUDE_MODEL="claude-opus-4.5"
+	fi
+
+	CLI_OPTS=" --log-level all"
+	CLI_OPTS+=" --add-dir /tmp"
+	CLI_OPTS+=" --add-dir $WORKING_DIR"
+
+	# Need this for output redirection. Can we reduce this?
+	CLI_OPTS+=" --allow-all-tools"
+
+	OUTFILE="review.out"
+	CLI_OUT=" | tee $OUTFILE"
+}
+
 case "$CLI" in
     claude)
 	    set_claude_opts
+	    ;;
+    copilot)
+	    set_copilot_opts
 	    ;;
     *)
 	echo "Error: Unknown CLI: $CLI" >&2
