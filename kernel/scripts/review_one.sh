@@ -18,6 +18,7 @@ usage() {
     echo "  --range: optional git range base..last_sha"
     echo "  --working-dir: working directory (default: current directory or WORKING_DIR env)"
     echo "  --model: Claude model to use (default: sonnet or CLAUDE_MODEL env)"
+    echo "  --cli: which CLI to use (default: claude)"
     echo "  --help: show this help message"
 }
 
@@ -35,6 +36,7 @@ ARG_WORKING_DIR=""
 ARG_MODEL=""
 REVIEW_PROMPT=""
 BASE_LINUX=""
+CLI="claude"
 while [[ $# -gt 1 ]]; do
     case "$1" in
         --help)
@@ -55,6 +57,10 @@ while [[ $# -gt 1 ]]; do
             ;;
         --model)
             ARG_MODEL="$2"
+            shift 2
+            ;;
+        --cli)
+            CLI="$2"
             shift 2
             ;;
         --prompt)
@@ -102,17 +108,12 @@ fi
 
 if [ -n "$ARG_MODEL" ]; then
     CLAUDE_MODEL="$ARG_MODEL"
-elif [ -z "$CLAUDE_MODEL" ]; then
-    CLAUDE_MODEL="opus"
 fi
 
 export WORKING_DIR
 export CLAUDE_MODEL
 
 DIR="$BASE_LINUX.$SHA"
-
-JSONPROG="$SCRIPT_DIR/claude-json.py"
-export JSONPROG
 
 #MCP_STRING="$WORKING_DIR/mcp-config.json"
 MCP_STRING='{"mcpServers":{"semcode":{"command":"semcode-mcp"}}}'
@@ -172,37 +173,60 @@ elif [ -n "$RANGE_SHA" ]; then
     PROMPT+=", which is part of a series with git range $RANGE_SHA"
 fi
 
-# Build the full claude command
 MCP_ARGS=""
-if [ -n "$MCP_STRING" ]; then
-    MCP_ARGS="--mcp-config '$MCP_STRING' $SEMCODE_ALLOWED"
-fi
-FULL_CMD="claude"
+
+set_claude_opts() {
+	if [ -z "$CLAUDE_MODEL" ]; then
+		CLAUDE_MODEL="opus"
+	fi
+
+	JSONPROG="$SCRIPT_DIR/claude-json.py"
+	OUTFILE="review.json"
+
+	CLI_OPTS="--verbose"
+	CLI_OUT="--output-format=stream-json | tee $OUTFILE | $JSONPROG"
+}
+
+case "$CLI" in
+    claude)
+	    set_claude_opts
+	    ;;
+    *)
+	echo "Error: Unknown CLI: $CLI" >&2
+	exit 1
+	;;
+esac
+
+
+# Build the full command
+FULL_CMD="$CLI"
 FULL_CMD+=" -p '$PROMPT'"
 FULL_CMD+=" $MCP_ARGS"
 FULL_CMD+=" --model $CLAUDE_MODEL"
-FULL_CMD+=" --verbose"
-FULL_CMD+=" --output-format=stream-json"
-FULL_CMD+=" | tee review.json | $JSONPROG"
+FULL_CMD+=" $CLI_OPTS"
+FULL_CMD+=" $CLI_OUT"
 #echo "Would run: $FULL_CMD"
 
 start=$(date +%s)
 
 for x in $(seq 1 5); do
     eval "$FULL_CMD"
-    if [ -s "review.json" ]; then
+    if [ -s "$OUTFILE" ]; then
         break
     fi
-    echo "claude failed $SHA try $x"
+    echo "$CLI failed $SHA try $x"
     sleep 5
 done
 
 end=$(date +%s)
 echo "Elapsed time: $((end - start)) seconds (sha $SHA)" | tee review.duration.txt
-$JSONPROG -i review.json -o review.md
 
-# Exit with failure if review.json is empty after all retries
-if [ -s "review.json" ]; then
+if [ -v JSONPROG ]; then
+	$JSONPROG -i review.json -o review.md
+fi
+
+# Exit with failure if output file is empty after all retries
+if [ -s "$OUTFILE" ]; then
     exit 0
 else
     exit 1
