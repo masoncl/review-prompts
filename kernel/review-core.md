@@ -165,18 +165,13 @@ This deep dive analysis will take a long time, don't skip steps.
 2. Using the context loaded, and any additional context you need, analyze
 the change for regressions.
 
-3. If semcode lore is available, check for previous versions of the patch
-  - Kernel patches are discussed on lore, and the discussion usually requires
-    a number of revisions for every patch.  Developers often fail to address
-    comments from one version to another.
+3. If semcode lore is available, check for email discussion about this patch
+  - Load `lore-thread.md` for detailed instructions on processing lore threads
   - Search lore for threads with the same subject as this patch, assume
     the patch you're reviewing is the latest version.
-  - Identify comments from older versions, ensure they were addressed either
-    in email replies, or in the new version.
-  - Consider any unaddressed comments as potential regressions:
-    - make sure they are valid
-    - run them through the false positive guide, but default to including it
-      in the regression report unless you can prove the complaint is wrong.
+  - Consider any unaddressed comments as potential regressions
+    - Add each unaddressed comment to TodoWrite
+    - Verify each unaddressed comment as a valid complaint before reporting
   - Output: subject lines and dates of past versions of the patch
     ```
     FINAL UNADDRESSED COMMENTS: NUMBER
