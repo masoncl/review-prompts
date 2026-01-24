@@ -19,6 +19,7 @@ usage() {
     echo "  --working-dir: working directory (default: current directory or WORKING_DIR env)"
     echo "  --model: Claude model to use (default: sonnet or CLAUDE_MODEL env)"
     echo "  --append: string to append to the prompt (e.g., for enabling pedantic mode)"
+    echo "  --cli: which CLI to use (default: claude)"
     echo "  --help: show this help message"
 }
 
@@ -37,6 +38,7 @@ ARG_MODEL=""
 REVIEW_PROMPT=""
 BASE_LINUX=""
 APPEND_STRING=""
+CLI="claude"
 while [[ $# -gt 1 ]]; do
     case "$1" in
         --help)
@@ -57,6 +59,10 @@ while [[ $# -gt 1 ]]; do
             ;;
         --model)
             ARG_MODEL="$2"
+            shift 2
+            ;;
+        --cli)
+            CLI="$2"
             shift 2
             ;;
         --prompt)
@@ -108,24 +114,12 @@ fi
 
 if [ -n "$ARG_MODEL" ]; then
     CLAUDE_MODEL="$ARG_MODEL"
-elif [ -z "$CLAUDE_MODEL" ]; then
-    CLAUDE_MODEL="opus"
 fi
 
 export WORKING_DIR
 export CLAUDE_MODEL
 
 DIR="$BASE_LINUX.$SHA"
-
-JSONPROG="$SCRIPT_DIR/claude-json.py"
-export JSONPROG
-
-#MCP_STRING="$WORKING_DIR/mcp-config.json"
-MCP_STRING='{"mcpServers":{"semcode":{"command":"semcode-mcp"}}}'
-export MCP_STRING
-
-SEMCODE_ALLOWED="--allowedTools mcp__plugin_semcode_semcode__find_function,mcp__plugin_semcode_semcode__find_type,mcp__plugin_semcode_semcode__find_callers,mcp__plugin_semcode_semcode__find_calls,mcp__plugin_semcode_semcode__find_callchain,mcp__plugin_semcode_semcode__diff_functions,mcp__plugin_semcode_semcode__grep_functions,mcp__plugin_semcode_semcode__vgrep_functions,mcp__plugin_semcode_semcode__find_commit,mcp__plugin_semcode_semcode__vcommit_similar_commits,mcp__plugin_semcode_semcode__lore_search,mcp__plugin_semcode_semcode__dig,mcp__plugin_semcode_semcode__vlore_similar_emails,mcp__plugin_semcode_semcode__indexing_status,mcp__plugin_semcode_semcode__list_branches,mcp__plugin_semcode_semcode__compare_branches"
-export SEMCODE_ALLOWED
 
 export TERM=xterm
 export FORCE_COLOR=0
@@ -146,10 +140,9 @@ if [ ! -d "$DIR" ]; then
     done
     if [ -d "$BASE_LINUX/.semcode.db" ]; then
         cp -al "$BASE_LINUX/.semcode.db" "$DIR/.semcode.db"
+	HAVE_MCP=1
     else
         echo "Warning: $BASE_LINUX/.semcode.db not found, skipping MCP configuration" >&2
-        unset MCP_STRING
-        unset SEMCODE_ALLOWED
     fi
 fi
 
@@ -185,29 +178,112 @@ fi
 
 # Build the full claude command
 MCP_ARGS=""
-if [ -n "$MCP_STRING" ]; then
-    MCP_ARGS="--mcp-config '$MCP_STRING' $SEMCODE_ALLOWED"
-fi
-FULL_CMD="claude -p '$PROMPT' $MCP_ARGS --model $CLAUDE_MODEL --verbose --output-format=stream-json | tee review.json | $JSONPROG"
+
+set_claude_opts() {
+	if [ -v HAVE_MCP ]; then
+		MCP_JSON='{"mcpServers":{"semcode":{"command":"semcode-mcp"}}}'
+
+		SC_PFX="mcp__plugin_semcode_semcode"
+
+		MCP_ARGS="--mcp-config"
+		MCP_ARGS+=" '$MCP_JSON'"
+		MCP_ARGS+=" --allowedTools"
+		MCP_ARGS+=" ${SC_PFX}__find_function"
+		MCP_ARGS+=",${SC_PFX}__find_type"
+		MCP_ARGS+=",${SC_PFX}__find_callers"
+		MCP_ARGS+=",${SC_PFX}__find_calls"
+		MCP_ARGS+=",${SC_PFX}__find_callchain"
+		MCP_ARGS+=",${SC_PFX}__diff_functions"
+		MCP_ARGS+=",${SC_PFX}__grep_functions"
+		MCP_ARGS+=",${SC_PFX}__vgrep_functions"
+		MCP_ARGS+=",${SC_PFX}__find_commit"
+		MCP_ARGS+=",${SC_PFX}__vcommit_similar_commits"
+		MCP_ARGS+=",${SC_PFX}__lore_search"
+		MCP_ARGS+=",${SC_PFX}__dig"
+		MCP_ARGS+=",${SC_PFX}__vlore_similar_emails"
+		MCP_ARGS+=",${SC_PFX}__indexing_status"
+		MCP_ARGS+=",${SC_PFX}__list_branches"
+		MCP_ARGS+=",${SC_PFX}__compare_branches"
+	fi
+
+	if [ -z "$CLAUDE_MODEL" ]; then
+		CLAUDE_MODEL="opus"
+	fi
+
+	JSONPROG="$SCRIPT_DIR/claude-json.py"
+	OUTFILE="review.json"
+
+	CLI_OPTS="--verbose"
+	CLI_OUT="--output-format=stream-json | tee $OUTFILE | $JSONPROG"
+}
+
+set_copilot_opts() {
+	if [ -v HAVE_MCP ]; then
+		MCP_JSON='{"mcpServers":{"semcode":{"command":"semcode-mcp","args":[],"tools":["*"]}}}'
+
+		MCP_ARGS="--additional-mcp-config"
+		MCP_ARGS+=" '$MCP_JSON'"
+		MCP_ARGS+=" --allow-tool 'semcode'"
+	fi
+
+	if [ -z "$CLAUDE_MODEL" ]; then
+		CLAUDE_MODEL="claude-opus-4.5"
+	fi
+
+	CLI_OPTS=" --log-level all"
+	CLI_OPTS+=" --add-dir /tmp"
+	CLI_OPTS+=" --add-dir $WORKING_DIR"
+
+	# Need this for output redirection. Can we reduce this?
+	CLI_OPTS+=" --allow-all-tools"
+
+	OUTFILE="review.out"
+	CLI_OUT=" | tee $OUTFILE"
+}
+
+case "$CLI" in
+    claude)
+	    set_claude_opts
+	    ;;
+    copilot)
+	    set_copilot_opts
+	    ;;
+    *)
+	echo "Error: Unknown CLI: $CLI" >&2
+	exit 1
+	;;
+esac
+
+
+# Build the full command
+FULL_CMD="$CLI"
+FULL_CMD+=" -p '$PROMPT'"
+FULL_CMD+=" $MCP_ARGS"
+FULL_CMD+=" --model $CLAUDE_MODEL"
+FULL_CMD+=" $CLI_OPTS"
+FULL_CMD+=" $CLI_OUT"
 #echo "Would run: $FULL_CMD"
 
 start=$(date +%s)
 
 for x in $(seq 1 5); do
     eval "$FULL_CMD"
-    if [ -s "review.json" ]; then
+    if [ -s "$OUTFILE" ]; then
         break
     fi
-    echo "claude failed $SHA try $x"
+    echo "$CLI failed $SHA try $x"
     sleep 5
 done
 
 end=$(date +%s)
 echo "Elapsed time: $((end - start)) seconds (sha $SHA)" | tee review.duration.txt
-$JSONPROG -i review.json -o review.md
 
-# Exit with failure if review.json is empty after all retries
-if [ -s "review.json" ]; then
+if [ -v JSONPROG ]; then
+	$JSONPROG -i review.json -o review.md
+fi
+
+# Exit with failure if output file is empty after all retries
+if [ -s "$OUTFILE" ]; then
     exit 0
 else
     exit 1
