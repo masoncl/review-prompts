@@ -33,6 +33,11 @@ must complete task POSITIVE.1 before completing the false positive check.
 - ❌ "This should validate the index"
 - ✅ "User input at funcA() can reach this without validation"
 
+### 1.1 Failure to handle errors
+**Never report** failure to handle errors unless
+  - You can prove the error is possible
+  - You've confirmed the function arguments used don't prevent the error
+
 ### 2. API Misuse Assumptions
 **Never report** issues based on theoretical API misuse unless you can prove:
   - An actual calling path exists that triggers the issue
@@ -125,7 +130,10 @@ verify the explanation is correct with code evidence.
 - It's optimizing for a different use case
 
 ### 10. Intentional backwards compatibility
-- Leaving stub sysfs or procfs files is not required, but also not a regression
+- Leaving stub sysfs or procfs files is not required, and also not a regression
+- It is not a regression for deprecated sysfs files to remain and just return
+  any constant value (0, empty strings, a specific fixed string are all ok),
+  as long as that value was legal for the interface before deprecation.
 
 **ONLY REPORT**: if you can prove the resource contract has been broken
 
