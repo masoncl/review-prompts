@@ -10,6 +10,16 @@
   related to chains of bios, first make sure the merging rules allows that
   chain to exist
 
+## Bio Mempool Allocation Guarantees
+
+Bio allocations with GFP_NOIO/GFP_NOFS cannot fail (mempool guarantee via
+`__GFP_DIRECT_RECLAIM`). ENOMEM paths only reachable with GFP_ATOMIC/GFP_NOWAIT.
+
+- `bio_alloc_bioset()` - mempool alloc, cannot fail with GFP_NOIO
+- `bvec_alloc()` - falls back to mempool with `__GFP_DIRECT_RECLAIM`
+- `bio_integrity_prep()` - uses GFP_NOIO, cannot fail
+- `bio_integrity_alloc_buf()` - uses GFP_NOFS, cannot fail
+
 Load block specific rules:
 - **BLOCK-001** (patterns/BLOCK-001.md): Mandatory when struct bios are passed or used
 

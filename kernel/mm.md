@@ -84,6 +84,16 @@
 - Use __folio_start_writeback(folio, true) to preserve
 - Tags affect sync_file_range() behavior
 
+## Mempool Allocation Guarantees
+
+`mempool_alloc()` cannot fail when `__GFP_DIRECT_RECLAIM` is set - it sleeps
+and retries forever until success (`mm/mempool.c:mempool_alloc_noprof()`).
+
+**GFP flags with `__GFP_DIRECT_RECLAIM`**: GFP_KERNEL, GFP_NOIO, GFP_NOFS
+(all include `__GFP_RECLAIM` = `__GFP_DIRECT_RECLAIM | __GFP_KSWAPD_RECLAIM`)
+
+**Can fail**: GFP_ATOMIC, GFP_NOWAIT (no `__GFP_DIRECT_RECLAIM`)
+
 ## Quick Checks
 - TLB flushes required after PTE modifications
 - mmap_lock ordering (read vs write)
