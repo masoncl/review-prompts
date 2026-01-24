@@ -143,6 +143,9 @@ Examples:
 
   # With timeout
   %(prog)s -n 2 -c 'claude -p "Analyze"' -f shas.txt --timeout 300
+
+  # With pedantic mode enabled
+  %(prog)s -n 4 -c './review_one.sh' -f shas.txt --append "Enable pedantic mode."
         """
     )
     parser.add_argument(
@@ -166,6 +169,10 @@ Examples:
         help="Git SHA of the last commit in the series"
     )
     parser.add_argument(
+        "--append",
+        help="String to append to the prompt (e.g., for enabling pedantic mode)"
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         help="Timeout in seconds for each command"
@@ -186,10 +193,12 @@ Examples:
         sys.exit(1)
     print(f"Loaded {len(shas)} SHAs from {args.sha_file}", file=sys.stderr)
 
-    # Build command template with optional series argument
+    # Build command template with optional series and append arguments
     cmd_template = args.command
     if args.series:
-        cmd_template = f"{args.command} --series {args.series}"
+        cmd_template = f"{cmd_template} --series {args.series}"
+    if args.append:
+        cmd_template = f"{cmd_template} --append '{args.append}'"
 
     # Set up signal handler
     signal.signal(signal.SIGINT, signal_handler)

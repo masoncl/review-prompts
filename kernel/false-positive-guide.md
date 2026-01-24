@@ -40,21 +40,21 @@ must complete task POSITIVE.1 before completing the false positive check.
   - Similar kernel APIs validate the same preconditions
 
 ### 3. Unverifiable Assumptions
-**Trust the author** but try to prove them wrong
-- Untrusted sources (network/user) need less proof
-- Research assumptions and claims in commit messages, comments and code.  Try to prove them wrong.
-- If you don't have concrete proof in the form of code snippets, assume the author is correct
-- Design decisions are assumed intentional
-- Read the entire commit message.  If the commit message explains a given bug,
-ex: "For now, ignore this problem", consider the bug a false positive.
-- Read the surrounding code comments.  If you find a bug and a comment
-explicitly explaining why they have chosen to add the bug, consider it a false
-positive.
+**Assume the author is wrong** and require proof they are correct
+- Look for the author in the MAINTAINERS file, if found, assume their comments,
+  commit messages and assertions are correct.
+- Untrusted sources (network/user) always need concrete proof of correctness
+- Research assumptions and claims in commit messages, comments and code, prove them correct
+- If the author makes claims without code evidence, treat them as unverified
+- Design decisions must be justified by code or documentation
+- Read the entire commit message. If the commit message explains a given behavior,
+verify the explanation is correct with code evidence.
+- Read the surrounding code comments. Verify comments accurately describe the code behavior.
 
-**Only report if**:
-- You found specific code that proves you correct
-- You can trace a concrete path that violates the code assumption
-- You have proof, not just suspicion
+**Report unless**:
+- You found specific code that proves the author correct
+- You can verify all assumptions with concrete code paths
+- The behavior is proven correct, not just claimed
 
 ### 4. Locking False Positives
 **Before reporting** a locking issue:

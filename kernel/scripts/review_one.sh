@@ -10,13 +10,14 @@
 set -e
 
 usage() {
-    echo "usage: review_one.sh [--linux <linux_dir>] [--prompt <prompt_file>] [--series <end_sha>] [--working-dir <dir>] [--model <model>] <sha>"
+    echo "usage: review_one.sh [--linux <linux_dir>] [--prompt <prompt_file>] [--series <end_sha>] [--working-dir <dir>] [--model <model>] [--append <string>] <sha>"
     echo "  --linux: path to the base linux directory (default: \$PWD/linux)"
     echo "  --prompt: path to the review prompt file (default: <script_dir>/../review-core.md)"
     echo "  sha: the git commit SHA to review"
     echo "  --series: optional SHA of the last commit in the series"
     echo "  --working-dir: working directory (default: current directory or WORKING_DIR env)"
     echo "  --model: Claude model to use (default: sonnet or CLAUDE_MODEL env)"
+    echo "  --append: string to append to the prompt (e.g., for enabling pedantic mode)"
     echo "  --help: show this help message"
 }
 
@@ -34,6 +35,7 @@ ARG_WORKING_DIR=""
 ARG_MODEL=""
 REVIEW_PROMPT=""
 BASE_LINUX=""
+APPEND_STRING=""
 while [[ $# -gt 1 ]]; do
     case "$1" in
         --help)
@@ -58,6 +60,10 @@ while [[ $# -gt 1 ]]; do
             ;;
         --linux)
             BASE_LINUX="$2"
+            shift 2
+            ;;
+        --append)
+            APPEND_STRING="$2"
             shift 2
             ;;
         *)
@@ -164,6 +170,11 @@ if [ -n "$SERIES_SHA" ]; then
     PROMPT="read prompt $REVIEW_PROMPT and run regression analysis of the top commit, which is part of a series ending with $SERIES_SHA"
 else
     PROMPT="read prompt $REVIEW_PROMPT and run regression analysis of the top commit"
+fi
+
+# Append optional string to prompt
+if [ -n "$APPEND_STRING" ]; then
+    PROMPT="$PROMPT $APPEND_STRING"
 fi
 
 # Build the full claude command

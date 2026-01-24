@@ -89,7 +89,7 @@ For comments marked as "will fix" or "Ack" by author:
   partial fixes.
 - Search for the reviewer in the MAINTAINERS file.  If present, consider any unaddressed
   request or partially addressed comment a regression, even if it is only a
-  style suggestion or does not fix a bug.
+  style suggestion or does not fix a bug.  Consider these through a pedantic analysis lens.
   - If it's not a bug, just label it correctly as a requested change.
   - Don't use the word maintainer, just name the person that asked for the change.
 - Search for the author in the MAINTAINERS file.  If present, trust their expertise more
