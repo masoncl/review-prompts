@@ -33,6 +33,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 # Parse arguments
 SERIES_SHA=""
+RANGE_SHA=""
 ARG_WORKING_DIR=""
 ARG_MODEL=""
 REVIEW_PROMPT=""
@@ -176,7 +177,6 @@ if [ -n "$APPEND_STRING" ]; then
     PROMPT="$PROMPT $APPEND_STRING"
 fi
 
-# Build the full claude command
 MCP_ARGS=""
 
 set_claude_opts() {
@@ -230,7 +230,7 @@ set_copilot_opts() {
 		CLAUDE_MODEL="claude-opus-4.5"
 	fi
 
-	CLI_OPTS=" --log-level all"
+	CLI_OPTS="--log-level all"
 	CLI_OPTS+=" --add-dir /tmp"
 	CLI_OPTS+=" --add-dir $WORKING_DIR"
 
@@ -249,11 +249,10 @@ case "$CLI" in
 	    set_copilot_opts
 	    ;;
     *)
-	echo "Error: Unknown CLI: $CLI" >&2
-	exit 1
-	;;
+	    echo "Error: Unknown CLI: $CLI" >&2
+	    exit 1
+	    ;;
 esac
-
 
 # Build the full command
 FULL_CMD="$CLI"
