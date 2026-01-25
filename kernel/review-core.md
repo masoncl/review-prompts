@@ -266,7 +266,11 @@ IMPORTANT: subjective issues flagged by SR-* patterns count as regressions
 - Mark complete and provide summary
 - Note any context limitations
 
-This step must not be skipped if there are regressions found.
+This step must not be skipped if there are regressions found.  You're creating
+a text file to be sent to the linux kernel mailing list.  It is absolutely
+CRITICAL this text file meets the standards of linux kernel communications
+as defined in inline-template.md.  If you fail to follow those instructions,
+the review is completely useless.
 
 **If regressions found**:
 0. Clear any context not related to the regressions themselves
@@ -274,6 +278,8 @@ This step must not be skipped if there are regressions found.
   - you must use inline-template.md for all analysis feedback
 2. Create `review-inline.txt` in current directory, never use the prompt directory
 3. Follow the instructions in the template carefully
+  - NEVER WRITE `REGRESSION:` INTO ./review-inline.txt THIS
+    AND ANY OTHER ALL CAPS ANALYSIS IS INCOMPATIBLE WITH LINUX KERNEL STANDARDS
 4. Never include bugs that you identified as false positives in the report
 5. Verify the ./review-inline.txt file exists if regressions are found
 6. Verify the ./review-inline.txt file follows inline-template.md's guidelines
@@ -292,3 +298,46 @@ Always conclude with:
 - Output: `FINAL REGRESSIONS FOUND: <number>`
 - Output: `FINAL TOKENS USED: <total tokens used in the entire session>`
 - Output: Any false positives eliminated
+
+### Task 5 estimate AI authorship
+
+- Evaluate the commit message and the code for likelyhood that it was written
+by AI.
+- Create a score on a scale of <low,medium,high>
+- Create a one sentence explanation of the score
+
+### Task 6 Review metadata output
+
+Create a json file in the current directory named ./review-metadata.json
+
+Identify an issue severity score "low", "medium", "high", "urgent" for anything
+reported in ./review-inline.txt. Scores would increase in severity based on
+user-visible errors such as system crashes, instability, security problems, or
+incorrect system behavior.
+
+Create a one sentence explanation for your issue severity score.  If there are no
+issues, just use "none"
+
+If there are multiple issues, just pick the most severe, or consider the combination
+of their overall implications.
+
+The file should be created for every analysis, even if bugs were not found.
+If the file already exists, it should be completely replaced.
+
+./review-metadata.json will be parsed by other programs.
+
+CRITICAL: DO NOT INVENT OTHER FIELDS FOR ./review-metadata.json.  IT MUST HAVE
+THESE EXACT FIELDS IN THIS EXACT FORMAT.  DEVIATION IS NOT ALLOWED.
+
+```
+author: <string commit author>
+sha: <string sha of the commit>
+subject: <string commit subject>
+AI-authorship-score: <low/medium/high>
+AI-authorship-explanation: <string, result of Task 5>
+issues-found: <number>
+issue-severity-score: <low/medium/high>
+issue-severity-explanation: <string, result of Task 6 analysis>
+```
+
+- Ensure ./review-metadata.json exists and has the correct format
