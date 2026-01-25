@@ -183,7 +183,7 @@ set_claude_opts() {
 	if [ -v HAVE_MCP ]; then
 		MCP_JSON='{"mcpServers":{"semcode":{"command":"semcode-mcp"}}}'
 
-		SC_PFX="mcp__plugin_semcode_semcode"
+		SC_PFX="mcp__semcode"
 
 		MCP_ARGS="--mcp-config"
 		MCP_ARGS+=" '$MCP_JSON'"
