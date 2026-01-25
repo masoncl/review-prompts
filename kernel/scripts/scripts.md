@@ -9,6 +9,7 @@ These scripts automate the process of reviewing a series of git commits using Cl
 | `review_one.sh` | Reviews a single commit SHA |
 | `claude_xargs.py` | Runs multiple reviews in parallel |
 | `claude-json.py` | Parses Claude's stream-json output to markdown |
+| `lore-reply` | Creates reply emails to patches on lore.kernel.org |
 
 ---
 
@@ -128,6 +129,77 @@ python claude-json.py -d < input.json
 ### Why it exists
 
 When using `claude -p` (non-interactive mode), normal output is disabled. The only way to capture output is with `--output-format=stream-json` and `--verbose`. This script parses that JSON stream back into readable markdown.
+
+---
+
+## lore-reply
+
+Creates properly formatted reply emails to patches posted on lore.kernel.org, with optional AI-assisted analysis of existing thread replies and patch verification.
+
+### Usage
+
+```bash
+# Reply to a patch by commit reference (uses b4 dig to find it on lore)
+lore-reply [--dry-run] [--force] <COMMIT-REF>
+
+# Reply to a patch from a local mbox file
+lore-reply [--dry-run] --mbox <MBOX-FILE> [MESSAGE-ID]
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--dry-run` | Don't actually send the email | Sends email |
+| `--force` | Skip patch-id verification and Claude analysis | - |
+| `--mbox <file>` | Use existing mbox file instead of downloading | - |
+
+### What it does
+
+**Commit reference mode:**
+1. Uses `b4 dig` to find the patch on lore.kernel.org by commit hash
+2. Downloads the thread mbox
+3. Uses Claude (haiku) to summarize existing replies in the thread
+4. Verifies patch-id matches between the email and local commit
+5. If patch-ids differ, uses Claude to explain the differences
+6. Creates a reply email with proper headers (In-Reply-To, References) and quoted body
+7. Opens `git send-email --annotate` to edit and send
+
+**Mbox mode:**
+1. Reads the specified mbox file directly
+2. Skips all verification and analysis
+3. Creates reply email and opens git send-email
+
+### Reply Analysis
+
+When run without `--force`, the script checks for `./review-inline.txt` and asks Claude to:
+- Summarize existing replies to the patch
+- Check if anyone has reported similar issues to those in the review file
+
+### Example Workflow
+
+```bash
+# After reviewing a commit with review_one.sh:
+cd linux.<sha>
+
+# Reply to the patch
+lore-reply HEAD
+
+# Test without sending (dry-run)
+lore-reply --dry-run HEAD
+
+# Skip AI analysis and patch verification
+lore-reply --force HEAD
+
+# Reply to a manually downloaded mbox
+lore-reply --mbox thread.mbox
+```
+
+### Prerequisites
+
+- `b4` - For finding and downloading patches from lore.kernel.org
+- `git send-email` - For sending the reply
+- `claude` CLI (optional) - For thread analysis and patch comparison
 
 ---
 
