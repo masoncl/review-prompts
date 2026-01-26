@@ -207,6 +207,48 @@ if (!ASSERT_OK_FD(fd, "open_fd"))  // No duration variable needed
     return;
 ```
 
+## BPF CI Testing
+
+BPF patches should be tested with the BPF CI before submission. The CI is GitHub-based
+and hosted at https://github.com/kernel-patches/bpf.
+
+### Running BPF CI on Your Changes
+
+1. **Fork the repository** (one-time setup): Create a fork of https://github.com/kernel-patches/bpf
+2. **Clone and prepare branch**: Clone your fork locally, check out a new branch tracking either `bpf-next` or `bpf`, and apply your patches on top
+3. **Create pull request**: Push to your fork and create a PR against:
+   - `kernel-patches/bpf`'s `bpf-next_base` branch (for bpf-next patches)
+   - `kernel-patches/bpf`'s `bpf_base` branch (for bpf patches)
+4. **Wait for CI**: The CI workflow runs shortly after PR creation
+
+### CI Behavior Notes
+
+- **Shared capacity**: CI resources are shared with upstream patch testing, so runs may queue
+- **Auto-rebase**: Base branches update as patches are pushed upstream. Your PR will be automatically rebased, which can abort and restart CI runs with the new baseline
+
+### Review Consideration
+
+When reviewing BPF patches, verify the CI status:
+
+1. **Check for CI link**: Look for BPF CI PR links in:
+   - Cover letter
+   - Patch comments on lore
+   - Patchwork entry
+
+2. **If CI link provided**: Verify all CI checks are passing
+   - Navigate to the GitHub PR
+   - Check the CI workflow status (green checkmarks)
+   - If CI is failing, report this as an issue requiring resolution
+
+3. **If no CI link found**: For non-trivial BPF changes, note that CI verification was not available
+   - Trivial changes (typos, comment fixes) may not require CI
+   - Functional changes, new features, or bug fixes should have CI verification
+
+**Output for review**:
+```
+BPF CI STATUS: [PASSING | FAILING | NOT PROVIDED | N/A (trivial change)]
+```
+
 ## BPF Patterns
 
 Conditionally load these additional patterns
