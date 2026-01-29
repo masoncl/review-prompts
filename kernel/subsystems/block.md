@@ -21,5 +21,5 @@ Bio allocations with GFP_NOIO/GFP_NOFS cannot fail (mempool guarantee via
 - `bio_integrity_alloc_buf()` - uses GFP_NOFS, cannot fail
 
 Load block specific rules:
-- **BLOCK-001** (patterns/BLOCK-001.md): Mandatory when struct bios are passed or used
+- **BLOCK-001** (../../patterns/BLOCK-001.md): Mandatory when struct bios are passed or used
 
