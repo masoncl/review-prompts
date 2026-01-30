@@ -6,10 +6,140 @@ These scripts automate the process of reviewing a series of git commits using Cl
 
 | Script | Purpose |
 |--------|---------|
+| `create_changes.py` | Extracts and categorizes commit changes for structured review |
 | `review_one.sh` | Reviews a single commit SHA |
 | `claude_xargs.py` | Runs multiple reviews in parallel |
 | `claude-json.py` | Parses Claude's stream-json output to markdown |
 | `lore-reply` | Creates reply emails to patches on lore.kernel.org |
+
+---
+
+## create_changes.py
+
+Extracts commit information and categorizes changes from a Linux kernel commit into a structured format suitable for parallel agent-based review.
+
+### Installation
+
+Copy or symlink to a directory in your PATH:
+
+```bash
+ln -s /path/to/review-prompts/kernel/scripts/create_changes.py ~/.local/bin/create_changes.py
+# or
+cp /path/to/review-prompts/kernel/scripts/create_changes.py ~/.local/bin/
+```
+
+### Usage
+
+```bash
+create_changes.py [options] <commit_ref>
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `<commit_ref>` | Commit reference (SHA, HEAD, etc.) or path to a patch file | `HEAD` |
+| `-o, --output-dir` | Directory for output files | `./review-context` |
+| `-C, --git-dir` | Git repository directory | Current directory |
+| `--no-semcode` | Skip semcode integration, extract definitions from source | Auto-detect |
+
+### What it does
+
+1. Reads the commit (or patch file) and extracts metadata (SHA, author, date, subject, body, tags)
+2. Parses the diff into hunks, grouping them by source file and function
+3. Uses semcode for static analysis if `.semcode.db` exists; otherwise falls back to a Python-based parser
+4. Combines small changes intelligently:
+   - Modifications to the same function: combined up to 50 added lines
+   - New functions in the same file: combined up to 200 total lines
+   - Small files: merged into groups up to 200 lines total
+5. Splits large files into multiple FILE-N groups (max 400 lines per group)
+6. Writes structured output for downstream review agents
+
+### Output Files
+
+All output goes to the `--output-dir` directory (default: `./review-context/`):
+
+| File | Description |
+|------|-------------|
+| `change.diff` | Full commit message and unified diff |
+| `commit-message.json` | Parsed commit metadata (SHA, author, subject, body, tags, files-changed, subsystems) |
+| `index.json` | Index of all files and changes with version 2.0 schema |
+| `FILE-N-CHANGE-M.json` | One file per change, grouped by source file |
+
+### index.json Schema
+
+```json
+{
+  "version": "2.0",
+  "commit": {
+    "sha": "abc123...",
+    "subject": "commit subject line",
+    "author": "Name <email>"
+  },
+  "files": [
+    {
+      "file_num": 1,
+      "file": "path/to/file.c",
+      "files": ["path/to/file.c"],
+      "total_lines": 150,
+      "changes": [
+        {
+          "id": "FILE-1-CHANGE-1",
+          "function": "function_name",
+          "file": "path/to/file.c",
+          "hunk": "-10,5 +20,5"
+        }
+      ]
+    }
+  ],
+  "files-modified": ["path/to/file.c", "other/file.h"],
+  "total-files": 3,
+  "total-changes": 7
+}
+```
+
+### FILE-N-CHANGE-M.json Schema
+
+```json
+{
+  "id": "FILE-1-CHANGE-1",
+  "file": "path/to/file.c",
+  "function": "function_name",
+  "hunk_header": "-10,5 +20,5",
+  "diff": "@@ -10,5 +20,5 @@ function_name\n ...",
+  "total_lines": 25,
+  "modifies": "function_name",
+  "types": ["struct foo"],
+  "calls": ["helper_func", "another_func"],
+  "callers": ["caller1", "caller2"],
+  "definition": "static int function_name(...) { ... }"
+}
+```
+
+The `modifies`, `types`, `calls`, and `callers` fields come from semcode analysis when available. The `definition` field is extracted from source when semcode is unavailable.
+
+### Example
+
+```bash
+# Analyze HEAD commit
+create_changes.py HEAD -o ./review-context
+
+# Analyze a specific commit
+create_changes.py abc123def -o ./review-context
+
+# Analyze a patch file
+create_changes.py /path/to/patch.diff -o ./review-context
+
+# Use with a different git directory
+create_changes.py -C /path/to/linux abc123 -o ./review-context
+
+# Force Python-only parsing (no semcode)
+create_changes.py --no-semcode HEAD
+```
+
+### Integration with Agent Workflow
+
+This script is designed to be called by the context-analyzer agent (see `kernel/agent/context.md`). The agent runs this script to prepare structured context files that other review agents can consume in parallel, with each agent reviewing a subset of FILE-N groups.
 
 ---
 

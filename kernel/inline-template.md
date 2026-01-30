@@ -37,21 +37,145 @@ the author.
     folio?'
   - Don't say: 'Does this loop have a bounds checking issue?' Name the
     variable you think we're overflowing: "Does this code overflow xyz[]?"
+- When the issue is in the commit message itself, quote the exact portions of
+  the commit message that are incorrect, in the same way you're report a bug
+  in the diff.
+  - There's no need to include the diff hunks if the only issue is in the commit message.
 
-- Don't make long confusing paragraphs, ask short questions backed up by
-code snippets (in plain text), or call chains if needed.
+- The issue description may include extra details such as later commits that fix 
+  the bug, or lore discussions upstream.  These MUST be included in the summary,
+  but should be reworded to fit the template requirements.
 
+- You MUST include every issue sent, even if the additional details explain the
+  issue was fixed in a later commit.  Your job is to format issues, not decide
+  which ones are worth including.
+
+- Do not add additional explanatory content about why something matters or what
+  benefits it provides. State the issue and the suggestion, nothing more.
+
+- Do not explain why typos or grammar mistakes are a problem. Just point them out.
+
+## Ensure clear, concise paragraphs
+
+**Never make long or dense confusing paragraphs, ask short questions backed up by
+code snippets (in plain text), or call chains if needed.**
+
+### AVOID
+```
+Can this sequence actually occur?  Looking at bt_accept_dequeue() in
+af_bluetooth.c, if CPU1 already called bt_accept_unlink() which sets
+bt_sk(sk)->parent = NULL, wouldn't CPU2 check parent at line 284,
+detect it is NULL, and take the 'already unlinked' path with
+release_sock/sock_put/goto restart instead of calling bt_accept_unlink()
+again?
+```
+
+### USE INSTEAD
+```
+Can this sequence actually occur?  Looking at bt_accept_dequeue() in
+af_bluetooth.c, if CPU1 already called bt_accept_unlink() and set
+bt_sk(sk)->parent = NULL:
+
+CPU1
+bt_accept_unlink()
+   bt_sk(sk)->parent = NULL;
+
+CPU2 would see this in bt_accept_dequeue():
+    if (!bt_sk(sk)->parent) {
+        BT_DBG("sk %p, already unlinked", sk);
+        release_sock(sk);
+        sock_put(sk);
+        ...
+        goto restart;
+    }
+
+and take the goto restart path instead of calling bt_accept_unlink() again?
+```
+
+### AVOID
+
+```
+The commit message states the pending_release flag is used "to avoid
+racing with vgic_put_irq() and causing a double-free." Is this
+description accurate? Looking at vgic_put_irq(), it uses
+refcount_dec_and_test() which atomically handles concurrent decrements
+and returns false when refcount is already zero, so another
+vgic_put_irq() call wouldn't trigger a double-free even without this
+flag. The pending_release flag appears to be primarily for tracking
+which LPIs need cleanup in vgic_release_deleted_lpis(), rather than
+preventing races with vgic_put_irq(). Could the commit message be more
+precise about what the flag actually protects against?
+```
+
+### USE INSTEAD
+
+Dense paragraphs are hard to read.  Spread the information out so
+it is easier to follow.
+
+If you have a series of factual sentences, break them up into logical groups
+with a blank line between each group.
+
+If you have a series of statements followed by a question, put a blank line
+before the question.
+
+```
+The commit message states the pending_release flag is used "to avoid
+racing with vgic_put_irq() and causing a double-free." Is this
+description accurate?
+
+Looking at vgic_put_irq(), it uses refcount_dec_and_test() which atomically
+handles concurrent decrements and returns false when refcount is already zero,
+so another vgic_put_irq() call wouldn't trigger a double-free even without this
+flag.
+
+The pending_release flag appears to be primarily for tracking
+which LPIs need cleanup in vgic_release_deleted_lpis(), rather than
+preventing races with vgic_put_irq().
+
+Could the commit message be more precise about what the flag actually protects
+against?
+```
+
+## NEVER EVER ALL CAPS
+
+The only time it is acceptable to use ALL CAPS in the review-inline.txt
+is when you're directly quoting code.
+
+### AVOID
+```
+SYZKALLER-1: Inaccurate race diagram in commit message
+
+The race diagram in the commit message shows CPU2 calling
+bt_accept_unlink(sk) twice, with the second call being a use-after-free:
+```
+
+### USE INSTEAD
+
+The all caps label wasn't useful, and didn't improve the formatting of the
+review:
+
+```
+The race diagram in the commit message shows CPU2 calling
+bt_accept_unlink(sk) twice, with the second call being a use-after-free:
+```
+
+## Don't over explain
+
+Some bugs are extremely nuanced, and require a lot of details to explain.
+
+Some bugs are just completely obvious, especially cutting and pasting errors,
+or areas where the author clearly just missed updating some code.   If you
+expect a reasonable maintainer to understand a short explanation, use
+a short explanation.
+
+## Structure
 Create a TodoWrite for these items, all of which your report should include:
 
 - [ ] git sha of the commit
 - [ ] Author: line from the commit
 - [ ] One line subject from the commit
-
-- [ ] A brief (max 3 sentence) summary of the commit.  Use the full commit
-message if the bug is in the commit message itself.
-
+- [ ] A brief (max 3 sentence) summary of the commit.
 - [ ] Any Link: tags from the commit header
-
 - [ ] A unified diff of the commit, quoted as though it's in an email reply.
   - [ ] The diff must not be generated from existing context.
   - [ ] You must regenerate the diff by calling out to semcode's commit function,
@@ -63,7 +187,6 @@ message if the bug is in the commit message itself.
   in the diff that introduced them.  Do not put the quoting '> ' characters in
   front of your new text.
 - [ ] Place your questions as close as possible to the buggy section of code.
-
 - [ ] Snip portions of the quoted content unrelated to your review
   - [ ] Create a TodoWrite with every hunk in the diff.  Check every hunk
         to see if it is relevant to the review comments.
@@ -120,7 +243,10 @@ mm, swap: only scan one cluster in fragment list
 Is it ok to remove this atomic_long_dec()?  It looks like the counter
 updates are getting lost.
 
+<any additional details sent when the prompt was executed>
+
 <any additional details from the code required to support your question>
+
 
 > -			/*
 > -			 * Rotate the frag list to iterate, they were all
@@ -147,4 +273,26 @@ updates are getting lost.
 >  		}
 >  	}
 >  
+```
+
+Sample commit message issue:
+
+In this case, we keep the header and the summary of the commit and then
+directly quote the part of the commit message that are incorrect.
+
+```
+commit 535a36aad18ce99e3270486fdb073bb5eb1f1c59
+Author: SeongJae Park <sj@kernel.org>
+
+Docs/mm/damon/maintainer-profile: fix wrong MAITNAINERS section name
+
+This commit fixes the documentation to reference the correct MAINTAINERS
+section name after commit 9044cbe50a70 renamed the DAMON section from
+"DATA ACCESS MONITOR" to "DAMON".
+
+Link: https://lkml.kernel.org/r/20260118180305.70023-8-sj@kernel.org
+
+> Docs/mm/damon/maintainer-profile: fix wrong MAITNAINERS section name
+
+This isn't a bug, but there's a typo (MAITNAINERS) in the subject line.
 ```
