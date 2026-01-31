@@ -1,6 +1,6 @@
 # Review Prompts for AI-Assisted Code Review
 
-AI-assisted code review prompts for Linux kernel and systemd development.
+AI-assisted code review prompts for Linux kernel, systemd, and iproute development.
 Works with Claude Code and other AI tools.
 
 ## Quick Start
@@ -19,24 +19,34 @@ cd systemd/scripts
 ./claude-setup.sh
 ```
 
-### Install Both
+### Install iproute Prompts Only
+
+```bash
+cd iproute/scripts
+./claude-setup.sh
+```
+
+### Install All
 
 ```bash
 cd kernel/scripts && ./claude-setup.sh
-cd ../systemd/scripts && ./claude-setup.sh
+cd ../../systemd/scripts && ./claude-setup.sh
+cd ../../iproute/scripts && ./claude-setup.sh
 ```
 
 ## Available Commands
 
 | Project | Review | Debug | Verify |
 |---------|--------|-------|--------|
-| Kernel  | `/kreview` | `/kdebug` | `/kverify` |
+| Kernel | `/kreview` | `/kdebug` | `/kverify` |
 | systemd | `/systemd-review` | `/systemd-debug` | `/systemd-verify` |
+| iproute | `/iproute-review` | `/iproute-debug` | `/iproute-verify` |
 
 ## Project Documentation
 
-- [Kernel Review Prompts](kernel/README.md) - Linux kernel specific patterns and protocols
-- [systemd Review Prompts](systemd/README.md) - systemd specific patterns and protocols
+* [Kernel Review Prompts](kernel/README.md) - Linux kernel specific patterns and protocols
+* [systemd Review Prompts](systemd/README.md) - systemd specific patterns and protocols
+* [iproute Review Prompts](iproute/README.md) - iproute specific patterns and protocols
 
 ## How It Works
 
@@ -48,6 +58,7 @@ Each project has:
 The skills detect your working directory and load appropriate context:
 - In a kernel tree: kernel skill loads automatically
 - In a systemd tree: systemd skill loads automatically
+- In an iproute tree: iproute skill loads automatically
 
 ## Structure
 
@@ -63,6 +74,13 @@ review-prompts/
 ├── systemd/                   # systemd prompts
 │   ├── skills/               # Skill template
 │   ├── slash-commands/       # /systemd-review, /systemd-debug, /systemd-verify
+│   ├── scripts/              # Setup script
+│   ├── patterns/             # Bug pattern documentation
+│   └── *.md                  # Subsystem and protocol files
+│
+├── iproute/                  # iproute prompts
+│   ├── skills/               # Skill template
+│   ├── slash-commands/       # /iproute-review, /iproute-debug, /iproute-verify
 │   ├── scripts/              # Setup script
 │   ├── patterns/             # Bug pattern documentation
 │   └── *.md                  # Subsystem and protocol files
