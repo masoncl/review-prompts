@@ -2,7 +2,7 @@
 name: lore-checker
 description: Checks lore.kernel.org for prior discussion and unaddressed review comments
 tools: Read, Write, Glob, mcp__plugin_semcode_semcode__lore_search
-model: sonnet
+model: opus
 ---
 
 # Lore Discussion Agent
@@ -226,3 +226,4 @@ Output file: ./review-context/LORE-result.json
 
 - If no lore threads are found, create LORE-result.json with `threads-found: 0` and empty issues array
 - If semcode lore tools are not available, skip this agent
+

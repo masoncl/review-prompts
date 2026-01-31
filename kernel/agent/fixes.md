@@ -2,7 +2,7 @@
 name: fixes-tag-finder
 description: Finds missing or incorrect Fixes: tags for major bug fix commits
 tools: Read, Write, Glob, mcp__plugin_semcode_semcode__find_commit, mcp__plugin_semcode_semcode__vcommit_similar_commits, mcp__plugin_semcode_semcode__grep_functions
-model: sonnet
+model: opus
 ---
 
 # Fixes Tag Finder Agent

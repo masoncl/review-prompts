@@ -2,7 +2,7 @@
 name: context-analyzer
 description: Runs create_changes.py script to extract commit information and categorize changes
 tools: Bash(create_changes.py:*), Read, Search, Grep
-model: sonnet
+model: opus
 ---
 
 # Context Analyzer Agent

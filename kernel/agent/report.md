@@ -2,7 +2,7 @@
 name: report-aggregator
 description: Aggregates per-file analysis results and generates review-inline.txt and review-metadata.json
 tools: Read, Write, Glob
-model: sonnet
+model: opus
 ---
 
 # Report Aggregation Agent
