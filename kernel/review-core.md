@@ -41,24 +41,24 @@ correct - otherwise report them as regressions.
 
 Load these files based on what the patch touches:
 
-- Network code (net/, drivers/net, skb_, sockets) → `networking.md`
+- Network code (net/, drivers/net, skb_, sockets) → `subsystems/networking.md`
   - Remember that you've loaded the networking subsystem, you'll use this later
-- Memory management (mm/, page/folio ops, alloc/free, slab, or vmalloc APIs — `__GFP_`, `page_`, `folio_`, `kmalloc`, `kmem_cache_`, `vmalloc`, `alloc_pages` or similar → `mm.md`
-- VFS operations (inode, dentry, vfs_, fs/*.c) → `vfs.md`
-- Locking primitives (spin_lock*, mutex_*) → `locking.md`
-- Scheduler code (kernel/sched/, sched_, schedule) → `scheduler.md`
-- BPF (kernel/bpf/, bpf, verifier) → `bpf.md`
-- RCU operations (rcu*, call_rcu, synchronize_rcu, kfree_rcu) → `rcu.md` AND `patterns/RCU-001.md` (MANDATORY for call_rcu)
-- Encryption (crypto, fscrypt_) → `fscrypt.md`
-- Tracing (trace_, tracepoints) → `tracing.md`
-- Workqueue (kernel/workqueue.c, work_struct) → `workqueue.md`
-- Syscalls → `syscall.md`
-- btrfs → `btrfs.md`
-- DAX → `dax.md`
-- Block/nvme → `block.md`
-- NFSD (fs/nfsd/*, fs/lockd/*) → `nfsd.md`
-- io_uring → `io_uring.md`
-- cleanup API (`__free`, `guard(`, `scoped_guard`, `DEFINE_FREE`, `DEFINE_GUARD`, `no_free_ptr`, `return_ptr`) → cleanup.md
+- Memory management (mm/, page/folio ops, alloc/free, slab, or vmalloc APIs — `__GFP_`, `page_`, `folio_`, `kmalloc`, `kmem_cache_`, `vmalloc`, `alloc_pages` or similar → `subsystems/mm.md`
+- VFS operations (inode, dentry, vfs_, fs/*.c) → `subsystems/vfs.md`
+- Locking primitives (spin_lock*, mutex_*) → `subsystems/locking.md`
+- Scheduler code (kernel/sched/, sched_, schedule) → `subsystems/scheduler.md`
+- BPF (kernel/bpf/, bpf, verifier) → `subsystems/bpf.md`
+- RCU operations (rcu*, call_rcu, synchronize_rcu, kfree_rcu) → `subsystems/rcu.md` AND `patterns/RCU-001.md` (MANDATORY for call_rcu)
+- Encryption (crypto, fscrypt_) → `subsystems/fscrypt.md`
+- Tracing (trace_, tracepoints) → `subsystems/tracing.md`
+- Workqueue (kernel/workqueue.c, work_struct) → `subsystems/workqueue.md`
+- Syscalls → `subsystems/syscall.md`
+- btrfs → `subsystems/btrfs.md`
+- DAX → `subsystems/dax.md`
+- Block/nvme → `subsystems/block.md`
+- NFSD (fs/nfsd/*, fs/lockd/*) → `subsystems/nfsd/nfsd.md`
+- io_uring → `subsystems/io_uring.md`
+- cleanup API (`__free`, `guard(`, `scoped_guard`, `DEFINE_FREE`, `DEFINE_GUARD`, `no_free_ptr`, `return_ptr`) → subsystems/cleanup.md
 
 #### Subjective Review Patterns
 - **SR-001** (patterns/SR-001.md): Subjective general assessment — load only when the prompt explicitly requests this pattern

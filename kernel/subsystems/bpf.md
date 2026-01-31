@@ -210,5 +210,5 @@ if (!ASSERT_OK_FD(fd, "open_fd"))  // No duration variable needed
 ## BPF Patterns
 
 Conditionally load these additional patterns
-- BPF-001 (map operations with copy_map_value*) → `patterns/BPF-001.md`
-- LIBBPF-001 (tools/lib/bpf*) → `patterns/LIBBPF-001.md`
+- BPF-001 (map operations with copy_map_value*) → `../../patterns/BPF-001.md`
+- LIBBPF-001 (tools/lib/bpf*) → `../../patterns/LIBBPF-001.md`
