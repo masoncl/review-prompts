@@ -77,4 +77,4 @@ for fast code navigation and semantic search.
 
 ## License
 
-See [kernel/LICENSE](kernel/LICENSE) for license information.
+See [LICENSE](LICENSE) for license information.
