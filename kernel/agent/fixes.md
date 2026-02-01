@@ -21,18 +21,8 @@ All kernel developers understand that missing Fixes: tags make it harder to:
 - Understand fix context during code review
 - Correlate fixes with their original bugs
 
-There's no need to explain why Fixes: tags are a good thing in general.  You're
+There's no need to explain why Fixes: tags are a good thing in general. You're
 discussing only the fact that a tag is missing or incorrect on this one patch.
-
-Different subsystems have different criteria for including Fixes: tags.  The
-general guideline is adding tags for major bugs.  These fix system instability,
-crashes, hangs, deadlocks, memory leaks, or cause bad behaviors.
-
-NEVER report a missing fixes tag for these minor issues:
-  - Configuration dependencies
-  - Build errors, warnings
-  - Sparse errors, warnings
-  - Documentation errors
 
 ## Input
 
@@ -54,17 +44,106 @@ You will be given:
 From commit-message.json, extract:
 - `subject`: The commit subject line
 - `body`: The full commit message
-- `tags`: Check if `fixes` tag exists
+- `tags`: Check if `fixes` tag exists (set `existing_fixes_tag=true` if present)
 - `files-changed`: List of modified files
-
-If the commit already has a Fixes: tag
-  - set `existing_fixes_tag=true` 
-  - Remember the sha of the existing Fixes: tag
-  - jump directly to PHASE 4
 
 ---
 
-## PHASE 2: Analyze the Bug
+## PHASE 2: Subsystem Gate Check
+
+Different subsystems have different preferences for Fixes: tags. Before
+searching for a missing tag, determine if we should check at all.
+
+### Step 1: Classify the commit
+
+First, determine if this is a bug fix at all. Look for indicators in the
+commit message and diff:
+
+**Bug fix indicators:**
+- Words like "fix", "correct", "repair", "resolve", "prevent", "avoid"
+- Null checks being added
+- Error handling being added or corrected
+- Conditional logic being fixed
+- Resource leaks being plugged
+
+**Not a bug fix:**
+- New features
+- Refactoring without behavioral change
+- Code cleanup, style changes
+- Documentation updates
+- Performance optimizations (unless fixing a regression)
+
+If not a bug fix → EXIT
+
+### Step 2: Determine bug severity
+
+If this is a bug fix, classify it as **major** or **minor**:
+
+**Major bugs** (system instability):
+- Crashes, panics, oops
+- Hangs, deadlocks
+- Use-after-free, memory corruption
+- Large memory leaks
+- Security flaws
+- User-visible behavior problems
+
+**Minor bugs** (never require Fixes: tags):
+- Small memory leaks
+- Edge case fixes
+- Performance issues (unless severe)
+- Code cleanup that happens to fix a bug
+- Configuration/Kconfig dependencies
+- Build errors, warnings
+- Sparse errors, warnings
+- Documentation errors
+- Linux-next integration fixes (temporary merge/build fixes)
+
+### Step 3: Identify the subsystem
+
+From `files-changed`, determine the primary subsystem:
+
+| Path pattern | Subsystem |
+|--------------|-----------|
+| `net/`, `drivers/net/`, `include/net/`, `include/linux/skbuff.h` | networking |
+| `kernel/bpf/`, `include/linux/bpf*.h`, `tools/bpf/` | bpf |
+| `mm/`, `include/linux/mm*.h` | mm |
+| `fs/` | filesystem |
+| Other | general |
+
+If files span multiple subsystems, use the subsystem of the primary change
+(usually where most modifications occur).
+
+### Step 4: Apply subsystem rules
+
+| Condition | Action |
+|-----------|--------|
+| Not a bug fix | EXIT |
+| Minor bug (any subsystem) | EXIT |
+| **networking** subsystem, no existing Fixes: tag | EXIT |
+| Has existing Fixes: tag (any subsystem) | → PHASE 5 (validate existing tag) |
+| Major bug in **bpf** subsystem, no existing tag | → PHASE 3 |
+| Major bug in other subsystem, no existing tag | → PHASE 3 |
+
+**Note on networking**: The networking subsystem does not require Fixes: tags,
+so we never flag missing tags. However, if a networking commit already has a
+Fixes: tag, we still validate that it points to the correct commit.
+
+**If EXIT**: Stop and output:
+
+```
+FIXES TAG SEARCH COMPLETE
+
+Result: skipped
+Reason: <e.g., "networking subsystem", "minor bug", "not a bug fix">
+Fixed commit found: n/a
+Confidence: n/a
+Suggested tag: none
+Output file: not created
+```
+
+---
+
+## PHASE 3: Analyze the Bug
 
 From the commit message and diff, determine:
 
@@ -89,7 +168,7 @@ From the commit message and diff, determine:
 
 ---
 
-## PHASE 3: Search for the Fixed Commit
+## PHASE 4: Search for the Introducing Commit
 
 Use semcode tools to search git history for the commit that introduced the bug.
 
@@ -146,10 +225,10 @@ For each candidate commit found:
 
 ---
 
-## PHASE 4: Verification
+## PHASE 5: Verification
 
 Use semcode find_commit (preferred) or git tools to fully load the commit
-message AND diff of the candidate Fixes: tag commit.
+message AND diff of the candidate commit.
 
 Verify:
 1. The bug fixed in the current commit actually existed in the candidate
@@ -159,16 +238,16 @@ Verify:
 
 | Verification | Had existing tag? | Action |
 |--------------|-------------------|--------|
-| Fails | Yes | Report wrong-fixes-tag, go to PHASE 2 to find correct one |
-| Fails | No | No issue, we just didn't find a good candidate |
+| Fails | Yes | Report wrong-fixes-tag, return to PHASE 4 to find correct one |
+| Fails | No | No issue found, candidate was not a match |
 | Succeeds | Yes | Existing tag is correct, no issue |
-| Succeeds | No | Report missing-fixes-tag in PHASE 5 |
+| Succeeds | No | Report missing-fixes-tag in PHASE 6 |
 
 ---
 
-## PHASE 5: Write Results
+## PHASE 6: Write Results
 
-**Only create `./review-context/FIXES-result.json` if PHASE 4 identified an issue.**
+**Only create `./review-context/FIXES-result.json` if PHASE 5 identified an issue.**
 
 ### FIXES-result.json format:
 
@@ -193,7 +272,6 @@ Verify:
 ```
 
 **Issue descriptions:**
-- **NEVER** explain why fixes tags are important in general.  Just explain the issue you found.
 - `missing-fixes-tag`: "This commit fixes a bug but lacks a Fixes: tag. Suggested: Fixes: abc123 (\"subject\")"
 - `wrong-fixes-tag`: "The existing Fixes: tag points to commit X, but the bug was introduced by commit Y. Suggested: Fixes: Y (\"subject\")"
 
@@ -204,14 +282,18 @@ Verify:
 
 ---
 
-## Output
+## Final Output
+
+Always end with this output block:
 
 ```
 FIXES TAG SEARCH COMPLETE
 
-Fixed commit found: <yes|no>
+Result: <searched|skipped|validated>
+Reason: <e.g., "networking subsystem", "minor bug", "found introducing commit">
+Fixed commit found: <yes|no|n/a>
 Confidence: <high|medium|low|n/a>
-Suggested tag: Fixes: <sha> ("<subject>") | none
+Suggested tag: <Fixes: sha ("subject")> | none | existing tag correct
 Output file: ./review-context/FIXES-result.json | not created
 ```
 
@@ -219,6 +301,15 @@ Output file: ./review-context/FIXES-result.json | not created
 
 ## Important Notes
 
-1. **Severity is always low**: Missing or wrong Fixes: tags are documentation issues,
-   not functional bugs
+1. **Severity is always low**: Missing or wrong Fixes: tags are documentation
+   issues, not functional bugs.
 
+2. **Don't over-search**: If you can't find a good candidate after trying
+   the search strategies, it's fine to report no issue found. Not every bug
+   has an identifiable introducing commit.
+
+3. **Timeline matters**: The introducing commit must predate the fix. If a
+   candidate postdates the commit being analyzed, it cannot be the source.
+
+4. **Verify before reporting**: Always load and read the candidate commit's
+   full diff before suggesting it as a Fixes: target.
