@@ -44,6 +44,7 @@ You will be given:
 2. The prompt directory path (contains agent/, patterns/, and subsystem guides)
 3. Optional flags:
    - `--skip-lore`: Skip lore thread checking
+   - `--max-parallel <N>`: Maximum agents to run in parallel (default: unlimited)
 4. Optional series/range info (for checking if bugs are fixed later in series):
    - "which is part of a series ending with <SHA>"
    - "which is part of a series with git range <base>..<end>"
@@ -234,8 +235,21 @@ Prompt: Search for the commit that introduced the bug being fixed.
         Prompt directory: <prompt_dir>
 ```
 
-**CRITICAL**: Launch ALL agents in a SINGLE response with multiple Task tool calls.
-Wait for all to complete, then collect results.
+**CRITICAL**: If `--max-parallel` is not specified, launch ALL agents in a SINGLE
+response with multiple Task tool calls. If `--max-parallel <N>` is specified,
+launch agents in batches of at most N agents at a time:
+
+1. Collect all agents to spawn: FILE-1 through FILE-N, plus lore (if not skipped),
+   syzkaller (if applicable), and fixes
+2. Launch the first batch (up to N agents) in a single response
+3. Wait for all agents in the batch to complete
+4. Launch the next batch
+5. Repeat until all agents have completed
+
+Prioritize non-FILE agents (lore, syzkaller, fixes) in the first batch since they
+tend to complete faster and don't depend on FILE analysis results.
+
+Wait for all agents to complete, then collect results.
 
 **Verify after agents complete**:
 - FILE-N agents: `./review-context/FILE-N-CHANGE-M-result.json` exists for CHANGEs with issues
@@ -386,6 +400,11 @@ Analyze commit abc123, which is part of a series with git range abc123..def456
 **Skip lore checking**:
 ```
 Analyze commit abc123, skip lore checking
+```
+
+**Limit parallel agents**:
+```
+Analyze commit abc123 --max-parallel 4
 ```
 
 **Patch file**:

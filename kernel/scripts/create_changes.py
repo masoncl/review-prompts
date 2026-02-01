@@ -64,17 +64,23 @@ class Change:
 
 
 # Maximum added lines when combining hunks from the same function
-MAX_COMBINED_ADDED_LINES = 50
+MAX_COMBINED_ADDED_LINES = 500
 
 # Maximum total lines when combining new functions in the same file
-MAX_NEW_FUNCTION_COMBINED_LINES = 200
+MAX_NEW_FUNCTION_COMBINED_LINES = 500
 
 # Maximum total lines per FILE-N before creating a new FILE-N+1
-MAX_LINES_PER_FILE = 400
+MAX_LINES_PER_FILE = 500
 
 # Maximum combined lines for merging small FILE-N groups
 # If consecutive FILE-N groups together have fewer lines than this, combine them
-MAX_COMBINED_FILE_GROUP_LINES = 200
+MAX_COMBINED_FILE_GROUP_LINES = 500
+
+# Maximum combined lines when merging FILE-N groups based on function similarity
+MAX_SIMILARITY_COMBINED_LINES = 500
+
+# Minimum function overlap ratio to consider merging two FILE-N groups
+MIN_FUNCTION_OVERLAP_RATIO = 0.8
 
 
 def count_added_lines(hunk_content: str) -> int:
@@ -1286,6 +1292,131 @@ def create_change_json(change: Change) -> dict:
     return result
 
 
+def extract_group_functions(group: dict) -> set[str]:
+    """
+    Extract all functions referenced by a FILE-N group.
+    Includes: modified functions, callers, and callees from all changes.
+    """
+    functions = set()
+    for change in group["changes"]:
+        # Add the function name from the change (may be comma-separated for new functions)
+        if change.function and change.function != "unknown":
+            for func in change.function.split(", "):
+                func = func.strip()
+                if func:
+                    functions.add(func)
+
+        # Add functions from diffinfo
+        if change.diffinfo:
+            di = change.diffinfo
+            if di.get("modifies"):
+                functions.add(di["modifies"])
+            for caller in di.get("callers", []):
+                functions.add(caller)
+            for callee in di.get("calls", []):
+                functions.add(callee)
+
+    return functions
+
+
+def calculate_function_overlap(funcs1: set[str], funcs2: set[str]) -> float:
+    """
+    Calculate the overlap ratio between two sets of functions.
+    Returns the ratio of intersection to the smaller set size.
+    This ensures small groups can still be merged if they share most of their functions.
+    """
+    if not funcs1 or not funcs2:
+        return 0.0
+
+    intersection = funcs1 & funcs2
+    # Use the smaller set as denominator to allow small groups to merge with larger ones
+    smaller_size = min(len(funcs1), len(funcs2))
+    return len(intersection) / smaller_size
+
+
+def combine_groups_by_similarity(file_groups: list[dict]) -> list[dict]:
+    """
+    Combine FILE-N groups that share >50% of their functions.
+    Respects MAX_SIMILARITY_COMBINED_LINES limit.
+    Uses greedy approach: repeatedly merge the most similar pair until no more merges possible.
+    """
+    if len(file_groups) <= 1:
+        return file_groups
+
+    # Build function sets for each group
+    group_functions: list[set[str]] = []
+    for group in file_groups:
+        group_functions.append(extract_group_functions(group))
+
+    # Track which groups have been merged (by index)
+    merged_into: dict[int, int] = {}  # maps original index -> merged group index
+    working_groups = list(file_groups)  # will be modified during merging
+    working_funcs = list(group_functions)
+
+    changed = True
+    while changed:
+        changed = False
+        best_overlap = 0.0
+        best_pair = None
+
+        # Find the best pair to merge
+        for i in range(len(working_groups)):
+            if working_groups[i] is None:
+                continue
+            for j in range(i + 1, len(working_groups)):
+                if working_groups[j] is None:
+                    continue
+
+                # Check if combined size would exceed limit
+                combined_lines = working_groups[i]["total_lines"] + working_groups[j]["total_lines"]
+                if combined_lines > MAX_SIMILARITY_COMBINED_LINES:
+                    continue
+
+                overlap = calculate_function_overlap(working_funcs[i], working_funcs[j])
+                if overlap >= MIN_FUNCTION_OVERLAP_RATIO and overlap > best_overlap:
+                    best_overlap = overlap
+                    best_pair = (i, j)
+
+        # Merge the best pair if found
+        if best_pair:
+            i, j = best_pair
+            # Merge j into i
+            gi = working_groups[i]
+            gj = working_groups[j]
+
+            # Combine files lists
+            files_i = gi.get("files", [gi["file"]] if isinstance(gi["file"], str) else gi["file"])
+            files_j = gj.get("files", [gj["file"]] if isinstance(gj["file"], str) else gj["file"])
+            combined_files = list(files_i) + [f for f in files_j if f not in files_i]
+
+            # Create merged group
+            merged = {
+                "file_num": None,  # Will be reassigned later
+                "file": combined_files if len(combined_files) > 1 else combined_files[0],
+                "files": combined_files,
+                "changes": list(gi["changes"]) + list(gj["changes"]),
+                "total_lines": gi["total_lines"] + gj["total_lines"],
+            }
+            working_groups[i] = merged
+            working_groups[j] = None
+            working_funcs[i] = working_funcs[i] | working_funcs[j]
+            working_funcs[j] = set()
+            changed = True
+
+    # Collect non-None groups and reassign file_num
+    result = [g for g in working_groups if g is not None]
+    for idx, group in enumerate(result, start=1):
+        group["file_num"] = idx
+        # Update file_num and change_num in each Change object
+        change_num = 1
+        for change in group["changes"]:
+            change.file_num = idx
+            change.change_num = change_num
+            change_num += 1
+
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Create CHANGE-N categorization for kernel patch review"
@@ -1638,6 +1769,16 @@ def main():
 
         file_groups = combined_groups
 
+    # Track count before similarity merging for reporting
+    groups_before_similarity = len(file_groups)
+
+    # Post-process: combine FILE-N groups that share significant function overlap
+    # This merges groups that work on related code even if they're in different files
+    file_groups = combine_groups_by_similarity(file_groups)
+
+    groups_after_similarity = len(file_groups)
+    similarity_merges = groups_before_similarity - groups_after_similarity
+
     # Collect all changes for writing
     all_changes = []
     for group in file_groups:
@@ -1663,6 +1804,7 @@ def main():
                 "file": group["file"],  # Can be string or list of strings
                 "files": group.get("files", [group["file"]] if isinstance(group["file"], str) else group["file"]),
                 "total_lines": group["total_lines"],
+                "functions": sorted(extract_group_functions(group)),  # All functions in this group
                 "changes": [
                     {
                         "id": c.id,
@@ -1700,9 +1842,12 @@ def main():
     print(f"Source files modified: {len(files_changed)}")
     print(f"Hunks in diff: {total_hunks}")
     print(f"FILE-N groups created: {len(file_groups)}")
+    if similarity_merges > 0:
+        print(f"  - Groups merged by function similarity: {similarity_merges} (from {groups_before_similarity} to {groups_after_similarity})")
     print(f"Total changes: {len(all_changes)}")
     print(f"  - Max lines per FILE-N: {MAX_LINES_PER_FILE}")
     print(f"  - Small file groups combined: max {MAX_COMBINED_FILE_GROUP_LINES} lines")
+    print(f"  - Similarity merge: >{int(MIN_FUNCTION_OVERLAP_RATIO*100)}% function overlap, max {MAX_SIMILARITY_COMBINED_LINES} lines")
     print(f"  - Modifications: combined by function, max {MAX_COMBINED_ADDED_LINES} added lines")
     print(f"  - New functions: combined by file, max {MAX_NEW_FUNCTION_COMBINED_LINES} total lines")
     print()

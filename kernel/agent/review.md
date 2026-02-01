@@ -144,25 +144,69 @@ For each FILE-N-CHANGE-M.json:
 - Determine what additional subsystem/pattern files to load
 - If hunk is non-trivial:
   - Add modified functions to TodoWrite (skip if full body already in diff)
-  - Add callers/callees if complexity justifies (max 5 each)
-  - Add types if needed
-- Group low-complexity changes for bulk analysis
+  - Add 5 callers of each modified function to TodoWrite
+  - Add ALL callees of each modified function to TodoWrite
+  - Build a call graph for each modified function, remember it, CS-001.md will use it.
+    - modified function F calls function Y
+    - modified function F is called by function Z
+  - Add types from each modified function to TodoWrite
 
 Output: `PHASE 2 COMPLETE - TodoWrite ready`
+Output: The full call graph that you built:
+```
+FILE-N-CHANGE-M call graph
+function F called by A,B,C,D
+function F calls E,F,G,H,I
 
+FILE-N-CHANGE-Z call graph
+function FF called by AA,BB,CC,DD
+function FF calls EE,GG,HH,II
+```
+
+Remember this call graph, proper CS-001.md functioning depends on it
 ---
 
 ## PHASE 3: Bulk Semcode Loading
 
 **In a SINGLE message, call semcode tools in parallel for ALL functions and types from PHASE 2.**
 
-Output: `PHASE 3 COMPLETE - <count> functions, <count> callers loaded`
+In parallel, load the full definitions of functions and types identified in TodoWrite
+- All modified functions
+- callers (pick up to 5 for each modified function)
+- All callees
+
+If semcode is not available, you must still find the definitions of all of these
+objects.  Do your best to minimize turns, but you MUST prioritize full context
+loading.
+
+Output:
+```
+PHASE 3 COMPLETE - <count> functions, <count> callers loaded
+Functions loaded: [ full list ]
+```
 
 ---
 
 ## PHASE 4: Per-CHANGE Analysis
 
 Analyze all CHANGEs within this FILE-N using the context already loaded.
+
+Place each FILE-N-CHANGE-M into TodoWrite, you MUST fully analyze each change
+
+*MANDATORY* Create a separate TodoWrite entry for steps 1, 2, 3, 4, for each change:
+
+- FILE-N-CHANGE-1-step-1, FILE-N-CHANGE-1-step-2, FILE-N-CHANGE-1-step-3 ...
+- FILE-N-CHANGE-2-step-1, FILE-N-CHANGE-2-step-2, FILE-N-CHANGE-2-step-3 ...
+- ... for EVERY change.  NEVER SKIP ANY CHANGES OR ANY STEPS
+
+Output:
+```
+TodoWrite Entries Created:
+[ complete list of TodoWrites ]
+```
+
+This TodoWrite generation makes sure you actually run every step for every change.
+Without it, you will skip steps, and the analysis will be incomplete.
 
 For each CHANGE, track progress: `=== FILE-N-CHANGE-M of TOTAL: <title> ===`
 
