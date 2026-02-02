@@ -6,7 +6,8 @@
 
 **Risk**: Invalid states
 
-**Details**: Clean+Writable, Non-accessed+Writable are invalid
+**Details**: Writable+clean or writable+!young can be valid (fresh mappings).
+Verify truly invalid PTE combinations in arch-specific code.
 
 #### MM-002: Cross-page state handling
 
@@ -34,7 +35,7 @@
 
 ## Page/Folio States
 - PTE dirty bit implies accessed bit (dirty→accessed)
-- Young/accessed pages shouldn't be clean and writable simultaneously
+- Accessed/young does not imply dirty; accessed+writable+clean is valid
 - Large folios require per-page state tracking for:
   - PageAnonExclusive
   - Dirty/accessed bits
@@ -86,13 +87,14 @@
 
 ## Mempool Allocation Guarantees
 
-`mempool_alloc()` cannot fail when `__GFP_DIRECT_RECLAIM` is set - it sleeps
-and retries forever until success (`mm/mempool.c:mempool_alloc_noprof()`).
+`mempool_alloc()` will sleep/retry when `__GFP_DIRECT_RECLAIM` is set, so
+ENOMEM is unexpected but not impossible. It can still fail if the pool
+cannot be replenished or backing allocations are restricted.
 
 **GFP flags with `__GFP_DIRECT_RECLAIM`**: GFP_KERNEL, GFP_NOIO, GFP_NOFS
 (all include `__GFP_RECLAIM` = `__GFP_DIRECT_RECLAIM | __GFP_KSWAPD_RECLAIM`)
 
-**Can fail**: GFP_ATOMIC, GFP_NOWAIT (no `__GFP_DIRECT_RECLAIM`)
+**More likely to fail**: GFP_ATOMIC, GFP_NOWAIT (no `__GFP_DIRECT_RECLAIM`)
 
 ## Quick Checks
 - TLB flushes required after PTE modifications
