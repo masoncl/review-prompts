@@ -78,7 +78,7 @@ bugs found are fixed later in the patch series.
   - syzkaller.md (if syzbot)
   - fixes.md
 - **Phase 3**: Report generation - spawn report.md agent after all Phase 2 agents complete
-- Dynamic model selection: sonnet for simple files, opus for complex
+- Dynamic model selection: sonnet for simple changes, opus for complex
 
 ---
 
@@ -137,9 +137,11 @@ Syzkaller commit: <yes|no>
 Git range for fix checking: <range or "none">
 
 Files:
-- FILE-1: <filename> (<N> changes)
-- FILE-2: <filename> (<N> changes)
+- FILE-1: <filename> (<N> changes) [simple|complex]
+- FILE-2: <filename> (<N> changes) [simple|complex]
 ...
+
+Model selection: <sonnet|opus> (reason: <all files simple|FILE-N is complex>)
 ```
 
 ---
@@ -150,24 +152,37 @@ Files:
 
 | Agent | Model | Purpose | Input | Output |
 |-------|-------|---------|-------|--------|
-| `review.md` | sonnet/opus* | Deep regression analysis | FILE-N group + git range | `FILE-N-CHANGE-M-result.json` |
+| `review.md` | unified* | Deep regression analysis | FILE-N group + git range | `FILE-N-CHANGE-M-result.json` |
 | `lore.md` | sonnet | Check prior discussions | commit-message.json | `LORE-result.json` |
 | `syzkaller.md` | opus | Verify syzbot commit claims | commit-message.json | `SYZKALLER-result.json` |
 | `fixes.md` | sonnet | Find missing Fixes: tag | commit-message.json + diff | `FIXES-result.json` |
+
+*unified = opus if any change is complex, sonnet if all changes are simple
 
 - One `review.md` agent per FILE-N.
 - `lore.md` skipped if `--skip-lore`.
 - `syzkaller.md` only if commit mentions syzbot/syzkaller.
 
 **Model Selection Criteria** (for `review.md` agents):
-- Use **sonnet** if:
+
+**IMPORTANT**: Model selection is unified across all FILE-N agents. If ANY file
+requires opus, use opus for ALL file reviews. This avoids duplicate context
+caches between models, and saves tokens overall.
+
+**Step 1 - Evaluate each FILE-N for complexity**:
+A file is "complex" if ANY of these apply:
+  - >2 changes
+  - Complex logic changes (loops, locking, RCU, memory management)
+  - Multi-function refactoring
+
+A file is "simple" if ALL of these apply:
   - ≤2 changes AND no complex patterns (refactoring, algorithmic changes)
   - Header-only changes (struct definitions, macros)
   - Documentation-only changes
-- Use **opus** if:
-  - >2 changes OR
-  - Complex logic changes (loops, locking, RCU, memory management)
-  - Multi-function refactoring
+
+**Step 2 - Select unified model**:
+- If ANY FILE-N is complex → use **opus** for ALL FILE-N agents
+- If ALL FILE-N are simple → use **sonnet** for ALL FILE-N agents
 
 **Agent Templates**:
 
@@ -273,11 +288,12 @@ PHASE 2 COMPLETE: Parallel Analysis
 
 File Analysis:
   Files analyzed: <count>/<total>
+  Model used: <sonnet|opus> (unified)
   Total confirmed regressions: <count>
   Highest severity: <level>
   Per-file summary:
-  - FILE-1 (<filename>, <model>): <N> regressions
-  - FILE-2 (<filename>, <model>): <N> regressions
+  - FILE-1 (<filename>): <N> regressions
+  - FILE-2 (<filename>): <N> regressions
   ...
 
 Lore Checking:
