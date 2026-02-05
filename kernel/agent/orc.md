@@ -2,7 +2,7 @@
 name: review-orchestrator
 description: Orchestrates the full kernel patch review workflow across multiple agents
 tools: Read, Write, Glob, Bash, Task
-model: opus
+model: sonnet
 ---
 
 # Review Orchestrator Agent
@@ -78,13 +78,13 @@ bugs found are fixed later in the patch series.
   - syzkaller.md (if syzbot)
   - fixes.md
 - **Phase 3**: Report generation - spawn report.md agent after all Phase 2 agents complete
-- opus for all files
+- Dynamic model selection: sonnet for simple files, opus for complex
 
 ---
 
 ## Phase 1: Context Gathering
 
-**Agent**: `<prompt_dir>/agent/context.md` (opus)
+**Agent**: `<prompt_dir>/agent/context.md` (sonnet)
 
 **Purpose**: Run create_changes.py to generate context artifacts
 
@@ -94,7 +94,7 @@ bugs found are fixed later in the patch series.
 **Invoke** (only if `./review-context/index.json` does not exist):
 ```
 Task: context-creator
-Model: opus
+Model: sonnet
 Prompt: Create review context artifacts.
         Read the prompt file <prompt_dir>/agent/context.md and execute it.
 
@@ -150,17 +150,17 @@ Files:
 
 | Agent | Model | Purpose | Input | Output |
 |-------|-------|---------|-------|--------|
-| `review.md` | opus | Deep regression analysis | FILE-N group + git range | `FILE-N-CHANGE-M-result.json` |
-| `lore.md` | opus | Check prior discussions | commit-message.json | `LORE-result.json` |
+| `review.md` | sonnet/opus* | Deep regression analysis | FILE-N group + git range | `FILE-N-CHANGE-M-result.json` |
+| `lore.md` | sonnet | Check prior discussions | commit-message.json | `LORE-result.json` |
 | `syzkaller.md` | opus | Verify syzbot commit claims | commit-message.json | `SYZKALLER-result.json` |
-| `fixes.md` | opus | Find missing Fixes: tag | commit-message.json + diff | `FIXES-result.json` |
+| `fixes.md` | sonnet | Find missing Fixes: tag | commit-message.json + diff | `FIXES-result.json` |
 
 - One `review.md` agent per FILE-N.
 - `lore.md` skipped if `--skip-lore`.
 - `syzkaller.md` only if commit mentions syzbot/syzkaller.
 
 **Model Selection Criteria** (for `review.md` agents):
-- Use **opus** if:
+- Use **sonnet** if:
   - ≤2 changes AND no complex patterns (refactoring, algorithmic changes)
   - Header-only changes (struct definitions, macros)
   - Documentation-only changes
@@ -174,7 +174,7 @@ Files:
 For each FILE-N in index.json["files"]:
 ```
 Task: file-analyzer-N
-Model: opus
+Model: <sonnet|opus based on criteria above>
 Prompt: Analyze FILE-<N> for regressions.
         Read the prompt file <prompt_dir>/agent/review.md and execute it.
 
@@ -200,7 +200,7 @@ forward in git history to check if any bugs found are fixed later in the series.
 Plus (if lore not skipped):
 ```
 Task: lore-checker
-Model: opus
+Model: sonnet
 Prompt: Check lore.kernel.org for prior discussion of this patch.
         Read the prompt file <prompt_dir>/agent/lore.md and execute it.
 
@@ -227,7 +227,7 @@ Prompt: Verify every claim in the commit message for this syzbot/syzkaller-repor
 Plus (always):
 ```
 Task: fixes-tag-finder
-Model: opus
+Model: sonnet
 Prompt: Search for the commit that introduced the bug being fixed.
         Read the prompt file <prompt_dir>/agent/fixes.md and execute it.
 
@@ -303,7 +303,7 @@ Fixes Tag Search:
 
 ## Phase 3: Report Generation
 
-**Agent**: `<prompt_dir>/agent/report.md` (opus)
+**Agent**: `<prompt_dir>/agent/report.md` (sonnet)
 
 **Purpose**: Aggregate results and generate final outputs
 
@@ -313,7 +313,7 @@ Fixes Tag Search:
 **Invoke**:
 ```
 Task: report-aggregator
-Model: opus
+Model: sonnet
 Prompt: Aggregate analysis results and generate review output.
         Read the prompt file <prompt_dir>/agent/report.md and execute it.
 
