@@ -47,4 +47,4 @@ prep → issue → req complete → [buffers still in use] → notif callback �
 - Network sockets: Managed separately via sock_hold/sock_put
 
 ## Load io_uring specific patterns:
-- **ZC-001** (patterns/ZC-001.md): Zero-copy buffer lifetime validation — Mandatory when zero-copy operations use registered buffers
+- **ZC-001** (../../patterns/ZC-001.md): Zero-copy buffer lifetime validation — Mandatory when zero-copy operations use registered buffers

@@ -13,26 +13,26 @@ Detailed review patterns are organized by topic. Load the relevant pattern
 files based on what code areas are being modified:
 
 **Input validation and protocol handling:**
-- [NFSD-001: XDR input trust boundaries](nfsd/NFSD-001-xdr-input.md)
-- [NFSD-005: NFS error code mapping](nfsd/NFSD-005-error-mapping.md)
-- [NFSD-007: XDR encode/decode failure handling](nfsd/NFSD-007-xdr-encode-decode.md)
+- [NFSD-001: XDR input trust boundaries](NFSD-001-xdr-input.md)
+- [NFSD-005: NFS error code mapping](NFSD-005-error-mapping.md)
+- [NFSD-007: XDR encode/decode failure handling](NFSD-007-xdr-encode-decode.md)
 
 **Resource management:**
-- [NFSD-002: Reference counting balance](nfsd/NFSD-002-refcounting.md)
-- [NFSD-003: File handle lifecycle](nfsd/NFSD-003-filehandles.md)
-- [NFSD-004: NFSv4 stateid lifecycle](nfsd/NFSD-004-stateids.md)
+- [NFSD-002: Reference counting balance](NFSD-002-refcounting.md)
+- [NFSD-003: File handle lifecycle](NFSD-003-filehandles.md)
+- [NFSD-004: NFSv4 stateid lifecycle](NFSD-004-stateids.md)
 
 **Concurrency and state:**
-- [NFSD-006: Locking correctness](nfsd/NFSD-006-locking.md)
-- [NFSD-008: Client state transitions](nfsd/NFSD-008-client-state.md)
-- [NFSD-013: Session slot state and SEQUENCE operations](nfsd/NFSD-013-session-slots.md)
+- [NFSD-006: Locking correctness](NFSD-006-locking.md)
+- [NFSD-008: Client state transitions](NFSD-008-client-state.md)
+- [NFSD-013: Session slot state and SEQUENCE operations](NFSD-013-session-slots.md)
 
 **Security:**
-- [NFSD-009: User namespace conversion](nfsd/NFSD-009-user-namespace.md)
-- [NFSD-010: Security-critical input validation](nfsd/NFSD-010-security-validation.md)
+- [NFSD-009: User namespace conversion](NFSD-009-user-namespace.md)
+- [NFSD-010: Security-critical input validation](NFSD-010-security-validation.md)
 
 **Advanced features:**
-- [NFSD-011: NFSv4 callback client operations](nfsd/NFSD-011-callbacks.md)
+- [NFSD-011: NFSv4 callback client operations](NFSD-011-callbacks.md)
 
 ## Quick Checks
 
