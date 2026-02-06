@@ -71,13 +71,13 @@ __bpf_kfunc unsigned long bpf_mem_cgroup_page_state(struct mem_cgroup *memcg, in
 }
 ```
 
-**For enum parameters**, the check must handle negative values because enums
-are signed int in C:
+**For enum parameters**, the check must handle negative values because
+untrusted scalar inputs can be negative (and enums are typically int in C):
 ```c
 __bpf_kfunc unsigned long bpf_mem_cgroup_memory_events(struct mem_cgroup *memcg,
                         enum memcg_memory_event event)
 {
-    // Must check BOTH bounds - enum is signed int, negative values bypass >= check
+    // Use unsigned cast or explicit < 0 check so negatives don't bypass the range check
     if ((unsigned int)event >= MEMCG_NR_MEMORY_EVENTS)
         return (unsigned long)-1;
     // OR: if (event < 0 || event >= MEMCG_NR_MEMORY_EVENTS)
@@ -135,14 +135,14 @@ Each skeleton includes these functions (where `example` is the object name):
 
 **IMPORTANT**: After successful `skel = example__open_and_load()`:
 - The skeleton pointer is valid (not NULL/ERR_PTR)
-- **ALL programs are loaded with valid FDs** (>= 0)
-- **ALL maps are created with valid FDs** (>= 0)
-- Skeleton fields like `skel->progs.prog_name` and `skel->maps.map_name` are guaranteed valid
+- Maps created by the object are loaded with valid FDs (>= 0)
+- Programs with autoload enabled are loaded with valid FDs (>= 0)
+- Skeleton fields like `skel->progs.prog_name` and `skel->maps.map_name` are valid pointers
 
 This means:
-- `bpf_program__fd(skel->progs.prog_name)` **CANNOT return negative** after successful load
-- `bpf_map__fd(skel->maps.map_name)` **CANNOT return negative** after successful load
-- **NO additional FD validation needed** when using skeleton-generated fields
+- `bpf_map__fd(skel->maps.map_name)` should be >= 0 after successful load
+- `bpf_program__fd(skel->progs.prog_name)` is >= 0 only if that program was actually loaded
+- If you toggle autoload or selectively load programs, keep FD checks
 
 ### When FD Checks ARE Required
 
@@ -154,12 +154,12 @@ FD checks with `CHECK_FAIL(fd < 0)` or similar are needed when using:
 ### Skeleton vs Manual Lookup Pattern
 
 ```c
-// Skeleton pattern - NO FD checks needed after successful __open_and_load()
+// Skeleton pattern - FD checks not needed only for autoloaded programs/maps
 skel = example__open_and_load();
 if (!ASSERT_OK_PTR(skel, "open_and_load"))
     return;
-prog_fd = bpf_program__fd(skel->progs.my_prog);  // Cannot fail here
-map_fd = bpf_map__fd(skel->maps.my_map);          // Cannot fail here
+prog_fd = bpf_program__fd(skel->progs.my_prog);  // Valid if autoloaded
+map_fd = bpf_map__fd(skel->maps.my_map);          // Valid after successful load
 
 // Manual lookup pattern - FD checks REQUIRED (using modern ASSERT_* macros)
 obj = bpf_object__open_file("example.o", NULL);

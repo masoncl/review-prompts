@@ -98,7 +98,7 @@
 - **Dispatch queues (DSQ)**: Tasks queued in local (per-CPU), global (per-node), or custom DSQs; can use FIFO or PRIQ (vtime) ordering but NOT mixed
 - **ops_state tracking**: Atomic `p->scx.ops_state` prevents concurrent BPF operations on same task; transitions: NONE → QUEUEING → QUEUED → DISPATCHING
 - **Direct dispatch**: Optimization allowing enqueue path to dispatch directly to local DSQ; tracked via per-CPU `direct_dispatch_task` marker
-- **Failsafe mechanisms**: Watchdog timeout (runnable task stalls), scx_error() on invalid ops, and SysRq-S all trigger automatic revert to CFS; system integrity always maintained
+- **Failsafe mechanisms**: Watchdog timeout (runnable task stalls), scx_error() on invalid ops, and SysRq-S are intended to trigger revert to CFS; still verify the revert path and cleanup state
 
 ## Load Balancing
 - **Pull model**: Idle CPUs pull tasks from busy CPUs

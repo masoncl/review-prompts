@@ -1,2 +1,3 @@
-- Adding additional arguments to a syscall does not break ABI as long as the
-existing arguments are not changed
+- Adding arguments to an existing syscall breaks the ABI.
+- If you need more data, add a new syscall number or use an extensible struct
+  argument with a size/flags field; never change existing arguments in place.

@@ -20,11 +20,12 @@
 
 **Details**: may_open() before file access
 
-#### VFS-004: File ops NULL check
+#### VFS-004: File ops invariant
 
 **Risk**: NULL deref
 
-**Details**: Check file->f_op != NULL before use
+**Details**: file->f_op should be non-NULL after a successful open; if code
+uses a file before open or reassigns fops, verify the invariant before use
 
 ## Inode Locking Hierarchy
 - Parent → Child ordering for directory operations
@@ -38,11 +39,12 @@
 
 ## Path Walking Modes
 - RCU-walk: Lockless, can fail and retry
-- REF-walk: Takes references, always succeeds
+- REF-walk: Takes references; avoids RCU restart, but can still fail with normal lookup errors
 - Transitions from RCU to REF on conflict
 
 ## File Operations
-- file->f_op can be NULL for special files
+- file->f_op should be non-NULL for valid open files; verify if fops are
+  reassigned or file structs are used before open
 - file_operations reassignment needs synchronization
 - Private_data lifetime tied to file lifetime
 

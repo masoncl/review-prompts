@@ -72,9 +72,9 @@ the usage is wildly wrong.
 - raw_spinlock for IRQ handlers on RT
 - Completion variables for event waiting
 - Proper memory barriers with lockless algorithms
-- atomic_read/atomic_write and other calls in this api family provide all of the
-  memory barriers needed to atomically read and write atomic_t types on every arch.
-  Don't try to find memory barrier or ordering bugs with respect to atomics.
+- atomic_read()/atomic_set() are relaxed on many archs and do NOT imply ordering.
+  If ordering matters, look for explicit smp_* barriers or acquire/release
+  atomic APIs (e.g., atomic_read_acquire/atomic_set_release).
 - percpu-rwsem for frequent read, rare write patterns
 
 ## Lock release and reaquire
