@@ -57,6 +57,7 @@ Load these files based on what the patch touches:
 - DAX → `dax.md`
 - Block/nvme → `block.md`
 - NFSD (fs/nfsd/*, fs/lockd/*) → `nfsd.md`
+- SunRPC (net/sunrpc/*) → `sunrpc.md`
 - io_uring → `io_uring.md`
 - cleanup API (`__free`, `guard(`, `scoped_guard`, `DEFINE_FREE`, `DEFINE_GUARD`, `no_free_ptr`, `return_ptr`) → cleanup.md
 
