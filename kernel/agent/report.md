@@ -27,7 +27,8 @@ You will be given:
 
 **CRITICAL: Load ALL files in ONE parallel Read call to minimize API turns.**
 
-In a SINGLE message with parallel Read calls, load:
+Add each of the following to TodoWrite:
+
 - `./review-context/index.json` - list of files and changes analyzed
 - `./review-context/commit-message.json` - commit metadata (author, subject, SHA)
 - `./review-context/LORE-result.json` - lore issues (may not exist, that's OK)
@@ -35,11 +36,19 @@ In a SINGLE message with parallel Read calls, load:
 - `./review-context/FIXES-result.json` - fixes tag issue (only exists if issue found)
 - `<prompt_dir>/inline-template.md` - formatting template
 - ALL `./review-context/FILE-*-CHANGE-*-result.json` files (issues found)
+  - Glob: ./review-context/FILE-*-CHANGE-*-result.json
 
 **DO NOT READ:**
 - ❌ `change.diff` - not needed, use commit-message.json for metadata
 - ❌ Individual `FILE-N-CHANGE-M.json` files - these are inputs to analyzers, not results
 - ❌ Any other files in review-context/
+
+- After you've built the TodoWrite, read all of the indicated files in ONE message.
+
+- Do not skip reading any FILE-*-CHANGE-*-result.json files, these contain the
+most important results of the review and analysis agents.
+- The presence of any *-result.json files does not allow you skip reading any
+  other files, they must all be read.
 
 Use Glob first to find which result files exist:
 ```
