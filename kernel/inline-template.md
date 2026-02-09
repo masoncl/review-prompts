@@ -6,10 +6,6 @@ absolutely and completely plain text fit for the linux kernel mailing list.
 - Any long lines present in the unified diff should be preserved, but
 any summary, comments or questions you add should be wrapped at 78 characters
 
-- Never mention line numbers when referencing code locations, instead indicate
-the function name and also call chain if that makes it more clear.  Avoid
-complex paragraphs and instead use call chains funcA()->funcB() to explain.
-
 - Never include bugs filtered out as false positives in the report
 
 - Always end the report with a blank line.
@@ -168,6 +164,56 @@ or areas where the author clearly just missed updating some code.   If you
 expect a reasonable maintainer to understand a short explanation, use
 a short explanation.
 
+## NEVER QUOTE LINE NUMBERS
+
+- Never mention line numbers when referencing code locations, instead indicate
+the function name and also call chain if that makes it more clear.  Avoid
+complex paragraphs and instead use call chains funcA()->funcB() to explain.
+  - The line numbers present in the code you're reading here are unique
+    to the code base setup for review.  Your audience doesn't know exactly
+    what code base you're reading, so line numbers are meaningless to them.
+  - YOU MUST NOT REFERENCE LINE NUMBERS IN THIS REPORT
+  - Instead, use small code snippets any time you feel the urge to say a line
+    number out loud.
+
+### AVOID
+```
+While this should be rare since the name cache is populated by
+get_cur_inode_path() called earlier in send_write(), it can happen if the
+LRU cache evicts the entry (see line 2327 in __get_cur_name_and_parent) or
+if initial cache storage fails (see line 2407-2409 in
+__get_cur_name_and_parent).
+```
+
+### USE INSTEAD
+```
+While this should be rare since the name cache is populated by
+get_cur_inode_path() called earlier in send_write(), it can happen if the
+LRU cache evicts the entry:
+
+fs/btrfs/send.c:__get_cur_name_and_parent() {
+    ...
+	nce = name_cache_search(sctx, ino, gen);
+	if (nce) {
+		if (ino < sctx->send_progress && nce->need_later_update) {
+			btrfs_lru_cache_remove(&sctx->name_cache, &nce->entry);
+			nce = NULL;
+    ...
+}
+
+It can also happen if initial cache storage fails:
+
+fs/btrfs/send.c:__get_cur_name_and_parent() {
+    ...
+	nce_ret = btrfs_lru_cache_store(&sctx->name_cache, &nce->entry, GFP_KERNEL);
+	if (nce_ret < 0) {
+		kfree(nce);
+		return nce_ret;
+	}
+    ...
+}
+```
+
 ## Structure
 Create a TodoWrite for these items, all of which your report should include:
 
@@ -193,12 +239,12 @@ Create a TodoWrite for these items, all of which your report should include:
   - [ ] ensure diff headers are retained for the files owning any hunks keep
     - Never include diff headers for entirely snipped files
   - [ ] Replace any content you snip with [ ... ]
-  - [ ] snip entire files unrelated to the review comments
-  - [ ] snip entire hunks from quoted files if they unrelated to the review
-  - [ ] snip entire functions from the quoted hunks unrelated to the review
-  - [ ] snip any portions of large functions from quoted hunks if unrelated to the review
+  - [ ] aggressively snip entire files unrelated to the review comments
+  - [ ] aggressively snip entire hunks from quoted files if they are unrelated to the review
+  - [ ] aggressively snip entire functions from the quoted hunks unrelated to the review
+  - [ ] aggressively snip any portions of large functions from quoted hunks if unrelated to the review
   - [ ] ensure you only keep enough quoted material for the review to make sense
-  - [ ] snip trailing hunks and files after your last review comments unless
+  - [ ] aggressively snip trailing hunks and files after your last review comments unless
         you need them for the review to make sense
   - [ ] The review should contain only the portions of hunks needed to explain the review's concerns.
 
