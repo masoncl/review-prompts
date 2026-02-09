@@ -28,7 +28,7 @@
 ## Quick Checks
 - Freed memory accessible until grace period ends
 - kfree_rcu() for simple object freeing
-- INIT_RCU_HEAD not needed in modern kernels
+- INIT_RCU_HEAD is unnecessary if the rcu_head is zero-initialized; otherwise initialize it
 - rcu_read_lock_held() for debug assertions
 
 ## RCU Patterns [RCU]
