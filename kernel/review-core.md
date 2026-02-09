@@ -37,33 +37,9 @@ correct - otherwise report them as regressions.
 ### Core Files (ALWAYS LOAD FIRST)
 1. `technical-patterns.md` - Consolidated guide to kernel topics
 
-### Subsystem Deltas (LOAD ONLY IF PATCH TOUCHES)
+### Subsystem Guides MUST be loaded
 
-Load these files based on what the patch touches:
-
-- Network code (net/, drivers/net, skb_, sockets) → `networking.md`
-  - Remember that you've loaded the networking subsystem, you'll use this later
-- Memory management (mm/, page/folio ops, alloc/free, slab, or vmalloc APIs — `__GFP_`, `page_`, `folio_`, `kmalloc`, `kmem_cache_`, `vmalloc`, `alloc_pages` or similar → `mm.md`
-- VFS operations (inode, dentry, vfs_, fs/*.c) → `vfs.md`
-- Locking primitives (spin_lock*, mutex_*) → `locking.md`
-- Scheduler code (kernel/sched/, sched_, schedule) → `scheduler.md`
-- BPF (kernel/bpf/, bpf, verifier) → `bpf.md`
-- RCU operations (rcu*, call_rcu, synchronize_rcu, kfree_rcu) → `rcu.md` AND `patterns/RCU-001.md` (MANDATORY for call_rcu)
-- Encryption (crypto, fscrypt_) → `fscrypt.md`
-- Tracing (trace_, tracepoints) → `tracing.md`
-- Workqueue (kernel/workqueue.c, work_struct) → `workqueue.md`
-- Syscalls → `syscall.md`
-- btrfs → `btrfs.md`
-- DAX → `dax.md`
-- Block/nvme → `block.md`
-- NFSD (fs/nfsd/*, fs/lockd/*) → `nfsd.md`
-- SunRPC (net/sunrpc/*) → `sunrpc.md`
-- io_uring → `io_uring.md`
-- cleanup API (`__free`, `guard(`, `scoped_guard`, `DEFINE_FREE`, `DEFINE_GUARD`, `no_free_ptr`, `return_ptr`) → cleanup.md
-
-#### Subjective Review Patterns
-- **SR-001** (patterns/SR-001.md): Subjective general assessment — load only when the prompt explicitly requests this pattern
-
+Read `subsystem.md` and load all matching subsystem guides and critical patterns.
 
 ### Commit Message Tags (load if subjective reviews are requested in prompt)
 
@@ -75,19 +51,10 @@ These default to off
 - Ignore test program issues unless system crash
 - Don't report assertion/WARN/BUG removals as regressions
 
-## CRITICAL PATTERN DETECTION (check BEFORE Task 0)
+## PATTERN DETECTION (check BEFORE Task 0)
 
-Scan the diff for these patterns and load corresponding files IMMEDIATELY:
-
-| Pattern | Action | Risk |
-|---------|--------|------|
-| `call_rcu(`, `synchronize_rcu(`, `kfree_rcu(` | Load `patterns/RCU-001.md` | Use-after-free |
-| `rhashtable_` + `call_rcu` | Load `patterns/RCU-001.md` - HIGH RISK | Use-after-free |
-| `hlist_del_rcu`, `list_del_rcu` + `call_rcu` | Load `patterns/RCU-001.md` | Use-after-free |
-
-**For any call_rcu()**: Immediately verify removal from lookup structures happens
-BEFORE call_rcu(), not in the callback. If removal is in the callback, this is
-almost certainly a use-after-free bug.
+Scan the diff against all triggers in `subsystem.md` and load matching files
+IMMEDIATELY.
 
 ## Task 0: CONTEXT MANAGEMENT
 - Discard non-essential details after each task to manage token limits

@@ -112,30 +112,10 @@ Output: `PHASE 1 COMPLETE - <count> files loaded`
 
 Scan the loaded CHANGEs and create a TodoWrite of what to load in PHASE 3.
 
-### Subsystem Guides (load if patch touches)
+### Subsystem Guides MUST be loaded
 
-Load these files based on what the patch touches:
-
-- Network code (net/, drivers/net, skb_, sockets) → `networking.md`
-- Memory management (mm/, page/folio ops, `__GFP_*`, `kmalloc`, `vmalloc`, etc.) → `mm.md`
-- VFS operations (inode, dentry, vfs_, fs/*.c) → `vfs.md`
-- Locking primitives (spin_lock*, mutex_*) → `locking.md`
-- Scheduler code (kernel/sched/, sched_, schedule) → `scheduler.md`
-- BPF (kernel/bpf/, bpf, verifier) → `bpf.md`
-- RCU operations (rcu*, call_rcu, synchronize_rcu, kfree_rcu) → `rcu.md`
-- Encryption (crypto, fscrypt_) → `fscrypt.md`
-- Tracing (trace_, tracepoints) → `tracing.md`
-- Workqueue (kernel/workqueue.c, work_struct) → `workqueue.md`
-- Syscalls → `syscall.md`
-- btrfs → `btrfs.md`
-- DAX → `dax.md`
-- Block/nvme → `block.md`
-- NFSD (fs/nfsd/*, fs/lockd/*) → `nfsd.md`
-- io_uring (io_uring/, io_uring_, io_ring_, io_sq_, io_cq_, io_wq_, IORING_) → `io_uring.md`
-- cleanup API (`__free`, `guard(`, `scoped_guard`, `no_free_ptr`, `return_ptr`) → `cleanup.md`
-- `call_rcu`, `synchronize_rcu`, `kfree_rcu` → `patterns/RCU-001.md`
-- `rhashtable_*` + RCU → `patterns/RCU-001.md`
-- `hlist_del_rcu`, `list_del_rcu` + RCU → `patterns/RCU-001.md`
+Read `<prompt_dir>/subsystem.md` and load all matching subsystem guides and
+critical patterns based on what the patch touches.
 
 ### Per-CHANGE Planning
 

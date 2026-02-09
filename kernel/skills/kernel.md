@@ -38,27 +38,8 @@ context files from `{{KERNEL_REVIEW_PROMPTS_DIR}}/`:
 
 1.  Always read `technical-patterns.md` before loading subsystem specific files
 
-2. Select subsystem specific files as needed:
-
-| Subsystem | Trigger | File |
-|-----------|---------|------|
-| Networking | net/, drivers/net/, skb_, sockets | networking.md |
-| Memory Management | mm/, page/folio ops, alloc/free, slab, vmalloc, __GFP_, kmalloc | mm.md |
-| VFS | inode, dentry, vfs_, fs/*.c | vfs.md |
-| Locking | spin_lock*, mutex_* | locking.md |
-| Scheduler | kernel/sched/, sched_, schedule | scheduler.md |
-| BPF | kernel/bpf/, bpf, verifier | bpf.md |
-| RCU | rcu*, call_rcu | rcu.md |
-| Encryption | crypto, fscrypt_ | fscrypt.md |
-| Tracing | trace_, tracepoints | tracing.md |
-| Workqueue | kernel/workqueue.c, work_struct | workqueue.md |
-| Syscalls | syscall definitions | syscall.md |
-| btrfs | fs/btrfs/ | btrfs.md |
-| DAX | dax operations | dax.md |
-| Block/NVMe | block layer, nvme | block.md |
-| NFSD | fs/nfsd/, fs/lockd/ | nfsd.md |
-| io_uring | io_uring operations | io_uring.md |
-| Cleanup API | __free, guard(, scoped_guard, DEFINE_FREE, DEFINE_GUARD | cleanup.md |
+2. Read `{{KERNEL_REVIEW_PROMPTS_DIR}}/subsystem.md` and load matching subsystem
+   guides and critical patterns
 
 ## Semcode Integration
 

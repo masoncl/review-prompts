@@ -448,6 +448,7 @@ Analyze patch file /path/to/patch.diff
 │   ├── CS-001.md
 │   ├── RCU-001.md
 │   └── ...
+├── subsystem.md
 ├── networking.md
 ├── mm.md
 ├── locking.md
