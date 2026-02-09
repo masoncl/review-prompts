@@ -63,6 +63,7 @@ Load these files based on what the patch touches:
 
 #### Subjective Review Patterns
 - **SR-001** (patterns/SR-001.md): Subjective general assessment — load only when the prompt explicitly requests this pattern
+- **SR-002** (retrospective-analysis.md): Fixes: tag retrospective — requires subjective mode + Fixes: tag
 
 
 ### Commit Message Tags (load if subjective reviews are requested in prompt)
@@ -246,6 +247,10 @@ Fixes tag check for <subsystem>
   - Fixes: tag present in lore searches doesn't count if it isn't in
     the commit being reviewed.
   - Output: Fixes: tag missing yes/no
+
+4. Retrospective analysis (OPTIONAL)
+  - Load ./retrospective-analysis.md when SR-002 conditions met
+  - Output: RETROSPECTIVE VERDICT: CAUGHT / PARTIAL / MISSED / SKIPPED
 
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives, and confirm regressions
