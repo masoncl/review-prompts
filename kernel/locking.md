@@ -1,97 +1,234 @@
-# Locking Subsystem Delta
+# Locking Subsystem Details
 
-## Locking Subsystem Patterns [LOCK]
+## Lock Context Compatibility
 
-#### LOCK-001: Seqlock critical section
+Using the wrong lock type for the execution context causes deadlocks (sleeping
+in atomic context), missed wakeups, or priority inversion. The table below
+shows which lock types provide correct protection for data shared across the
+listed contexts.
 
-**Risk**: Data corruption
+The "vs" columns indicate whether the lock variant provides mutual exclusion
+against code running in that context. For example, `spin_lock_bh` is safe
+vs process and softirq context, but not vs hardirq context. The Sleeps
+column indicates whether acquiring the lock may sleep, which determines
+what other operations are legal while holding it (sleeping locks cannot be
+held in atomic context or under a spinlock).
 
-**Details**: ALL code between begin/retry is critical
+| Lock Variant | vs Process | vs Softirq | vs Hardirq | Sleeps |
+|---|---|---|---|---|
+| `spin_lock` | Yes | No | No | No |
+| `spin_lock_bh` | Yes | Yes | No | No |
+| `spin_lock_irq` | Yes | Yes | Yes | No |
+| `spin_lock_irqsave` | Yes | Yes | Yes | No |
+| `mutex` / `rwsem` | Yes | No | No | Yes |
 
-#### LOCK-002: Sparse annotation compliance
+**Notes:**
+- `spin_lock` does not mask softirqs or hardirqs; data can still be
+  accessed concurrently by softirq or hardirq handlers on the same CPU
+  - Nesting spin_lock(lock_b) inside spin_lock_irq/bh/irqsave(lock_a) keeps
+    whatever masking was in place from lock_a while lock_b is held.  The locks
+    MUST be nested for this to work.
+- `spin_lock_bh` disables softirqs; use when the lock is shared between
+  process context and softirq context
+- See the IRQ-Safe Lock Variants section for guidance on choosing between
+  `spin_lock_irq` and `spin_lock_irqsave`
+- `mutex` and `rwsem` can only be used in process context because they may
+  sleep; never hold a spinlock while acquiring a mutex/rwsem
 
-**Risk**: Lock imbalance
+## Preemption, Migration, and IRQ Context
 
-**Details**: Honor __must_hold/__acquires/__releases
+Confusing these three CPU-affinity mechanisms causes use-after-free on per-CPU
+data, races where code assumes it stays on the same CPU, or deadlocks from
+sleeping with preemption disabled.
 
-#### LOCK-003: Write seqcount protection
+- **Preemption disabled** (`preempt_disable()`/`preempt_enable()`): the current
+  task stays on this CPU and will not be scheduled out, but IRQs can still
+  occur. Per-CPU data access is safe. `spin_lock()` implicitly disables
+  preemption on non-RT kernels (see PREEMPT_RT section for differences).
+- **Migration disabled** (`migrate_disable()`/`migrate_enable()`): the task can
+  be preempted (another task runs on this CPU) but will return to the same CPU.
+  Useful when per-CPU data access does not need to be atomic but must stay on
+  the same CPU across a longer operation.
+- **IRQs disabled** (`local_irq_disable()`/`local_irq_save()`): no hardware
+  interrupts will be delivered on this CPU. Implies preemption disabled (since
+  the scheduler's timer tick is an IRQ). Required when sharing data between
+  process/softirq context and hardirq handlers without a lock.
+  - lock_irq_disable(); spin_lock(lock_b) ; critical section ; spin_unlock(lock_b) ; lock_irq_enable();
+    - critical section is run with irqs off, just like if spin_lock_irq() was used
 
-**Risk**: Data corruption
+## IRQ-Safe Lock Variants
 
-**Details**: Proper write_seqcount_begin/end pairing
+Using the wrong variant causes deadlock: if a hardirq handler takes a lock
+that was already held by the interrupted code on the same CPU, the CPU spins
+forever waiting for itself. Use `_irqsave` when a lock is shared with
+interrupt handlers.
 
-## Preemption vs Migration
-- **Preemption disabled**: CPU won't change, but IRQs can occur
-- **Migration disabled**: Can be preempted but returns to same CPU
-- **IRQs disabled**: No interrupts, implies preemption disabled
+- `spin_lock_irq()`/`spin_unlock_irq()`: disables IRQs on lock, re-enables on
+  unlock. Only safe when the caller knows IRQs are currently enabled.
+- `spin_lock_irqsave(lock, flags)`/`spin_unlock_irqrestore(lock, flags)`:
+  saves current IRQ state, restores on unlock. Safe regardless of whether IRQs
+  were already disabled. Use this when the calling context is unknown.
+- Nesting: `spin_lock_irqsave(lock1, flags1)` inside
+  `spin_lock_irqsave(lock2, flags2)` is safe as long as lock ordering is
+  respected (no ABBA deadlocks)
 
-## Lock Nesting Classes
-- Same lock type needs different classes for nesting
-- Use mutex_lock_nested() with nesting level
-- Lockdep tracks up to 8 nesting levels
+**When IRQs are already off:**
+- All holders of a lock shared with IRQ context must disable IRQs (or use
+  `_irqsave`) to take it safely
+- Plain `spin_lock()` (without IRQ masking) is safe from code paths that are
+  only reachable when IRQs are already off
+- `spin_trylock()` avoids the deadlock scenario: the deadlock only occurs when
+  `spin_lock()` is called with IRQs off on a CPU that already holds the lock
 
-## RCU Specifics
-- rcu_read_lock() doesn't prevent preemption (PREEMPT_RCU)
-- synchronize_rcu() waits for all readers
-- call_rcu() callbacks run after grace period
-- SRCU allows sleeping in read sections
-- Locking on a spinlock_t and raw_spinlock_t prevents preemption and implicitly
-  include rcu_read_lock(). When PREEMPT_RT is on, it does not disable preemption
-  on spinlock_t.
+## PREEMPT_RT Differences
 
-## RT (Realtime) Differences
-- spinlock_t becomes sleeping locks on RT
-- raw_spinlock_t never sleeps (even on RT)
-- local_irq_disable() disables IRQs (even on RT)
+Code that works on non-RT kernels may deadlock or crash on PREEMPT_RT because
+`spinlock_t` becomes an rt_mutex-based preemptible lock. Any code path that
+disables preemption or IRQs while holding a `spinlock_t` will trigger a
+lockdep splat (`BUG: Invalid wait context`) on RT.
 
-## _irq and _irqsave variants
-- spin_lock_irq and spin_lock_irqsave mask off interrupts.
-- spin_lock_irqsave(lock, flags) can be nested again inside spin_lock_irqsave(lock2, flags2)
-  as long as the two locks are different and the two flags are different variables
-- if locks are taken when irqs are already off:
-  - all lock holders need to have irqs masked in order to safely take the lock
-  - it is safe to use spin_lock() (without masking interrtupts) from code that is only called when irqs are already off
-  - it is safe to spin_lock_irq() and then unlock without re-enabling irqs, as
-    long as they are enabled again later, either directly in the same function,
-    or elsewhere in the callchain
-  - spin_trylock() might be used to avoid the deadlocks.  The deadlock can only happen if spin_lock() is called with interrupts off, without using trylock
+- `spinlock_t`: becomes an rt_mutex-based lock on RT. Acquisition may sleep on
+  contention, and the holder can be preempted, but the critical section still
+  cannot acquire a mutex or call sleeping functions. Must not be held in hardirq
+  context or with preemption/IRQs explicitly disabled.
+- `raw_spinlock_t`: remains a true spinning lock on RT. Never sleeps. Use for
+  code that must run in hardirq context or with IRQs disabled even on RT
+  (e.g., scheduler, interrupt controller, low-level timer code).
+- `local_irq_disable()`: still disables IRQs on RT. Note that
+  `spin_lock_irq()` on a `spinlock_t` does NOT disable IRQs on RT (it
+  acquires the underlying rt_mutex without masking interrupts)
 
-## memory barriers
-- You're not smart enough to understand smp_mb(), smp_rmb(), or smp_wmb() bugs yet, assume the patch author is correct unless
-the usage is wildly wrong.
-- smp_mb(): General barrier - ensures all loads/stores before appear to happen before all loads/stores after
-- smp_rmb(): Read barrier - ensures all loads before appear to happen before all loads after (no effect on stores)
-- smp_wmb(): Write barrier - ensures all stores before appear to happen before all stores after (no effect on loads)
-- Barriers prevent CPU/compiler reordering across the barrier point but don't guarantee completion, only ordering appearance
-- Usage: Must be paired between CPUs - if CPU A uses smp_wmb() before setting a flag, CPU B needs smp_rmb() after reading that flag
-  - This is a guideline, it is sometimes ignored
-- Common pattern: Producer uses smp_wmb() after writing data, before setting ready flag; Consumer uses smp_rmb() after reading ready flag, before reading data
-- Lockless access: Use barriers around shared data access when not holding locks, especially in RCU read sections or lock-free algorithms
+## Seqlocks and Seqcounts
+
+A seqlock is a reader-writer synchronization mechanism optimized for data
+that is read frequently and written rarely. Readers never block writers (no
+writer starvation).
+
+How it works: readers speculatively read the data, then check a sequence
+counter to detect whether a writer was active during the read. If so, the
+read is retried. Writers increment the sequence counter before and after the
+update, and must serialize against each other.
+
+Two variants exist: `seqlock_t` bundles a `seqcount_t` with a `spinlock_t`
+that provides writer serialization automatically. A bare `seqcount_t` can
+be used when writer serialization is provided by an external lock.
+
+Use seqlocks when the protected data is small enough that retrying reads is
+cheap. Incorrect usage causes readers to use partially-updated data (missed
+retry) or infinite retry loops (side effects in the critical section that
+prevent convergence). Review both the reader and writer sides together.
+
+**Read side** (see `include/linux/seqlock.h`):
+- ALL code between `read_seqbegin()` and `read_seqretry()` is the critical
+  section. If the writer was active, the entire section re-executes.
+- The critical section must not have side effects (no allocations, no
+  writes to shared state, no I/O) because it may run multiple times
+- The critical section must not dereference pointers that could be freed
+  by the writer; use `rcu_dereference()` for pointer-following under RCU
+
+**Write side**:
+- `write_seqcount_begin()`/`write_seqcount_end()` must be correctly paired;
+  an unbalanced sequence count causes readers to either never retry (missing
+  begin) or always retry in an infinite loop (missing end)
+- `raw_write_seqcount_begin()`/`raw_write_seqcount_end()` skip the lockdep
+  assertion that the write-serializing lock is held; only valid when
+  serialization is provided by a different mechanism
+
+## Lock Nesting and Annotations
+
+Taking the same lock type at multiple nesting levels without telling lockdep
+causes false-positive lockdep splats (or hides real deadlocks). Incorrect
+sparse annotations hide lock imbalance bugs from static analysis.
+
+**Nesting classes** (see `include/linux/lockdep_types.h`):
+- When code takes the same lock type at different levels (e.g., parent inode
+  lock then child inode lock), use `mutex_lock_nested(lock, subclass)` or
+  `spin_lock_nested(lock, subclass)` to tell lockdep they are different
+- Lockdep supports up to `MAX_LOCKDEP_SUBCLASSES` (8) nesting levels
+- Subclass 0 is the default; higher values indicate deeper nesting
+
+**Sparse annotations** (`include/linux/compiler_types.h`):
+- `__must_hold(lock)`: function requires `lock` to be held on entry and exit
+- `__acquires(lock)`: function acquires `lock` (held on exit, not on entry)
+- `__releases(lock)`: function releases `lock` (held on entry, not on exit)
+- Mismatched annotations cause `sparse` to report "context imbalance" warnings.
+  Review any patch that adds or changes these annotations to verify they match
+  the actual lock behavior.
+
+## RCU and Locking
+
+Misunderstanding the relationship between RCU and traditional locks causes
+use-after-free (reading freed data in an RCU section) or unnecessary
+performance overhead (holding spinlocks where RCU suffices).
+
+- `rcu_read_lock()` marks an RCU read-side critical section. Code must not
+  sleep inside; use SRCU if sleeping is required.
+- `synchronize_rcu()` blocks until all pre-existing RCU read-side critical
+  sections complete (a full grace period)
+- `call_rcu(head, callback)` defers `callback` execution until after a grace
+  period; does not block
+- SRCU (`srcu_read_lock()`/`srcu_read_unlock()`) allows sleeping in read
+  sections; uses a domain-specific `struct srcu_struct`
+- Holding `spin_lock()` or `raw_spin_lock()` implicitly provides RCU
+  read-side protection. On non-RT kernels this is because they disable
+  preemption; on PREEMPT_RT, `spin_lock()` calls `rcu_read_lock()`
+  internally to preserve this guarantee.
+
+## Memory Barriers
+
+Assume the patch author's barrier usage is correct unless the usage is clearly
+wrong (e.g., missing a paired barrier, using `smp_wmb()` where a full
+`smp_mb()` is needed). Subtle barrier bugs require deep architecture knowledge
+to confirm.
+
+- `smp_mb()`: full memory barrier. All loads and stores before the barrier
+  appear to complete before all loads and stores after it.
+- `smp_rmb()`: read barrier. Orders loads only; no effect on stores.
+- `smp_wmb()`: write barrier. Orders stores only; no effect on loads.
+- Barriers enforce ordering, not completion: they prevent CPU and compiler
+  reordering across the barrier point
+- Barriers must be paired between CPUs: if CPU A uses `smp_wmb()` before
+  setting a flag, CPU B needs `smp_rmb()` after reading that flag to
+  guarantee it sees the data written before the flag
+- Common pattern (from `Documentation/memory-barriers.txt`):
+  ```
+  producer:                       consumer:
+    my_data = value;                if (event_indicated) {
+    smp_wmb();                          smp_rmb();
+    event_indicated = 1;                do_something(my_data);
+                                    }
+  ```
+- `atomic_read()` and `atomic_set()` provide **relaxed ordering** only; they
+  guarantee atomicity of the access but do not imply memory barriers.
+  RMW operations that return values (e.g., `atomic_add_return()`,
+  `atomic_cmpxchg()`) provide full ordering. Use `smp_load_acquire()` /
+  `smp_store_release()` or the `_acquire`/`_release` atomic variants when
+  ordering is needed for plain loads and stores.
 
 ## Quick Checks
-- raw_spinlock for IRQ handlers on RT
-- Completion variables for event waiting
-- Proper memory barriers with lockless algorithms
-- atomic_read/atomic_write and other calls in this api family provide all of the
-  memory barriers needed to atomically read and write atomic_t types on every arch.
-  Don't try to find memory barrier or ordering bugs with respect to atomics.
-- percpu-rwsem for frequent read, rare write patterns
 
-## Lock release and reaquire
-- Whenever locks are dropped and taken again, verify protected objects are not stale
+Common locking review pitfalls. Missing any of these causes deadlocks, data
+corruption, or crashes that may only reproduce under specific timing or on
+RT/SMP configurations.
 
-## When functions return with different locks than originally held
-- verify original locked object's locking was properly handled
-- verify the callers knows which lock to release
-
-## Complex combinations
-- When code reassigns over a previously locked data structure, find if we've properly unlocked that datastructure, or if the lock is mistakenly held forever
-
-## Lock Context Compatibility Matrix
-
-| Lock Type | Process | Softirq | Hardirq | Sleeps |
-|-----------|---------|---------|---------|--------|
-| spin_lock | ✓ | ✓ | ✓ | ✗ |
-| spin_lock_bh | ✓ | ✗ | ✗ | ✗ |
-| spin_lock_irqsave | ✓ | ✓ | ✓ | ✗ |
-| mutex/rwsem | ✓ | ✗ | ✗ | ✓ |
+- **Lock drop and reacquire**: when a lock is dropped and retaken (e.g., to
+  call a sleeping function), all data protected by that lock may have changed.
+  Verify the code re-validates pointers, refcounts, and conditions after
+  reacquiring. A common bug is using a stale pointer to the locked object
+  after the lock was transiently dropped.
+- **Functions returning with different locks held**: some functions acquire a
+  new lock and release the original (e.g., lock rebalancing, hash table
+  migration). Verify the caller knows which lock is held on return and
+  releases the correct one.
+- **Reassigning locked objects**: when code reassigns a pointer to a
+  previously locked data structure (e.g., `obj = next_obj` in a loop),
+  verify the old object's lock is properly released. A missed unlock leaves
+  the lock held forever, causing deadlock on the next acquisition.
+- **`raw_spinlock_t` for hardirq paths on RT**: on PREEMPT_RT, only
+  `raw_spinlock_t` remains a true spinning lock. IRQ handlers that use
+  `spinlock_t` will trigger a lockdep splat on RT kernels.
+- **Completion variables for event waiting**: use `wait_for_completion()` /
+  `complete()` instead of open-coded spinlock polling loops
+- **`percpu_rw_semaphore` for read-heavy patterns**: when reads vastly
+  outnumber writes, `percpu_rw_semaphore` avoids cache-line bouncing
+  (see `include/linux/percpu-rwsem.h`)
