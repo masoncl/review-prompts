@@ -52,6 +52,7 @@ Load these files based on what the patch touches:
 - Encryption (crypto, fscrypt_) → `fscrypt.md`
 - Tracing (trace_, tracepoints) → `tracing.md`
 - Workqueue (kernel/workqueue.c, work_struct) → `workqueue.md`
+- Timers (timer_list, timer_setup, mod_timer, del_timer, hrtimer, delayed_work) → `timers.md`
 - Syscalls → `syscall.md`
 - btrfs → `btrfs.md`
 - DAX → `dax.md`
