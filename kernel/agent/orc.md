@@ -446,7 +446,6 @@ Analyze patch file /path/to/patch.diff
 │   └── create_changes.py
 ├── patterns/
 │   ├── CS-001.md
-│   ├── RCU-001.md
 │   └── ...
 ├── subsystem.md
 ├── networking.md
