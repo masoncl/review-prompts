@@ -1,4 +1,4 @@
-# VFS Subsystem Delta
+# VFS Subsystem Details
 
 ## VFS Patterns [VFS]
 
