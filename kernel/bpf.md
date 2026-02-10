@@ -1,4 +1,4 @@
-# BPF Subsystem Delta
+# BPF Subsystem Details
 
 ## Verifier Invariants
 - All memory accesses must be bounds-checked by verifier
