@@ -1,4 +1,4 @@
-# DAX Subsystem Delta
+# DAX Subsystem Details
 
 ## Subsystem-Specific Rules
 
