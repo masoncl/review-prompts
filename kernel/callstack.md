@@ -1,4 +1,21 @@
-# CS-001: Callee analysis (down the stack)
+# Callstack Regression Analysis
+
+This pattern analyzes functions for regressions within the callstack as a whole.
+Changes to a function can introduce bugs not only in the function itself, but in
+any function it calls (callees) and any function that calls it (callers). This
+analysis traverses the full callstack — both up and down — to identify
+side effects, unintended consequences, and regressions that would be invisible
+when examining modified functions in isolation.
+
+Read patterns/null.md for NULL pointer dereference guidance.
+
+Note: foo->ptr dereferences foo BUT NOT ptr
+
+null.md loaded and read? [ y / n ]
+
+This callstack analysis is required for all non-trivial changes.
+
+---
 
 ## CRITICAL: Retraction Rule
 
@@ -22,20 +39,6 @@ by arguing:
 Only dismiss if the triggering condition is **structurally impossible** —
 meaning the code literally cannot reach that state regardless of timing,
 memory pressure, or concurrent operations.
-
----
-
-**Risk**: Lock violations, resource leaks, uninitialized variables
-
-**When to check**: Required for all non-trivial changes
-
-**Background knowledge:**
-
-Read patterns/null.md for NULL pointer dereference guidance.
-
-Note: foo->ptr dereferences foo BUT NOT ptr
-
-null.md loaded and read? [ y / n ]
 
 ---
 
@@ -284,7 +287,7 @@ Step init.1:
 
 ## Task 9
 
-At this point, you're going to want to mark CS-001 complete, but it's very likely
+At this point, you're going to want to mark callstack.md complete, but it's very likely
 you've skipped most of the steps.  Skipping work makes the regression analysis
 fail and means all of the time spent so far was wasted.  Fully process the
 instructions as required by the prompt.
@@ -295,7 +298,7 @@ Think about potential regressions that you found and ruled out.  While you were
 processing those potential regressions, you skipped steps and ignored other
 potential problems.  This is a deep dive analysis, double check your work.
 
-Output: elements of CS-001.md that you skipped because you were focused on
+Output: elements of callstack.md that you skipped because you were focused on
 regressions that later you ruled out.
 
 Even if you've already used a lot of tokens, go back and check the
@@ -304,5 +307,5 @@ skipped steps now that you know these potential regressions were safe.
 - Did you fully analyze and complete Tasks 1-8 for every category? y/n
 - Did you batch all semcode calls to minimize API turns? y/n
 
-If the answer to either question was no, do not complete CS-001.  Go back and
+If the answer to either question was no, do not complete callstack.md.  Go back and
 finish analysis as instructed.

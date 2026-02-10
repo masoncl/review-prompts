@@ -444,8 +444,8 @@ Analyze patch file /path/to/patch.diff
 │   ├── fixes.md
 │   ├── report.md
 │   └── create_changes.py
+├── callstack.md
 ├── patterns/
-│   ├── CS-001.md
 │   └── ...
 ├── subsystem.md
 ├── networking.md

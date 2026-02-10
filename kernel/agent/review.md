@@ -95,7 +95,7 @@ You will process ALL CHANGEs within the specified FILE-N sequentially.
 ```
 ./review-context/commit-message.json
 <prompt_dir>/technical-patterns.md
-<prompt_dir>/patterns/CS-001.md
+<prompt_dir>/callstack.md
 <prompt_dir>/patterns/null.md
 ./review-context/FILE-N-CHANGE-1.json
 ./review-context/FILE-N-CHANGE-2.json
@@ -132,7 +132,7 @@ For each FILE-N-CHANGE-M.json:
       decision about which callees to include was made when creating FILE-N-CHANGE-M.json,
       DO NOT, FOR ANY REASON, try to limit that decision now.  Load the identified functions
       even if you don't see a good reason to do so.
-  - Build a call graph for each modified function, remember it, CS-001.md will use it.
+  - Build a call graph for each modified function, remember it, callstack.md will use it.
     - modified function F calls function Y
     - modified function F is called by function Z
   - Add types from each modified function to TodoWrite
@@ -149,7 +149,7 @@ function FF called by AA,BB,CC,DD
 function FF calls EE,GG,HH,II
 ```
 
-Remember this call graph, proper CS-001.md functioning depends on it
+Remember this call graph, proper callstack.md functioning depends on it
 ---
 
 ## PHASE 3: Bulk Semcode Loading
@@ -196,25 +196,25 @@ Without it, you will skip steps, and the analysis will be incomplete.
 
 For each CHANGE, track progress: `=== FILE-N-CHANGE-M of TOTAL: <title> ===`
 
-### Step 1: Apply CS-001.md Protocol
+### Step 1: Apply callstack.md Protocol
 
 - Use technical-patterns.md to identify subsystem-specific patterns
-- Follow `<prompt_dir>/patterns/CS-001.md` for each CHANGE
+- Follow `<prompt_dir>/callstack.md` for each CHANGE
 - Apply any subsystem-specific patterns identified
 
-**You must complete ALL tasks in CS-001.md for each CHANGE.**
+**You must complete ALL tasks in callstack.md for each CHANGE.**
 
-The CHANGE represents one or more hunks. Apply CS-001.md
+The CHANGE represents one or more hunks. Apply callstack.md
 analysis to 100% of all the hunks - do not skip any part of them.
 
-During CS-001, you may need to load additional function/type definitions.
+During callstack analysis, you may need to load additional function/type definitions.
 Batch these calls efficiently, but prioritize deep analysis over token efficiency.
 
-Output: `CS-001 COMPLETE for FILE-N-CHANGE-M: <callees>, <callers>, <locks>, <resources>`
+Output: `CALLSTACK COMPLETE for FILE-N-CHANGE-M: <callees>, <callers>, <locks>, <resources>`
 
 ### Step 2: Collect Potential Issues
 
-After completing CS-001.md analysis for the CHANGE, collect all potential issues found.
+After completing callstack.md analysis for the CHANGE, collect all potential issues found.
 
 For each potential issue, record:
 - Issue type (NULL deref, leak, race, lock, UAF, etc.)
@@ -299,7 +299,7 @@ Output files: <list of FILE-N-CHANGE-M-result.json created>
 1. Do NOT create review-inline.txt (report agent's job)
 2. Do NOT process lore threads (lore agent's job)
 3. Load false-positive-guide.md if issues found (except missing-fixes-tag)
-4. Complete ALL CS-001.md tasks for each CHANGE
+4. Complete ALL callstack.md tasks for each CHANGE
 5. Only create result files for CHANGEs with confirmed issues
 6. Use exact code from files for issue_context
 7. You only process ONE FILE-N per invocation

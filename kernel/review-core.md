@@ -141,14 +141,14 @@ This deep dive analysis will take a long time, don't skip steps.
 
 ### Task 2: Analyze the changes for regressions
 
-1. If the patch is non-trivial: read and fully analyze patterns/CS-001.md
-  - **MANDATORY VALIDATION**: Have you read and patterns/CS-001.md for non-trivial changes? [ y / n ]
+1. If the patch is non-trivial: read and fully analyze callstack.md
+  - **MANDATORY VALIDATION**: Have you read and callstack.md for non-trivial changes? [ y / n ]
   - verify every comment matches actual behavior
   - verify commit message claims are accurate
   - question all design decisions
   - check naming conventions and usability of any new APIs
   - check against best practices of C code in the kernel
-  - Output: Risk heading from patterns/CS-001.md if changes are non-trivial
+  - Output: Risk heading from callstack.md if changes are non-trivial
 
 2. Using the context loaded, and any additional context you need, analyze
 the change for regressions.

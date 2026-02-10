@@ -141,7 +141,7 @@ additional items that don't warrant their own section.
   paragraph replaces Risk, and the section content replaces Details.
 
 - **TodoWrite workflow steps** — analysis procedures belong in agent prompts
-  (e.g., `agent/review.md`, `patterns/CS-001.md`), not in subsystem
+  (e.g., `agent/review.md`, `callstack.md`), not in subsystem
   knowledge files.
 
 - **Generic kernel knowledge** — topics like "don't sleep in atomic context"
