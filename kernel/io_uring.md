@@ -1,4 +1,4 @@
-# io_uring Subsystem Delta
+# io_uring Subsystem Details
 
 ## io_uring-Specific Patterns [URING]
 
