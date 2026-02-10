@@ -1210,6 +1210,103 @@ def find_function_definitions_in_hunk(hunk_lines: list[str]) -> list[tuple[str, 
     return functions
 
 
+def find_changed_function_in_hunk(hunk_lines: list[str]) -> Optional[tuple[str, int]]:
+    """
+    Scan hunk content for a function definition on context or modified lines
+    that contains the actual changes.
+
+    The @@ header shows the function in scope at the start of the hunk, but
+    if the hunk starts with trailing context from a preceding function and
+    then enters a new function definition, the @@ header function is wrong.
+
+    Returns (func_name, line_index) if a definition is found in the hunk body
+    with modifications after it. Returns None if no such definition exists.
+    """
+    for i, line in enumerate(hunk_lines):
+        # Get content without diff prefix
+        if line.startswith((" ", "+", "-")):
+            content = line[1:]
+        elif line == "":
+            continue
+        else:
+            content = line
+
+        # Function definitions start at column 0 (no leading whitespace)
+        if not content or content[0].isspace():
+            continue
+
+        stripped = content.strip()
+        if not stripped:
+            continue
+
+        # Skip comments and preprocessor
+        if stripped.startswith(("//", "/*", "*", "#")):
+            continue
+
+        # Skip closing braces and labels
+        if stripped == "}" or (stripped.endswith(":") and "(" not in stripped):
+            continue
+
+        # Must have parens (function parameters)
+        if "(" not in stripped:
+            continue
+
+        # Skip control flow keywords
+        before_paren = stripped.split("(")[0].split()
+        if before_paren and before_paren[-1] in (
+            "if", "while", "for", "switch", "return", "sizeof", "typeof", "case", "else"
+        ):
+            continue
+
+        # Check for opening brace on this or following lines
+        has_brace = "{" in stripped
+        if not has_brace:
+            for j in range(i + 1, min(len(hunk_lines), i + 20)):
+                jline = hunk_lines[j]
+                if jline.startswith((" ", "+", "-")):
+                    jcontent = jline[1:]
+                elif jline == "":
+                    continue
+                else:
+                    jcontent = jline
+
+                if "{" in jcontent:
+                    has_brace = True
+                    break
+
+                jstripped = jcontent.strip()
+                if not jstripped:
+                    continue
+
+                # Continuation of function signature (indented or ends with , ( ) )
+                is_continuation = (
+                    (jcontent and jcontent[0].isspace()) or
+                    jstripped.endswith((",", "(", ")"))
+                )
+                if not is_continuation:
+                    break
+
+        if not has_brace:
+            continue
+
+        func_name = extract_function_name_from_line(stripped)
+        if not func_name:
+            continue
+
+        # Verify there are modifications after this definition
+        has_mods_after = any(
+            hunk_lines[j].startswith(("+", "-"))
+            and not hunk_lines[j].startswith(("+++", "---"))
+            for j in range(i + 1, len(hunk_lines))
+        )
+        if has_mods_after:
+            return (func_name, i)
+
+        return None
+
+    return None
+
+
 def split_hunk_by_functions(hunk: Hunk, file_path: str, global_diffinfo: Optional[dict] = None) -> list[tuple[str, str, str, bool, Optional[dict]]]:
     """
     Split a hunk into multiple segments if it contains multiple function definitions.
@@ -1235,9 +1332,45 @@ def split_hunk_by_functions(hunk: Hunk, file_path: str, global_diffinfo: Optiona
 
     if len(functions) == 0:
         # No new function definitions - this is a modification to existing function
-        func_name = extract_function_from_context(hunk.function_context)
-        diffinfo = lookup_diffinfo(func_name) if func_name != "unknown" else hunk.diffinfo
-        return [(func_name, hunk.header, hunk.header + "\n" + "\n".join(hunk.lines), False, diffinfo)]
+        # Check if the hunk body contains a function definition that differs from
+        # the @@ header (e.g., when the hunk starts with context from a preceding function)
+        body_result = find_changed_function_in_hunk(hunk.lines)
+        if body_result:
+            body_func, body_func_line = body_result
+
+            # Check if there are also modifications before the body function definition
+            # (i.e., changes at the tail of the @@ header function)
+            has_mods_before = any(
+                hunk.lines[j].startswith(("+", "-"))
+                and not hunk.lines[j].startswith(("+++", "---"))
+                for j in range(0, body_func_line)
+            )
+
+            if has_mods_before:
+                # Split into two segments: @@ header function + body function
+                header_func = extract_function_from_context(hunk.function_context)
+                before_lines = hunk.lines[:body_func_line]
+                after_lines = hunk.lines[body_func_line:]
+
+                before_content = hunk.header + "\n" + "\n".join(before_lines)
+                after_content = hunk.header + "\n" + "\n".join(after_lines)
+
+                before_diffinfo = lookup_diffinfo(header_func) if header_func != "unknown" else hunk.diffinfo
+                after_diffinfo = lookup_diffinfo(body_func)
+
+                return [
+                    (header_func, hunk.header, before_content, False, before_diffinfo),
+                    (body_func, hunk.header, after_content, False, after_diffinfo),
+                ]
+            else:
+                # Only the body function is modified
+                func_name = body_func
+                diffinfo = lookup_diffinfo(func_name) if func_name != "unknown" else hunk.diffinfo
+                return [(func_name, hunk.header, hunk.header + "\n" + "\n".join(hunk.lines), False, diffinfo)]
+        else:
+            func_name = extract_function_from_context(hunk.function_context)
+            diffinfo = lookup_diffinfo(func_name) if func_name != "unknown" else hunk.diffinfo
+            return [(func_name, hunk.header, hunk.header + "\n" + "\n".join(hunk.lines), False, diffinfo)]
 
     if len(functions) == 1:
         # Single new function definition
