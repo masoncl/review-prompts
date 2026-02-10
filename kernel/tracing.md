@@ -1,4 +1,4 @@
-# Tracing Subsystem Delta
+# Tracing Subsystem Details
 
 ## Tracepoint Requirements
 - No side effects in TP_fast_assign()
