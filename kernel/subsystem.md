@@ -36,4 +36,4 @@ regexes
 
 Load only when explicitly requested in the prompt:
 
-- **SR-001** (patterns/SR-001.md): Subjective general assessment
+- **Subjective Review** (subjective-review.md): Subjective general assessment

@@ -1,4 +1,4 @@
-# SR-001: Subjective Review
+# Subjective Review
 
 **Risk**: None, subjective code quality assessment
 
