@@ -1,4 +1,4 @@
-# Fscrypt Subsystem Delta
+# Fscrypt Subsystem Details
 
 ## Key Management
 - Master keys in keyring, per-file keys derived
