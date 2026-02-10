@@ -126,6 +126,12 @@ For each FILE-N-CHANGE-M.json:
   - Add modified functions to TodoWrite (skip if full body already in diff)
   - Add 5 callers of each modified function to TodoWrite
   - Add ALL callees of each modified function to TodoWrite
+    - You MUST load EVERY SINGLE callee, even if their calls were not part
+      of the modifications you are analyzing.  Changes have side effects, and this
+      deep dive analysis protocol is meant to find those side effects.  The
+      decision about which callees to include was made when creating FILE-N-CHANGE-M.json,
+      DO NOT, FOR ANY REASON, try to limit that decision now.  Load the identified functions
+      even if you don't see a good reason to do so.
   - Build a call graph for each modified function, remember it, CS-001.md will use it.
     - modified function F calls function Y
     - modified function F is called by function Z
@@ -153,7 +159,7 @@ Remember this call graph, proper CS-001.md functioning depends on it
 In parallel, load the full definitions of functions and types identified in TodoWrite
 - All modified functions
 - callers (pick up to 5 for each modified function)
-- All callees
+- All callees, including callees that were not added or changed in the modifications
 
 If semcode is not available, you must still find the definitions of all of these
 objects.  Do your best to minimize turns, but you MUST prioritize full context
