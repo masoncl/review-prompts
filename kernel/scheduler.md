@@ -1,150 +1,152 @@
-# Scheduler Subsystem Delta
+# Scheduler Subsystem Details
 
-## Scheduler Patterns [SCHED]
+## Runqueue Locking
 
-### SCHED-001: Runqueue lock ordering
+- Runqueue locks are `raw_spinlock_t` (never sleeps, even on PREEMPT_RT)
+- Multi-runqueue operations must lock in consistent order to prevent deadlock
+- `double_rq_lock()` / `double_rq_unlock()` handle ordering automatically
+  (swaps to ascending order internally via `rq_order_less()`)
+- `lockdep_assert_rq_held()` validates rq lock is held in accessors
+- `task_rq(p)` expands to `cpu_rq(task_cpu(p))`. Without pinning or holding
+  `pi_lock` / rq lock, the task can migrate after `task_cpu(p)` is read,
+  so the caller gets CPU A's runqueue while the task is now on CPU B.
+- Never release rq lock with a task in inconsistent state — `on_rq`, the
+  RB-tree, and `p->__state` must all agree before the lock is dropped.
+  Other CPUs observe these fields immediately after unlock:
+  - Task in tree but `on_rq == 0`: `try_to_wake_up()` sees `on_rq == 0` and
+    calls `activate_task()` → double enqueue corrupts the RB-tree
+  - `on_rq == 1` but not in tree: `try_to_wake_up()` sees `on_rq == 1` and
+    skips enqueue, but `pick_next_task` never finds the task — permanently lost
+  - `TASK_RUNNING` with `on_rq == 0`: `try_to_wake_up()` sees `TASK_RUNNING`
+    and returns early (no wakeup needed) — task hangs forever with no way to
+    recover
 
-**Risk**: Deadlock
+## Task State Transitions
 
-**Details**: Multi-runqueue operations need consistent lock ordering
+- `set_current_state()` includes a barrier so the state write is ordered
+  relative to subsequent memory accesses (the condition check)
+- Voluntary sleep pattern: set state BEFORE checking the condition, otherwise
+  a wakeup between the check and the state change is lost
 
-- **Lock ordering**: Always lock runqueues in ascending order to prevent deadlock
-- **Double runqueue lock**: Use `double_rq_lock()`/`double_rq_unlock()` for locking 2 runqueues at once
-- **Lock release timing**: Don't release rq lock with task in inconsistent state
-- **Raw spinlocks**: Runqueue locks are raw_spinlock_t (never sleep, even on RT)
+```c
+// CORRECT — state set before condition check
+set_current_state(TASK_UNINTERRUPTIBLE);
+if (!condition)
+    schedule();
+set_current_state(TASK_RUNNING);
 
-### SCHED-002: Task state transitions
+// WRONG — lost wakeup if condition changes between check and set_current_state
+if (!condition) {
+    set_current_state(TASK_UNINTERRUPTIBLE);  // wakeup already happened
+    schedule();                                // sleeps forever
+}
+```
 
-**Risk**: Race conditions
+- `TASK_RUNNING` is the only state where a task can be on a runqueue
+- `TASK_DEAD` requires special handling — task cannot be rescheduled
+- `wake_up_process()` handles state races internally (safe for any task state)
 
-**Details**: TASK_RUNNING transitions require proper barriers
+## CPU Affinity and Migration
 
-- **State changes**: Use `set_current_state()` with proper barriers
-- **Wakeup races**: Check task->state after adding to runqueue
-- **TASK_DEAD**: Special handling required, task cannot be rescheduled
-- **TASK_RUNNING**: Only state where task can be on runqueue
-- **Voluntary sleep**: Must set state before condition check to avoid lost wakeups
+- `set_cpus_allowed_ptr()` changes a task's allowed CPU mask
+- `kthread_bind()` restricts a kthread to a specific CPU
+- Migration must respect `cpumask_subset()` against allowed CPUs
+- Check `is_migration_disabled()` before migrating a task
+- `stop_one_cpu()` may be needed for forced migration
+- CPU hotplug requires special care — tasks must not be migrated to a CPU
+  being taken offline
+- Migration-disabled sections cannot block or sleep
 
-### SCHED-003: CPU affinity violations
+## CFS (SCHED_NORMAL / SCHED_BATCH / SCHED_IDLE)
 
-**Risk**: System instability
+### EEVDF Algorithm
 
-**Details**: Migration must respect cpumask and hotplug state
+- Selects the eligible task (positive lag = owed service) with the earliest
+  virtual deadline
+- Virtual deadline: `vd = vruntime + vslice` where `vslice = calc_delta_fair(slice, se)`
+  computes `slice * NICE_0_LOAD / weight` (source comment: `vd_i = ve_i + r_i/w_i`)
+- Base slice: `sysctl_sched_base_slice` (default 700μs); deadline updated when
+  `vruntime >= deadline`
 
-- **cpumask validation**: Check cpumask_subset() against allowed CPUs
-- **Hotplug coordination**: Migration during hotplug needs special care
-- **Per-CPU kthreads**: Use `kthread_bind()` or `set_cpus_allowed_ptr()`
-- **Active migration**: May need to stop_one_cpu() for forced migration
-- **Migration disabled**: Check `is_migration_disabled()` before migration
+### Key Fields
 
-### SCHED-004: Load balancing invariants
+- `vruntime`: per-entity monotonic counter of weighted CPU time; must be
+  normalized when migrating between CPUs
+- `min_vruntime`: per-cfs_rq monotonic clock tracking progress; must never
+  decrease
+- `vlag`: tracks service deficit/surplus; `vlag = V - vruntime` where V is
+  the weighted average vruntime (`avg_vruntime`); preserved across
+  enqueue/dequeue by `place_entity()`
+- `on_rq`: must be 1 iff entity is in the RB-tree; double enqueue or
+  mismatch corrupts the runqueue
+- Load weight: derived from nice value via `prio_to_weight[]`; ~10% change
+  per nice level
 
-**Risk**: Performance degradation
+### RB-Tree Structure
 
-**Details**: Per-entity load must match hierarchy aggregation
+The RB-tree is sorted by deadline and augmented with `min_vruntime` per node,
+enabling O(log n) eligibility pruning in `__pick_eevdf()`. A subtree can be
+skipped entirely if its `min_vruntime` shows no eligible entities.
 
-### SCHED-005: Bandwidth enforcement
+### PELT (Per-Entity Load Tracking)
 
-**Risk**: Starvation/DoS
+- `update_load_avg()` must be called BEFORE any entity state change
+  (enqueue/dequeue/migration) to maintain hierarchy consistency
+- Tracks a decaying average of utilization per entity and per cfs_rq
+- On migration: `DO_ATTACH` attaches load to new CPU, `DO_DETACH` detaches
+  from old CPU
 
-**Details**: RT/DL throttling must prevent monopolization
+### CFS Bandwidth
 
-### SCHED-006: Priority inheritance
+- Group throttling uses `cfs_rq->runtime_remaining`
+- Must properly dequeue on throttle, enqueue on unthrottle
+- Hierarchical: parent throttle affects all children
 
-**Risk**: Priority inversion
+## Real-Time (SCHED_FIFO / SCHED_RR)
 
-**Details**: PI chain updates need proper locking
+- Priority range: 1–99 (userspace); higher number = higher priority.
+  Kernel internal priority is inverted (`MAX_RT_PRIO - 1 - rt_priority`)
+- RT bandwidth: `sched_rt_runtime_us` / `sched_rt_period_us` prevent CPU
+  monopolization (default 95% limit — 950ms per 1000ms period)
+- Tasks throttled when bandwidth exhausted; check `sched_rt_runtime()`
 
-### SCHED-007: Context switch atomicity
+## Deadline (SCHED_DEADLINE)
 
-**Risk**: Data corruption
+- Invariant: `runtime ≤ deadline ≤ period`
+- Admission control: tasks can be created while
+  `Σ(runtime_i / period_i) ≤ M × (rt_runtime / rt_period)` where M is CPU count
+  in the root domain
+- CBS (Constant Bandwidth Server) enforces bandwidth isolation
+- Global Earliest Deadline First (GEDF): on an M-CPU system, the M tasks
+  with earliest deadlines should be running
+- Throttling: task blocked when runtime exhausted, unblocked at next period
+  (replenishment)
+- DL tasks tracked per root domain for migration decisions
 
-**Details**: switch_to() and surrounding code is non-preemptible
+## sched_ext (SCHED_EXT — BPF Extensible Scheduler)
 
-### SCHED-008: Per-CPU runqueue access
+- Scheduler behavior defined by BPF programs via ops callbacks (`select_cpu`,
+  `enqueue`, `dispatch`, etc.)
+- Dispatch queues (DSQ): tasks queued in local (per-CPU), global, or custom
+  DSQs; can use FIFO or PRIQ (vtime) ordering but not mixed
+- `ops_state` tracking: atomic `p->scx.ops_state` prevents concurrent BPF
+  operations on the same task; transitions: NONE → QUEUEING → QUEUED → DISPATCHING
+- Direct dispatch: optimization allowing enqueue path to dispatch directly to
+  local DSQ via per-CPU `direct_dispatch_task` marker
+- Failsafe: watchdog timeout, `scx_error()`, and SysRq-S all trigger
+  automatic revert to CFS
 
-**Risk**: Data corruption
+## Priority Inheritance
 
-**Details**: Runqueue access requires proper locking
-
-## Scheduling Classes
-### Real-Time (SCHED_FIFO/SCHED_RR)
-- **RT bandwidth**: `sched_rt_runtime_us` and `sched_rt_period_us` prevent CPU monopolization
-- **RT throttling**: Tasks may be throttled when bandwidth exhausted
-- **Global RT throttle**: Check `sched_rt_runtime()` for enforcement
-- **Priority range**: 1-99, higher number = higher priority for userspace (for kernel priorities are inverted)
-
-### Deadline (SCHED_DEADLINE)
-- **Admission control**: For a root_domain comprising M CPUs, -deadline tasks can be created while the sum of their bandwidths stays below M * (sched_rt_runtime_us / sched_rt_period_us)
-- **Deadline invariants**: runtime ≤ deadline ≤ period
-- **CBS (Constant Bandwidth Server)**: Enforces bandwidth isolation
-- **Migration**: DL tasks migrate to maintain GEDF SMP invariant - on an M CPUs system the M earliest DL tasks are executing on a CPU
-- **Throttling**: Task blocked when runtime exhausted, unblocked at replenishment instant (new period)
-
- ### CFS (SCHED_NORMAL/SCHED_BATCH/SCHED_IDLE)
-- **EEVDF algorithm**: Selects eligible task (positive lag = owed service) with earliest virtual deadline `vd = vruntime + slice/weight`
-- **vruntime**: Per-entity monotonic counter of weighted CPU time; must be normalized when migrating between CPUs
-- **min_vruntime**: Per-cfs_rq monotonic clock tracking progress; MUST NEVER decrease
-- **Lag (vlag)**: Tracks service deficit/surplus `vlag = avg_vruntime - vruntime`; preserved across enqueue/dequeue by place_entity()
-- **Load weight**: Derived from nice value via `prio_to_weight[]`; affects vruntime rate and CPU share (~10% per nice level)
-- **PELT updates**: Must call update_load_avg() BEFORE any entity state change (enqueue/dequeue/migration) to maintain hierarchy consistency
-- **RB-tree**: Sorted by deadline, augmented with min_vruntime for O(log n) eligibility pruning in __pick_eevdf()
-- **on_rq flag**: Must be 1 iff entity in RB-tree (0 otherwise); double enqueue or on_rq mismatch corrupts runqueue
-- **Base slice**: sysctl_sched_base_slice (default 700us) determines timeslice; deadline updated when `vruntime >= deadline`
-- **CFS bandwidth**: Group throttling uses runtime_remaining; must properly dequeue on throttle, enqueue on unthrottle
-
-### sched_ext (SCHED_EXT - BPF Extensible Scheduler)
-- **BPF ops callbacks**: Scheduler behavior defined by BPF programs via ops (select_cpu, enqueue, dispatch, etc.); enables dynamic scheduling algorithms
-- **Dispatch queues (DSQ)**: Tasks queued in local (per-CPU), global (per-node), or custom DSQs; can use FIFO or PRIQ (vtime) ordering but NOT mixed
-- **ops_state tracking**: Atomic `p->scx.ops_state` prevents concurrent BPF operations on same task; transitions: NONE → QUEUEING → QUEUED → DISPATCHING
-- **Direct dispatch**: Optimization allowing enqueue path to dispatch directly to local DSQ; tracked via per-CPU `direct_dispatch_task` marker
-- **Failsafe mechanisms**: Watchdog timeout (runnable task stalls), scx_error() on invalid ops, and SysRq-S all trigger automatic revert to CFS; system integrity always maintained
-
-## Load Balancing
-- **Pull model**: Idle CPUs pull tasks from busy CPUs
-- **Migration paths**: Balance callbacks run with specific lock states
-- **Affinity constraints**: Respect task's allowed CPUs
-- **Load calculation**: Based on runnable + running task load
-- **PELT (Per-Entity Load Tracking)**: Decaying average of utilization
-
-## Bandwidth and Throttling
-- **CFS bandwidth**: `cfs_rq->runtime_remaining` tracking
-- **Throttle/unthrottle**: Must maintain runqueue invariants
-- **Hierarchical throttling**: Parent throttle affects all children
-- **RT global throttling**: Default 95% limit to prevent lockup
-
-## Priority Inheritance (PI)
-- **PI chain**: Must update entire chain atomically
-- **Boosting**: Lower priority task inherits higher priority from blocked task
-- **Deadlock detection**: PI chain checked to prevent cycles
-- **RT mutex**: Primary use case for PI
-
-## Common Pitfalls
-- **Lost wakeups**: Task state set after condition becomes true
-- **Runqueue corruption**: Task on multiple runqueues simultaneously
-- **Load calculation errors**: Load weight changes without updating hierarchy
-- **Lock imbalance**: Acquiring runqueue lock without release on all paths
-- **Preemption leaks**: Disabling preemption without re-enabling
-- **Hot-unplug races**: Task migrated to CPU being taken offline
-- **Nested sleeps**: Sleeping while in TASK_RUNNING state
+- When a high-priority task blocks on a lock held by a low-priority task,
+  the lock holder temporarily inherits the blocked task's priority
+- PI chain must be updated atomically; checked for cycles to detect deadlock
+- RT mutex is the primary use case
+- `pi_lock` protects PI state; must be held when traversing the chain
 
 ## Quick Checks
-- **preempt_disable() balance**: Every disable must have matching enable
-- **rq lock holding**: Check `lockdep_assert_rq_held()` in rq accessors
-- **task_rq() safety**: Task must be pinned or caller holds pi_lock/rq lock
-- **wake_up_process()**: Safe for any task state, handles races internally
-- **set_task_cpu()**: Only safe during migration with proper locks
-- **Migration disabled sections**: Cannot block/sleep inside
-- **Double enqueue**: Never enqueue task already on runqueue
-- **Schedule in atomic**: Never call schedule() with preemption disabled or locks held (except rq lock in scheduler code)
 
-## Deadline Scheduler Specifics
-- **Root domain**: DL tasks tracked per root domain for migration
-- **Global earliest deadline first**: System-wide EDF across CPUs
-- **Zero-laxity**: Deadline equals current time requires immediate execution
-
-## Debugging Features
-- **debug**: Exposes /proc/sched_debug with runqueue state
-- **schedstats**: Per-task scheduling statistics when enabled
-- **trace events**: scheduler tracepoints for detailed analysis
-- **lockdep annotations**: Validate locking rules in scheduler code
+- `preempt_disable()` / `preempt_enable()` must always be balanced
+- `set_task_cpu()` only safe during migration with proper locks held
+- Never call `schedule()` with preemption disabled or non-rq locks held
+- Never enqueue a task that is already on a runqueue
