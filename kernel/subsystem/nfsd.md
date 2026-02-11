@@ -32,7 +32,7 @@ files based on what code areas are being modified:
 - [Security-critical input validation](nfsd/nfsd-security-validation.md)
 
 **Advanced features:**
-- [NFSD-011: NFSv4 callback client operations](nfsd/NFSD-011-callbacks.md)
+- [NFSv4 callback operations](nfsd/nfsd-callbacks.md)
 
 ## Quick Checks
 
