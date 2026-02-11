@@ -20,7 +20,7 @@ files based on what code areas are being modified:
 **Resource management:**
 - [Reference counting balance](nfsd/nfsd-refcounting.md)
 - [File handle lifecycle](nfsd/nfsd-filehandles.md)
-- [NFSD-004: NFSv4 stateid lifecycle](nfsd/NFSD-004-stateids.md)
+- [NFSv4 stateid lifecycle](nfsd/nfsd-stateids.md)
 
 **Concurrency and state:**
 - [NFSD-006: Locking correctness](nfsd/NFSD-006-locking.md)
