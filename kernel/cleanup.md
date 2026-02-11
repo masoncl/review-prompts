@@ -1,218 +1,166 @@
-# cleanup and guard API details
+# Cleanup and Guard Subsystem Details
 
-**When to check**: mandatory when cleanup.h helpers (__free, guard, DEFINE_FREE, DEFINE_GUARD) are used
+## Cleanup Function Compatibility
 
-**Common location**: Functions using __free, guard(), DEFINE_FREE, DEFINE_GUARD, no_free_ptr, return_ptr
+Using `__free()` with a cleanup function that cannot handle all values the
+variable may hold causes crashes or undefined behavior. If an allocator
+returns `ERR_PTR` on failure but the cleanup wrapper only checks `if (_T)`,
+the `ERR_PTR` value is truthy and the cleanup function receives a bogus
+pointer, causing a kernel crash.
 
-**Mandatory cleanup function compatibility validation:**
-- step 1: For EVERY __free() variable, identify the cleanup function
-  - Place each cleanup function in TodoWrite
-  - Output: variable name, cleanup function and what it can safely handle (NULL, ERR_PTR, valid pointer, or combinations)
-  - Output: Early return paths where cleanup will trigger
-- step 2: For EVERY __free() variable, identify the allocator function
-  - Place each allocator function in TodoWrite
-  - Output variable name, allocator function and what it can return (NULL, ERR_PTR, valid pointer, or combinations)
-- step 3: Verify cleanup function can handle ALL possible values the variable might hold:
-  - If allocator returns ERR_PTR, cleanup function MUST handle ERR_PTR safely
-  - If allocator returns NULL, cleanup function MUST handle NULL safely
-  - Common issue: kfree() only handles NULL/ZERO_SIZE_PTR, NOT ERR_PTR
-  - Common issue: devlink_free() only handles valid pointers, NOT NULL or ERR_PTR
-- step 4: Check all early return paths:
-  - Output: early return path location
-  - On IS_ERR() check returning early, does variable hold ERR_PTR?
-  - On NULL check returning early, does variable hold NULL?
-  - Will cleanup function handle the value correctly?
-- step 5: Look for mitigation patterns:
-  - Setting variable to NULL before early return
-  - Using no_free_ptr() before early return
-  - Having cleanup function check IS_ERR() or similar
+**Validating compatibility**:
+- Identify what the allocator can return: NULL, ERR_PTR, valid pointer, or combinations
+- Identify what the `DEFINE_FREE` wrapper guards against: `if (_T)` (NULL-safe only), `if (!IS_ERR_OR_NULL(_T))` (NULL and ERR_PTR safe), or nothing
+- Verify the wrapper handles all possible allocator return values on every early return path
 
-**Recommended definition-initialization pattern:**
-- step 1: identify all __free() variables in function
-  - Add function list to TodoWrite
-  - Output: function list
-- step 2: check if variables defined with "= NULL" at top, then assigned later
-  - This pattern is ALLOWED but DISCOURAGED per include/linux/cleanup.h:
-    "the recommendation is to always define and assign variables in one
-    statement and not group variable definitions at the top of the
-    function when __free() is used"
-  - Risk: makes LIFO ordering mistakes more likely
-  - Recommendation: define and initialize in single statement when practical
-- step 3: if split definition-initialization is used, verify LIFO ordering is correct:
-  - Variables requiring locks must be defined AFTER guard() for that lock
-  - From include/linux/cleanup.h DOC comment explaining LIFO bug pattern
-  - Cleanup runs in reverse definition order (LIFO)
-  - If lock guard defined before resource, lock releases before resource cleanup
-- step 4: Flag as potential issue if:
-  - Variables defined at top with "= NULL" AND
-  - Depend on locks/resources defined later in the function
-  - Only report if LIFO ordering is provably wrong, not just "risky"
+**Common cleanup wrappers** (see `include/linux/slab.h` and `include/linux/cleanup.h`):
+- `__free(kfree)`: defined as `if (!IS_ERR_OR_NULL(_T)) kfree(_T)` — safe with NULL and ERR_PTR
+- `__free(kfree_sensitive)`: defined as `if (_T) kfree_sensitive(_T)` — safe with NULL only, NOT ERR_PTR
+- Custom `DEFINE_FREE` wrappers: check the guard expression individually
 
-**Mandatory goto mixing validation:**
-- step 1: scan entire function for goto statements
-- step 2: scan entire function for __free() or guard() usage
-- step 3: if BOTH found in same function, flag as violation
-- step 4: from include/linux/cleanup.h DOC comment:
-  "the expectation is that usage of 'goto' and cleanup helpers is never
-  mixed in the same function. I.e. for a given routine, convert all
-  resources that need a 'goto' cleanup to scope-based cleanup, or
-  convert none of them."
-  - Either convert ALL resources to cleanup helpers
-  - Or convert NONE of them
-  - No partial conversions allowed
-
-**Mandatory LIFO ordering validation:**
-- step 1: list all __free() and guard() variables in order of definition
-- step 2: identify dependencies between resources
-  - Locks must be acquired BEFORE resources they protect
-  - Resources that reference other resources must be defined AFTER
-- step 3: verify cleanup order (reverse of definition order) is safe
-  - Last defined = first cleaned up
-  - First defined = last cleaned up
-  - From include/linux/cleanup.h: "When multiple variables in the same
-    scope have cleanup attributes, at exit from the scope their
-    associated cleanup functions are run in reverse order of definition
-    (last defined, first cleanup)."
-- step 4: common patterns requiring specific order:
-  - guard(mutex)(&lock) MUST come before struct obj *p __free(remove_free)
-  - if remove_free() requires the lock to be held
-- step 5: verify interdependent resources using DOC example from include/linux/cleanup.h
-
-**Mandatory guard() scope validation:**
-- step 1: identify all guard() invocations
-  - Add every guard() invocation to TodoWrite
-  - Output: guard location and line
-- step 2: determine the scope where guard() is called:
-  - Function scope: lock held until function returns
-  - Block scope: lock held only until closing brace
-  - For-loop scope: lock held only for loop body
-  - Output: function scope determined
-- step 3: verify scope matches intended lock lifetime
-- step 4: check for block scoping issues:
-  - guard(lock)(foo) in if-statement only holds lock in that if-block
-  - NOT for the rest of the function
-  - From include/linux/cleanup.h: "The lifetime of the lock obtained by
-    the guard() helper follows the scope of automatic variable declaration."
-- step 5: verify understanding of automatic variable scope from include/linux/cleanup.h DOC
-
-**Mandatory ownership transfer validation:**
-- step 1: identify all __free() variables
-  - Add every __free() variable to TodoWRite
-  - Output: variable name, location
-- step 2: scan for functions that consume/take ownership of the resource
-  - Output: any functions found
-- step 3: verify ownership transfer uses no_free_ptr() or return_ptr()
-  - From include/linux/cleanup.h:
-    "no_free_ptr(var): like a non-atomic xchg(var, NULL), such that the
-    cleanup function will be inhibited"
-  - no_free_ptr(p): returns p and sets p to NULL (inhibits cleanup)
-  - return_ptr(p): shorthand for "return no_free_ptr(p)"
-- step 4: verify consumed resources don't get double-freed
-- step 5: verify no_free_ptr() usage follows pattern from include/linux/cleanup.h DOC
-- step 6: check for retain_and_null_ptr() pattern for conditional consumption
-
-**Examples of correct usage:**
+**Mitigation patterns**:
+- Setting the variable to NULL before early return
+- Using `no_free_ptr()` before early return to inhibit cleanup
+- Using a cleanup function that checks `IS_ERR_OR_NULL()`
 
 ```c
-// CORRECT: ERR_PTR-safe cleanup
-DEFINE_FREE(kfree, void *, if (_T) kfree(_T))
-void *alloc_obj(...)
-{
-    struct obj *p __free(kfree) = kmalloc(...);
-    if (!p)
-        return NULL;  // kfree(NULL) is safe
+// CORRECT: cleanup wrapper guards against ERR_PTR
+DEFINE_FREE(my_free, void *, if (!IS_ERR_OR_NULL(_T)) my_release(_T))
 
-    if (!init_obj(p))
-        return NULL;  // kfree(valid ptr) is safe
+struct obj *p __free(my_free) = alloc_thing();  // may return ERR_PTR
+if (IS_ERR(p))
+    return PTR_ERR(p);  // cleanup sees ERR_PTR, skips my_release()
 
-    return_ptr(p);    // inhibits cleanup, returns p
-}
+// WRONG: cleanup wrapper only checks NULL, allocator can return ERR_PTR
+DEFINE_FREE(my_free, void *, if (_T) my_release(_T))
 
-// CORRECT: LIFO ordering with lock
-int init(void)
-{
-    guard(mutex)(&lock);  // acquired first
-    struct object *obj __free(remove_free) = alloc_add();  // defined second
-
-    if (!obj)
-        return -ENOMEM;  // lock unlocked, then cleanup runs (no-op)
-
-    return_ptr(obj);  // success path
-}
+struct obj *p __free(my_free) = alloc_thing();  // may return ERR_PTR
+if (IS_ERR(p))
+    return PTR_ERR(p);  // cleanup sees ERR_PTR (truthy), calls my_release(ERR_PTR)!
 ```
 
-**Examples of INCORRECT usage:**
+**REPORT as bugs**: Any `__free()` variable where the cleanup wrapper does not
+guard against all values the variable can hold at every exit point.
+
+## LIFO Definition Ordering
+
+Defining `__free()` variables and `guard()` locks in the wrong order causes
+cleanup to run in the wrong sequence: locks release before resources that
+require the lock for cleanup, resulting in use-after-free or lockdep
+violations.
+
+Cleanup runs in reverse definition order (LIFO). From `include/linux/cleanup.h`:
+
+> "When multiple variables in the same scope have cleanup attributes, at exit
+> from the scope their associated cleanup functions are run in reverse order
+> of definition (last defined, first cleanup)."
+
+**Rules**:
+- Locks protecting a resource must be defined (via `guard()`) BEFORE the
+  resource they protect (via `__free()`)
+- Resources that reference other resources must be defined AFTER their
+  dependencies
+- Define and initialize `__free()` variables in a single statement rather
+  than `= NULL` at the top with assignment later — this makes LIFO ordering
+  mistakes less likely (recommended in `include/linux/cleanup.h`)
 
 ```c
-// INCORRECT: kfree() cannot handle ERR_PTR
-int bad_init(...)
-{
-    u8 *data __free(kfree) = NULL;
+// CORRECT: guard defined first, resource second
+guard(mutex)(&lock);
+struct object *obj __free(remove_free) = alloc_add();
+// At scope exit: remove_free(obj) runs first (with lock held), then unlock
 
-    data = pci_vpd_alloc(pdev, &size);  // returns ERR_PTR or valid pointer
-    if (IS_ERR(data))
-        return PTR_ERR(data);  // BUG: kfree(ERR_PTR) called!
-
-    return 0;
-}
-
-// INCORRECT: Wrong LIFO order
-int bad_init(void)
-{
-    struct object *obj __free(remove_free) = NULL;  // defined first
-    guard(mutex)(&lock);  // acquired second
-    obj = alloc_add();
-
-    if (!obj)
-        return -ENOMEM;  // BUG: cleanup runs before unlock!
-                         // remove_free() called without lock held!
-
-    return_ptr(obj);
-}
-
-// RISKY: Definition-initialization split (not inherently wrong, but risky)
-int risky_init(void)
-{
-    struct obj *p __free(kfree) = NULL;  // defined with NULL
-    guard(mutex)(&lock);
-
-    p = kmalloc(...);  // initialized later
-
-    // This works, but makes LIFO mistakes more likely
-    // Better: define p after guard(mutex)
-    return_ptr(p);
-}
-
-// INCORRECT: Definition-initialization split causing LIFO bug
-int bad_init(void)
-{
-    struct object *obj __free(remove_free) = NULL;  // defined first
-    guard(mutex)(&lock);  // guard defined second
-    obj = alloc_add();
-
-    if (!obj)
-        return -ENOMEM;  // BUG: remove_free() runs before unlock!
-
-    return_ptr(obj);
-}
-
-// INCORRECT: Mixing goto with cleanup helpers
-int bad_init(void)
-{
-    struct obj *p __free(kfree) = kmalloc(...);
-    struct obj *q = kmalloc(...);
-
-    if (!p || !q)
-        goto cleanup;  // BUG: mixing goto with __free()
-
-    return 0;
-
-cleanup:
-    kfree(q);  // BUG: partial conversion to cleanup helpers
+// WRONG: resource defined before guard
+struct object *obj __free(remove_free) = NULL;
+guard(mutex)(&lock);
+obj = alloc_add();
+if (!obj)
     return -ENOMEM;
-}
+
+err = other_init(obj);
+if (err)
+    return err;  // remove_free(obj) runs AFTER unlock — lock not held!
 ```
 
-**Mandatory Self-verification gate:**
+## Guard Scope
 
-**After analysis:** Issues found: [none OR list]
+Using data protected by a `guard()` lock outside the scope where the guard
+was declared causes use-after-free or data races, because the lock has
+already been released.
+
+From `include/linux/cleanup.h`:
+
+> "The lifetime of the lock obtained by the guard() helper follows the scope
+> of automatic variable declaration."
+
+**Scope types**:
+- Function scope: `guard()` at function level — lock held until function returns
+- Block scope: `guard()` inside `if`/`else`/`while` block — lock held only until closing brace
+- `scoped_guard()`: lock held only for the following compound statement
+
+```c
+// CORRECT: data used within guard scope
+guard(mutex)(&lock);
+val = shared_data;  // lock held here
+return val;
+
+// WRONG: guard in block, data used after block
+if (condition) {
+    guard(mutex)(&lock);
+    val = shared_data;  // lock held here
+}  // lock released here
+use(val);  // data race — lock no longer held
+```
+
+## Ownership Transfer
+
+Failing to inhibit cleanup when transferring ownership of a `__free()`
+variable causes double-free: the cleanup function frees the resource, and the
+new owner frees it again.
+
+**Transfer primitives** (defined in `include/linux/cleanup.h`):
+- `no_free_ptr(p)`: returns `p` and sets `p` to NULL, inhibiting cleanup. Has `__must_check` semantics
+- `return_ptr(p)`: shorthand for `return no_free_ptr(p)`
+- `retain_and_null_ptr(p)`: like `no_free_ptr()` but discards the return value. Use when passing ownership to a function that consumes the pointer on success
+
+```c
+// CORRECT: inhibit cleanup on success path
+struct obj *p __free(kfree) = kmalloc(...);
+if (!p)
+    return NULL;  // cleanup frees NULL (no-op)
+return_ptr(p);    // inhibits cleanup, caller takes ownership
+
+// CORRECT: conditional ownership transfer
+ret = bar(f);
+if (!ret)
+    retain_and_null_ptr(f);  // bar() consumed f on success
+return ret;                  // if bar() failed, cleanup frees f
+```
+
+## Goto Mixing
+
+Mixing `goto`-based error handling with `__free()`/`guard()` cleanup in the
+same function creates confusing ownership semantics and double-free or
+resource leak bugs.
+
+From `include/linux/cleanup.h`:
+
+> the expectation is that usage of "goto" and cleanup helpers is never
+> mixed in the same function. I.e. for a given routine, convert all
+> resources that need a "goto" cleanup to scope-based cleanup, or
+> convert none of them.
+
+**REPORT as bugs**: Functions that contain both `goto`-based cleanup labels
+and `__free()`/`guard()` declarations.
+
+## Quick Checks
+
+- **Allocator return vs cleanup guard**: When reviewing a new `__free()`
+  variable, check the allocator's return type (NULL vs ERR_PTR) against the
+  `DEFINE_FREE` guard expression.
+- **Split definition-initialization**: Variables declared `__free(name) = NULL`
+  at function top and assigned later are more prone to LIFO ordering mistakes.
+  Verify the assignment happens after any required `guard()` calls.
+- **scoped_guard vs guard**: `scoped_guard()` holds the lock only for its
+  compound statement; `guard()` holds it for the rest of the enclosing scope.
+  Verify the correct variant is used for the intended lock lifetime.
