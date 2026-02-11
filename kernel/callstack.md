@@ -70,7 +70,14 @@ and up and down the call stack into unmodified code.
 
 # Task 0: Category iteration
 
-Reference CHANGE CATEGORIES from review-core.md
+CHANGE CATEGORIES should have been loaded into context before calling
+callstack.md. Iterate through all of them if they were provided. Otherwise,
+consider the entire unit being analyzed a single change category.
+
+It's possible function/type definitions, callers and callees are already loaded
+into context as well. There's no need to reload any work already completed, but
+if new definitions, callers, or callees are required during analysis, you made
+load them.
 
 - For EVERY category identified
 - Perform Tasks 1-6 separately
