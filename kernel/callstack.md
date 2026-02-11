@@ -182,9 +182,9 @@ complete caller analysis.
 - step resource.2: For allocations (kmalloc/kcalloc/kzalloc/vmalloc):
   - If size parameter can be 0, report potential ZERO_SIZE_PTR crash
 - step resource.3: For multiple pointers to same memory: track how writes through one affect others
-  - Reference as MULTI_POINTER_MEMORY_TRACKING in later patterns
+  - use this to understand the relationship between the objects being manipulated and the pointers
+    being used to change the objects.
   - Output: list of pointers you found for the same memory
-  - NOTE: this tracking is use in other prompts, you must perform it.
 - step resource.4: Verify resources are properly initialized, locked, and freed
 - step resource.5: Continue into Task 5B, even if you think you've found enough details to complete the analysis
 - Output: Category NUMBER [ list of resources checked: line of code where each resource was assigned ]
