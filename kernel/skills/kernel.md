@@ -38,7 +38,7 @@ context files from `{{KERNEL_REVIEW_PROMPTS_DIR}}/`:
 
 1.  Always read `technical-patterns.md` before loading subsystem specific files
 
-2. Read `{{KERNEL_REVIEW_PROMPTS_DIR}}/subsystem.md` and load matching subsystem
+2. Read `{{KERNEL_REVIEW_PROMPTS_DIR}}/subsystem/subsystem.md` and load matching subsystem
    guides and critical patterns
 
 ## Semcode Integration

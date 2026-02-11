@@ -189,8 +189,8 @@ complete caller analysis.
 **CRITICAL**: This task catches use-after-free bugs in RCU-protected data structures.
 
 - step rcu.1: For any `call_rcu()`, `synchronize_rcu()`, or `kfree_rcu()` in the diff:
-  - Load `rcu.md` if not already loaded
-  - Output: "rcu.md loaded: [ y / n ]"
+  - Load `subsystem/rcu.md` if not already loaded
+  - Output: "subsystem/rcu.md loaded: [ y / n ]"
 - step rcu.2: Identify what data structures the object is part of (rhashtable, hlist, list, rb-tree, etc.)
   - Output: "Object in data structures: [ list ]"
 - step rcu.3: Verify removal from ALL lookup structures happens BEFORE call_rcu()

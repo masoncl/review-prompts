@@ -13,7 +13,7 @@ subsystem (see `subsystem.md` for the trigger table).
 A subsystem guide is NOT:
 - A workflow or analysis procedure (no TodoWrite steps, no "step 1, step 2")
 - A checklist to follow mechanically
-- A place for generic kernel knowledge covered by `technical-patterns.md`
+- A place for generic kernel knowledge covered by `../technical-patterns.md`
 
 ## File Structure
 
@@ -141,11 +141,11 @@ additional items that don't warrant their own section.
   paragraph replaces Risk, and the section content replaces Details.
 
 - **TodoWrite workflow steps** — analysis procedures belong in agent prompts
-  (e.g., `agent/review.md`, `callstack.md`), not in subsystem
+  (e.g., `../agent/review.md`, `../callstack.md`), not in subsystem
   knowledge files.
 
 - **Generic kernel knowledge** — topics like "don't sleep in atomic context"
-  or "check return values" belong in `technical-patterns.md`, not in every
+  or "check return values" belong in `../technical-patterns.md`, not in every
   subsystem guide.
 
 ## Checklist for New Guides

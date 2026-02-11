@@ -90,7 +90,7 @@ happen.  These really help nail things down.
 The existing prompts catch a wide variety of bugs, and most subsystems won't
 need special instructions.  If you're finding false positives or missed bugs,
 it can help to add a few notes to help AI get the review right.
-block.md and libbpf.md are two examples where we fill
+subsystem/block.md and subsystem/libbpf.md are two examples where we fill
 in extra details that you can use as a guide.
 
 The basic structure of the prompts continues to change, and should decrease in

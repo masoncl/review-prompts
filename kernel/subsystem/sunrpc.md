@@ -7,7 +7,7 @@ services. Includes client (rpc_clnt, rpc_task, xprt) and server (svc_serv,
 svc_rqst, svc_xprt) infrastructure, with TCP, UDP, and RDMA transports
 plus RPCSEC_GSS authentication.
 
-**Generic analysis**: Reference callstack.md for caller/callee traversal,
+**Generic analysis**: Reference ../callstack.md for caller/callee traversal,
 lock validation, and resource lifetime tracking.
 
 ## File Applicability

@@ -39,7 +39,7 @@ correct - otherwise report them as regressions.
 
 ### Subsystem Guides MUST be loaded
 
-Read `subsystem.md` and load all matching subsystem guides and critical patterns.
+Read `subsystem/subsystem.md` and load all matching subsystem guides and critical patterns.
 
 ### Commit Message Tags (load if subjective reviews are requested in prompt)
 
@@ -53,7 +53,7 @@ These default to off
 
 ## PATTERN DETECTION (check BEFORE Task 0)
 
-Scan the diff against all triggers in `subsystem.md` and load matching files
+Scan the diff against all triggers in `subsystem/subsystem.md` and load matching files
 IMMEDIATELY.
 
 ## Task 0: CONTEXT MANAGEMENT

@@ -17,7 +17,7 @@ Place each step defined below into TodoWrite.
 
 **Background knowledge:**
 
-Load patterns/null.md for NULL pointer dereference guidance.
+Load null.md for NULL pointer dereference guidance.
 
 ## TodoWrite Template
 

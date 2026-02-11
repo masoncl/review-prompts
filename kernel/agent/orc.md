@@ -445,12 +445,12 @@ Analyze patch file /path/to/patch.diff
 │   ├── report.md
 │   └── create_changes.py
 ├── callstack.md
-├── patterns/
+├── subsystem/
+│   ├── subsystem.md
+│   ├── networking.md
+│   ├── mm.md
+│   ├── locking.md
 │   └── ...
-├── subsystem.md
-├── networking.md
-├── mm.md
-├── locking.md
 ├── false-positive-guide.md
 ├── inline-template.md
 └── technical-patterns.md

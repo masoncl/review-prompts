@@ -114,7 +114,7 @@ Scan the loaded CHANGEs and create a TodoWrite of what to load in PHASE 3.
 
 ### Subsystem Guides MUST be loaded
 
-Read `<prompt_dir>/subsystem.md` and load all matching subsystem guides and
+Read `<prompt_dir>/subsystem/subsystem.md` and load all matching subsystem guides and
 critical patterns based on what the patch touches.
 
 ### Per-CHANGE Planning

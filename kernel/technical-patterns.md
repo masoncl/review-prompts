@@ -40,7 +40,7 @@
 
 ### RCU Mandatory Check
 - **CRITICAL**: When you see `call_rcu()`, `synchronize_rcu()`, or `kfree_rcu()`:
-  - IMMEDIATELY load `rcu.md`
+  - IMMEDIATELY load `subsystem/rcu.md`
   - Check: does removal from any data structure happen BEFORE or AFTER the call_rcu()?
   - If removal is in the RCU callback → this is the WRONG pattern, flag as use-after-free
 - The correct order is: **remove from data structure FIRST**, then call_rcu(), then free in callback
