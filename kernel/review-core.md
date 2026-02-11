@@ -88,11 +88,11 @@ IMMEDIATELY.
    - `find_callchain`: trace call relationships
      - spot check call relationships, especially to understand proper API usage
      - use arguments to limit callchain depth up and/or down.
-   - `find_callers/find_callees`:
+   - `find_callers` (who calls X) / `find_calls` (what does X call):
      - Check at least one level up and one level down, more if needed.
      - spot check other call relationships as required
      - Always trace cleanup paths and error handling
-   - `grep`: search function bodies for regex patterns.
+   - `grep_functions`: search function bodies for regex patterns.
      - returns matching lines by default (verbose=false).  When verbose=true is used, also returns entire function body
      - use verbose=false first to find matching lines, then use semcode find_function to pull in functions you're interested in
      - use verbose=true only with detailed regexes where you want full function bodies for every result

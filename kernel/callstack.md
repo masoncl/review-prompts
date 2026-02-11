@@ -82,14 +82,14 @@ Reference CHANGE CATEGORIES from review-core.md
 
 ## Task 1: **Callee traversal process**:
 
-**BATCH ALL find_function CALLS IN ONE MESSAGE**
+**BATCH ALL find_calls AND find_function CALLS IN ONE MESSAGE**
 
 - Step callee.1: Identify all direct callees in modified functions
   - We gather the callees because even small changes in functions can
     cause bugs in the functions they call.  The only way to know is to
     actually read the functions in the callstack.
-  - The semcode diff_functions call did not list callees, you have to find
-    for each function you've already gathered
+  - Use semcode `find_calls` (not "find_callees") on each modified function
+    to get the complete callee list.  Batch these calls together.
   - Record both the callees and the arguments used
   - **List ALL callees first before loading any**
   - Output: names of callees
@@ -202,7 +202,7 @@ complete caller analysis.
 - step rcu.5: Check for memory accesses between lookup and refcount acquisition
   - If there are field accesses before refcount_inc_not_zero(), these are NOT protected
   - Output: "Accesses before refcount: [ list of field accesses ]"
-- step rcu.6: Continue into Task 6, even if you think you've found enough details
+- step rcu.6: Continue into Task 6a, even if you think you've found enough details
 
 ## Task 5C: Consider caller/callee arguments:
 - Some bugs are eliminated or triggered only with specific arguments
@@ -242,7 +242,7 @@ exit conditions
 
 - Load all functions added into TodoWrite that were not yet in context
 
-## Task 6: **Mandatory loop control flow validation**:
+## Task 6b: **Mandatory loop control flow validation**:
 - step loop.1: Track what happens to resource-holding variables across loop iterations
 - step loop.2: Assume all loops iterate multiple times, check pointer assignments for leaks and logic errors
   - pay attention to both outer and inner loops, make sure you trace both.
