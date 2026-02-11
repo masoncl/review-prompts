@@ -18,7 +18,7 @@ files based on what code areas are being modified:
 - [NFSD-007: XDR encode/decode failure handling](nfsd/NFSD-007-xdr-encode-decode.md)
 
 **Resource management:**
-- [NFSD-002: Reference counting balance](nfsd/NFSD-002-refcounting.md)
+- [Reference counting balance](nfsd/nfsd-refcounting.md)
 - [NFSD-003: File handle lifecycle](nfsd/NFSD-003-filehandles.md)
 - [NFSD-004: NFSv4 stateid lifecycle](nfsd/NFSD-004-stateids.md)
 
