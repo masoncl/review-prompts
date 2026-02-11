@@ -96,7 +96,6 @@ You will process ALL CHANGEs within the specified FILE-N sequentially.
 ./review-context/commit-message.json
 <prompt_dir>/technical-patterns.md
 <prompt_dir>/callstack.md
-<prompt_dir>/patterns/null.md
 ./review-context/FILE-N-CHANGE-1.json
 ./review-context/FILE-N-CHANGE-2.json
 ... (all FILE-N-CHANGE-M.json files for this FILE-N)

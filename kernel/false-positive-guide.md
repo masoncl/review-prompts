@@ -152,7 +152,7 @@ to them before reading them
 ### 13. Implicit Guard Conditions
 
 **Before reporting NULL dereference**:
-- Load and fully analyze patterns/null.md for NULL pointer dereference guidance
+- Review technical-patterns.md "NULL Pointer Dereference" section
 - Load and fully analyze patterns/guards.md for EVERY NULL pointer
 
 ### 14. Patch series false positive removal
@@ -203,8 +203,8 @@ Do not skip steps. Do not claim completion without producing the output.
 
 Before reporting ANY regression, verify:
 
-0. For NULL pointer dereferences, load patterns/null.md and patterns/guards.md
-   - Output: "loaded" or "not applicable - not a NULL dereference issue"
+0. For NULL pointer dereferences, review technical-patterns.md and load patterns/guards.md
+   - Output: "reviewed" or "not applicable - not a NULL dereference issue"
 1. **Can I prove this path executes?**
    - Find calling code that reaches here
      - Output: quote the call chain with locations (e.g., "caller@file:line → target@file:line")

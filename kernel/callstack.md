@@ -7,11 +7,9 @@ analysis traverses the full callstack — both up and down — to identify
 side effects, unintended consequences, and regressions that would be invisible
 when examining modified functions in isolation.
 
-Read patterns/null.md for NULL pointer dereference guidance.
+See technical-patterns.md "NULL Pointer Dereference" section for guidance.
 
 Note: foo->ptr dereferences foo BUT NOT ptr
-
-null.md loaded and read? [ y / n ]
 
 This callstack analysis is required for all non-trivial changes.
 
