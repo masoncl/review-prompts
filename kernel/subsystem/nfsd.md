@@ -28,7 +28,7 @@ files based on what code areas are being modified:
 - [NFSD-013: Session slot state and SEQUENCE operations](nfsd/NFSD-013-session-slots.md)
 
 **Security:**
-- [NFSD-009: User namespace conversion](nfsd/NFSD-009-user-namespace.md)
+- [User namespace conversion](nfsd/nfsd-user-namespace.md)
 - [NFSD-010: Security-critical input validation](nfsd/NFSD-010-security-validation.md)
 
 **Advanced features:**
