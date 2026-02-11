@@ -227,7 +227,7 @@ For each potential issue, record:
 
 If potential issues were found, load (if not already in context):
 1. `<prompt_dir>/false-positive-guide.md`
-2. `<prompt_dir>/patterns/guards.md` (for NULL pointer issues only)
+2. `<prompt_dir>/pointer-guards.md` (for NULL pointer issues only)
 
 Follow ALL instructions in false-positive-guide.md for EVERY potential issue.
 Do not report any issue without completing the verification.

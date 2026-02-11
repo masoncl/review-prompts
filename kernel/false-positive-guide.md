@@ -153,7 +153,7 @@ to them before reading them
 
 **Before reporting NULL dereference**:
 - Review technical-patterns.md "NULL Pointer Dereference" section
-- Load and fully analyze patterns/guards.md for EVERY NULL pointer
+- Load and fully analyze pointer-guards.md for EVERY NULL pointer
 
 ### 14. Patch series false positive removal
 
@@ -203,7 +203,7 @@ Do not skip steps. Do not claim completion without producing the output.
 
 Before reporting ANY regression, verify:
 
-0. For NULL pointer dereferences, review technical-patterns.md and load patterns/guards.md
+0. For NULL pointer dereferences, review technical-patterns.md and load pointer-guards.md
    - Output: "reviewed" or "not applicable - not a NULL dereference issue"
 1. **Can I prove this path executes?**
    - Find calling code that reaches here
