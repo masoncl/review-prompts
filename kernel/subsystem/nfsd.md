@@ -29,7 +29,7 @@ files based on what code areas are being modified:
 
 **Security:**
 - [User namespace conversion](nfsd/nfsd-user-namespace.md)
-- [NFSD-010: Security-critical input validation](nfsd/NFSD-010-security-validation.md)
+- [Security-critical input validation](nfsd/nfsd-security-validation.md)
 
 **Advanced features:**
 - [NFSD-011: NFSv4 callback client operations](nfsd/NFSD-011-callbacks.md)
