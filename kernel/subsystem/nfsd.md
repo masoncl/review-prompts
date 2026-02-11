@@ -15,7 +15,7 @@ files based on what code areas are being modified:
 **Input validation and protocol handling:**
 - [XDR input trust boundaries](nfsd/nfsd-xdr-input.md)
 - [NFS error code mapping](nfsd/nfsd-error-mapping.md)
-- [NFSD-007: XDR encode/decode failure handling](nfsd/NFSD-007-xdr-encode-decode.md)
+- [XDR encode/decode failure handling](nfsd/nfsd-xdr-encode-decode.md)
 
 **Resource management:**
 - [Reference counting balance](nfsd/nfsd-refcounting.md)
