@@ -13,7 +13,7 @@ Detailed review patterns are organized by topic. Load the relevant pattern
 files based on what code areas are being modified:
 
 **Input validation and protocol handling:**
-- [NFSD-001: XDR input trust boundaries](nfsd/NFSD-001-xdr-input.md)
+- [XDR input trust boundaries](nfsd/nfsd-xdr-input.md)
 - [NFSD-005: NFS error code mapping](nfsd/NFSD-005-error-mapping.md)
 - [NFSD-007: XDR encode/decode failure handling](nfsd/NFSD-007-xdr-encode-decode.md)
 
