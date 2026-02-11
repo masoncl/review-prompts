@@ -8,7 +8,7 @@
 - IMPORTANT: never assume that changing a WARN_ON() or BUG_ON() statement changes the
   errors or conditions a function can accept.  They indicate changes to
   what is printed to the console, and nothing else.
-- IMPORTANT: never skip any steps just because you found a bug in previous step.
+- IMPORTANT: never skip any steps just because you found a bug in a previous step.
 - Never report errors without checking to see if the error is impossible in the
   call path you found.
     - Some call paths might always check IS_ENABLED(feature) before
@@ -23,7 +23,6 @@
 
 **Notes**:
 - If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you can provide concrete evidence of that condition existing via code snippets and call traces
-- if (WARN_ON(foo)) { return; } might exit a function early, check for incomplete initialization or other mistakes that leave data structures in an inconsistent state
 
 ### Bounds & Validation
 
@@ -43,7 +42,9 @@
   - IMMEDIATELY load `subsystem/rcu.md`
   - Check: does removal from any data structure happen BEFORE or AFTER the call_rcu()?
   - If removal is in the RCU callback → this is the WRONG pattern, flag as use-after-free
-- The correct order is: **remove from data structure FIRST**, then call_rcu(), then free in callback
+- The correct order is: **remove from data structure FIRST**, then call_rcu() or synchronize_rcu(), then free in callback
+- call_rcu() runs AFTER the rcu grace period is done, allowing all readers to finish,
+  a kfree() before the grace period potentially frees while readers are using the pointer.
 - Common dangerous pattern to watch for:
   ```
   call_rcu(&obj->rcu, callback);
@@ -61,9 +62,9 @@
 
 ### Resource Management Knowledge
 - Every resource must have balanced lifecycle: alloc→init→use→cleanup→free
-- All pointers have the same size: "char \*foo" takes as much room as "int \*foo"
+- All pointers have the same size: `char *foo` takes as much room as `int *foo`
   - but for code clarity, if we're allocating an array of pointers, and using
-    sizeof(type \*) to calculate the size, we should use the correct type
+    `sizeof(type *)` to calculate the size, we should use the correct type
 - refcount_t counters do not get incremented after dropping to zero
 - refcount_dec_and_test returns true only at zero
 - css_get() adds an additional reference, ex: this results in both sk and newsk having one reference each:
@@ -73,31 +74,33 @@
              css_get(&memcg->css);
      newsk->sk_memcg = sk->sk_memcg;
 ```
-- If you find a type mismatch (using \*foo instead of foo etc), trace the type
+- If you find a type mismatch (using `*foo` instead of `foo` etc), trace the type
   fully and check against the expected type to make sure you're flagging it correctly
 - global variables and static variables are zero filled automatically
 - slab and vmalloc APIs have variants that zero fill, and __GFP_ZERO gfp mask does as well
 - kmem_cache_create() can use an init_once() function to initialize slab objects
   - this only happens on the first allocation, and protects us from garbage in the struct
-- when freeing/destroying resources referenced by structure fields, ensure pointer fields are set to NULL to prevent use-after-free on reuse
+- when freeing/destroying resources referenced by structure fields, ensure pointer fields are set to NULL to prevent use-after-free on reuse if the structure is not also immediately freed
   - ex: unregister_foo() { foo->dead = 1; free(foo->ptr); add to list}
        register_foo() { pull from list ; skip allocation of foo->ptr; foo->ptr->use_after_free;}
+  - safe: kfree(foo->ptr); ... ; kfree(foo);
+    - nobody will find foo->ptr is non-NULL because foo is gone
   - Assume [kv]free(); [kv]malloc(); APIs handle this properly unless you find proof initialization is skipped
 
 ### for loops
-- for(init; condition; advance) -- checks 'condition' BEFORE executing 'body'
-- for(init; condition; advance) -- 'advance' only runs AFTER 'body'
+- for(init; condition; advance) { body } -- checks 'condition' BEFORE executing 'body'
+- for(init; condition; advance) { body } -- 'advance' only runs AFTER 'body'
 
 ### Additional resource checks
 - Resource switching detection:
-  - Check every path where function returns different resource than it was meant to modify
+  - Check every path where a function returns a different resource than it was meant to modify
   - ensure the proper locks are held or released as needed.
 - Caller expectation tracing: What does the caller expect to happen to the resources it passed into functions?
 
 - strscpy() auto-detects array sizes when compiler can find the type
-- char \*s = ""; strlen(s) returns zero, but s[0] is safe to access
+- `char *s = ""`; `strlen(s)` returns zero, but `s[0]` is safe to access
 - memcpy(dst + (offset & mask), src, size) usually has alignment validation elsewhere
-- Global arrays with MAX_FOO: check if impossible to create more than MAX_FOO elements
+- Global arrays with MAX_FOO: check if it is possible to create more than MAX_FOO elements
 
 ### ERR_PTR vs NULL
 - ERR_PTR() holds an error cast to a pointer, but they are not valid pointers
