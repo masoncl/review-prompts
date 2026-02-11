@@ -25,7 +25,7 @@ files based on what code areas are being modified:
 **Concurrency and state:**
 - [Locking correctness](nfsd/nfsd-locking.md)
 - [Client state transitions](nfsd/nfsd-client-state.md)
-- [NFSD-013: Session slot state and SEQUENCE operations](nfsd/NFSD-013-session-slots.md)
+- [Session slot state and SEQUENCE operations](nfsd/nfsd-session-slots.md)
 
 **Security:**
 - [User namespace conversion](nfsd/nfsd-user-namespace.md)
