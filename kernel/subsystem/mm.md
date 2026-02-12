@@ -15,7 +15,7 @@ constructs or modifies PTEs for these invariants.
   - For private/anonymous mappings, code paths use `pte_mkwrite(pte_mkdirty(entry))`
     to set both together (see `do_anonymous_page()` in `mm/memory.c`,
     `migrate_vma_insert_page()` in `mm/migrate_device.c`)
-  - **Exception — MADV_FREE**: `madvise_free_pte_range()` in `mm/madvise.c`
+  - **Exception -- MADV_FREE**: `madvise_free_pte_range()` in `mm/madvise.c`
     clears the dirty bit via `clear_young_dirty_ptes()` but preserves write
     permission, intentionally creating a clean+writable PTE. This allows the
     page to be reclaimed without writeback (it's clean and lazyfree), but if
@@ -158,7 +158,7 @@ Page cache tags defined as `PAGECACHE_TAG_*` in `include/linux/fs.h`:
 
 **Tag lifecycle:**
 1. `folio_mark_dirty()` sets PAGECACHE_TAG_DIRTY
-2. `tag_pages_for_writeback()` in `mm/page-writeback.c` copies DIRTY → TOWRITE
+2. `tag_pages_for_writeback()` in `mm/page-writeback.c` copies DIRTY to TOWRITE
    for data-integrity syncs, preventing livelocks from new dirty pages
 3. `folio_start_writeback()` (macro for `__folio_start_writeback(folio, false)`,
    defined in `include/linux/page-flags.h`):
@@ -184,21 +184,21 @@ this wrong causes infinite retry loops in truncation paths.
 
 | Function | Filters multi-order boundary crossings | `indices[i]` value |
 |----------|----------------------------------------|--------------------|
-| `find_lock_entries()` | Yes — skips entries whose base is before `*start` or extends beyond `end` | `xas.xa_index` (may not be canonical base) |
-| `find_get_entries()` | No — returns all entries in range without filtering | `xas.xa_index` (may not be canonical base) |
+| `find_lock_entries()` | Yes -- skips entries whose base is before `*start` or extends beyond `end` | `xas.xa_index` (may not be canonical base) |
+| `find_get_entries()` | No -- returns all entries in range without filtering | `xas.xa_index` (may not be canonical base) |
 
 **Why `indices[i]` may not be the canonical base:**
 
-`find_get_entry()` calls `xas_find()` → `xas_load()` → `xas_descend()`. When
-`xas_descend()` encounters a sibling entry, it follows it to the canonical
-slot and updates `xas->xa_offset`, but does **not** update `xas->xa_index`
-(see `lib/xarray.c:xas_descend`). So after loading a multi-order entry,
-`xas.xa_index` retains the original search position, not the entry's aligned
-base.
+`find_get_entry()` calls `xas_find()` which calls `xas_load()` which calls
+`xas_descend()`. When `xas_descend()` encounters a sibling entry, it follows
+it to the canonical slot and updates `xas->xa_offset`, but does **not** update
+`xas->xa_index` (see `xas_descend()` in `lib/xarray.c`). So after loading a
+multi-order entry, `xas.xa_index` retains the original search position, not
+the entry's aligned base.
 
 Example: iterating from index 18 finds a multi-order entry at base 16
 (order 3, 8 pages spanning [16, 23]):
-- `xas_descend` resolves sibling at offset 18 → canonical offset 16
+- `xas_descend` resolves sibling at offset 18 to canonical offset 16
 - `xas.xa_offset = 16` but `xas.xa_index` remains 18
 - `indices[i] = 18`, not 16
 
@@ -209,6 +209,43 @@ nr = 1 << xas_get_order(&xas);
 base = xas.xa_index & ~(nr - 1);   /* or round_down(xas.xa_index, nr) */
 ```
 
+## kmemleak Tracking Symmetry
+
+Freeing an object that was never registered with kmemleak causes a warning
+"Trying to color unknown object ... as Black" when `CONFIG_DEBUG_KMEMLEAK` is
+enabled. The kmemleak subsystem expects symmetric registration and
+deregistration.
+
+**When kmemleak registration is skipped:**
+
+SLUB skips `kmemleak_alloc_recursive()` when `gfpflags_allow_spinning(flags)`
+returns false (see `slab_post_alloc_hook()` in `mm/slub.c`).
+`gfpflags_allow_spinning()` in `include/linux/gfp.h` checks
+`!!(gfp_flags & __GFP_RECLAIM)`, i.e., whether at least one of
+`__GFP_DIRECT_RECLAIM` or `__GFP_KSWAPD_RECLAIM` is set. Since `GFP_ATOMIC`
+includes `__GFP_KSWAPD_RECLAIM`, kmemleak IS called for `GFP_ATOMIC`
+allocations. The only standard API that skips kmemleak is `kmalloc_nolock()`,
+which passes flags without any reclaim bits.
+
+**Symmetric API requirement:**
+
+| Allocation | Free | Tracking |
+|------------|------|----------|
+| `kmalloc(GFP_KERNEL)` | `kfree()`, `kfree_rcu()` | Symmetric (both tracked) |
+| `kmalloc_nolock()` | `kfree_nolock()` | Symmetric (both skip tracking) |
+
+`kfree_nolock()` deliberately skips `kmemleak_free_recursive()` (see
+`kfree_nolock()` in `mm/slub.c`). Conversely, `kfree_rcu()` defers freeing
+via `kvfree_call_rcu()` in `mm/slab_common.c`, which calls `kmemleak_ignore()`
+to mark the object as not-a-leak before the grace period. If the object was
+never registered, `kmemleak_ignore()` triggers the "unknown object" warning
+via `paint_ptr()` in `mm/kmemleak.c`.
+
+**REPORT as bugs**: Code that allocates with `kmalloc_nolock()` but frees with
+`kfree()` or `kfree_rcu()`, as this creates a kmemleak tracking imbalance.
+The reverse (allocating with `kmalloc()` and freeing with `kfree_nolock()`)
+also skips kmemleak deregistration, causing false leak reports.
+
 ## Quick Checks
 
 Common MM review pitfalls. Missing any of these typically results in data
@@ -217,8 +254,8 @@ pressure or on NUMA systems.
 
 - **TLB flushes after PTE modifications**: Missing a TLB flush after making a
   PTE less permissive lets userspace keep stale write access, causing data
-  corruption or security bypass. Required for writable→readonly and
-  present→not-present transitions. Not needed for not-present→present or
+  corruption or security bypass. Required for writable-to-readonly and
+  present-to-not-present transitions. Not needed for not-present-to-present or
   more-permissive transitions (callers pair `ptep_set_access_flags()` with
   `update_mmu_cache()`). See `change_pte_range()` in `mm/mprotect.c` and
   `zap_pte_range()` in `mm/memory.c`
@@ -226,7 +263,7 @@ pressure or on NUMA systems.
   VMA tree. Write lock (`mmap_write_lock()`) for VMA structural changes
   (insert/delete/split/merge, modifying vm_flags/vm_page_prot). Read lock
   (`mmap_read_lock()`) for VMA lookup, page fault handling, read-only traversal.
-  See the "Lock ordering" comment block at the top of `mm/rmap.c`
+  See the "Lock ordering in mm" comment block at the top of `mm/rmap.c`
 - **Page reference before mapping**: Mapping a page without holding a reference
   causes use-after-free when the page is freed while still mapped. `folio_get()`
   must precede `set_pte_at()` and rmap operations.

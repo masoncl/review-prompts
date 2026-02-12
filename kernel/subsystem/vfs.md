@@ -34,6 +34,32 @@ ordering violations, hiding real deadlocks until production.
 | 4 | `I_MUTEX_NONDIR2` | Second non-directory (rename of two non-dirs) |
 | 5 | `I_MUTEX_PARENT2` | Second parent (cross-directory rename) |
 
+**Using `inode_lock()` vs `inode_lock_nested()`:**
+
+`inode_lock()` is a convenience wrapper that acquires `i_rwsem` with subclass
+`I_MUTEX_NORMAL` (0). When locking a directory to create, rename, or unlink
+entries within it, the directory is acting as a **parent** and must use
+`inode_lock_nested(dir->d_inode, I_MUTEX_PARENT)` instead. Using the wrong
+subclass defeats lockdep's parent-child ordering checks and can hide real
+deadlocks.
+
+```c
+// WRONG: Creating object in parent directory with default subclass
+inode_lock(workdir->d_inode);
+vfs_create(...);
+inode_unlock(workdir->d_inode);
+
+// CORRECT: Use I_MUTEX_PARENT for parent directories
+inode_lock_nested(workdir->d_inode, I_MUTEX_PARENT);
+vfs_create(...);
+inode_unlock(workdir->d_inode);
+```
+
+When refactoring code that consolidates lock acquisition from multiple sites,
+verify that the most restrictive nesting annotation is preserved. If some
+callers used `I_MUTEX_PARENT` and others used `I_MUTEX_NORMAL`, the
+consolidated code should use `I_MUTEX_PARENT`.
+
 **`i_rwsem` scope:** `inode->i_rwsem` is a `struct rw_semaphore` that
 protects more than just file data. It is held exclusive for directory
 mutations (`create`, `link`, `unlink`, `rmdir`, `rename`, `mkdir`, `mknod`,
@@ -61,19 +87,22 @@ already-positive dentry.
   `d_really_is_positive()`.
 - `d_instantiate()` in `fs/dcache.c` turns a negative dentry into a
   positive one. Preconditions:
-  1. The dentry must not already be on any inode's alias list — enforced by
+  1. The dentry must not already be on any inode's alias list -- enforced by
      `BUG_ON(!hlist_unhashed(&entry->d_u.d_alias))` in `d_instantiate()`.
-  2. The dentry must not be in the middle of a parallel lookup — enforced by
+  2. The dentry must not be in the middle of a parallel lookup -- enforced by
      `WARN_ON(d_in_lookup(dentry))` in `__d_instantiate()`.
   3. The caller must have already incremented the inode's reference count.
 - `d_instantiate()` does NOT hash the dentry. Use `d_add()` (which combines
   instantiation and hashing via `__d_rehash()`) when the dentry also needs
   to be hashed.
-- `d_instantiate_new()` is for inodes obtained via `iget_locked()` or
-  `iget5_locked()`, which set the `I_NEW` flag. It combines
-  `d_instantiate()` with `unlock_new_inode()`, clearing `I_NEW | I_CREATING`
-  and waking waiters. It requires a non-NULL inode (`BUG_ON(!inode)`).
-  Do not use it with `new_inode()`, which does not set `I_NEW`.
+- `d_instantiate_new()` is for inodes that have the `I_NEW` flag set.
+  This flag is set by `iget_locked()`, `iget5_locked()`, and
+  `insert_inode_locked()`. It combines `d_instantiate()` with
+  `unlock_new_inode()`, clearing `I_NEW | I_CREATING` and waking waiters.
+  It requires a non-NULL inode (`BUG_ON(!inode)`) and warns if `I_NEW` is
+  not set (`WARN_ON(!(inode_state_read(inode) & I_NEW))`). Do not use it
+  with inodes from `new_inode()` alone, which does not set `I_NEW`; call
+  `insert_inode_locked()` first if needed.
 
 ## Path Walking Modes
 
@@ -109,7 +138,7 @@ moved).
 
 ## Permission Checks
 
-Missing or misordered permission checks allow unauthorized file access —
+Missing or misordered permission checks allow unauthorized file access --
 a security bypass. Checking permissions after the file is already opened
 or modified is too late.
 
@@ -135,21 +164,56 @@ the operations struct is missing.
 
 - `file->f_op` is initialized to `NULL` in `init_file()` in
   `fs/file_table.c` but is always set to a valid pointer before the file is
-  usable. For `O_PATH` files, it is set to `&empty_fops` (a static
-  all-NULL-members struct), not `NULL`. For all other files,
-  `do_dentry_open()` in `fs/open.c` sets it via `fops_get(inode->i_fop)`;
-  if that returns `NULL`, the open fails with `-ENODEV` and a `WARN_ON`.
-- Reassignment of `f_op` after file creation requires `replace_fops()`,
-  which calls `fops_put()` on the old operations and properly stores the
-  new pointer. `fops_get()`/`fops_put()` manage the backing module's
-  reference count. Raw pointer assignment bypasses module refcounting and
-  risks use-after-free on module unload. The canonical example is
-  `chrdev_open()` in `fs/char_dev.c`, which replaces `def_chr_fops` with
-  the device-specific operations.
+  usable. For `O_PATH` files, it is set to `&empty_fops` (a zero-initialized
+  `struct file_operations` local to `do_dentry_open()`), not `NULL`. For
+  all other files, `do_dentry_open()` in `fs/open.c` sets it via
+  `fops_get(inode->i_fop)`; if that returns `NULL`, the open fails with
+  `-ENODEV` and a `WARN_ON`.
+- Reassignment of `f_op` after file creation requires `replace_fops()` in
+  `include/linux/fs.h`, which calls `fops_put()` on the old operations and
+  stores the new pointer. The caller must already hold a module reference
+  on the new fops (obtained via `fops_get()`). `fops_get()`/`fops_put()`
+  manage the backing module's reference count via
+  `try_module_get()`/`module_put()`. Raw pointer assignment bypasses module
+  refcounting and risks use-after-free on module unload. The canonical
+  example is `chrdev_open()` in `fs/char_dev.c`, which replaces
+  `def_chr_fops` with the device-specific operations.
 - `file->private_data` is initialized to `NULL` in `init_file()` and lives
   for the entire lifetime of the `struct file`. The kernel does NOT
-  automatically free what it points to — the `.release()` file operation
+  automatically free what it points to -- the `.release()` file operation
   callback is responsible for cleanup.
+
+## Dentry Validity After TOCTOU Windows
+
+When a dentry reference is obtained without holding the parent inode lock
+(e.g., via lookup, creation, or cached reference), and the lock is acquired
+later, a TOCTOU window exists during which the dentry may be invalidated by
+concurrent operations. Using a stale dentry causes rename/unlink operations
+to fail silently, corrupt directory state, or operate on the wrong object.
+
+**Complete dentry validation requires two checks:**
+
+1. **Parent pointer stability**: `dentry->d_parent == expected_parent`
+   - Detects rename operations that moved the dentry to a different directory
+2. **Dentry presence in namespace**: `!d_unhashed(dentry)`
+   - Detects unlink/removal operations that removed the dentry from the dcache
+
+Both checks are mandatory. A dentry can be unhashed (removed from dcache)
+while its `d_parent` pointer remains unchanged, so checking only `d_parent`
+misses removal races.
+
+```c
+// INCOMPLETE - only checks parent, misses removal race:
+if (dentry->d_parent != expected_parent)
+    return -ESTALE;
+
+// COMPLETE - checks both conditions:
+if (dentry->d_parent != expected_parent || d_unhashed(dentry))
+    return -ESTALE;
+```
+
+**REPORT as bugs**: TOCTOU validation code that checks `d_parent` but does
+not also check `d_unhashed()`.
 
 ## Quick Checks
 
@@ -165,5 +229,5 @@ the operations struct is missing.
 - **Lock drop and reacquire**: When `i_rwsem` or another VFS lock is
   dropped and retaken (e.g., to avoid lock ordering violations or to
   sleep), verify the code re-validates all protected state after
-  reacquiring — the dentry may have gone negative, the inode may have been
+  reacquiring -- the dentry may have gone negative, the inode may have been
   evicted, or the directory may have been removed.

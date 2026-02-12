@@ -25,8 +25,8 @@ held in atomic context or under a spinlock).
 **Notes:**
 - `spin_lock` does not mask softirqs or hardirqs; data can still be
   accessed concurrently by softirq or hardirq handlers on the same CPU
-  - Nesting spin_lock(lock_b) inside spin_lock_irq/bh/irqsave(lock_a) keeps
-    whatever masking was in place from lock_a while lock_b is held.  The locks
+  - Nesting `spin_lock(lock_b)` inside `spin_lock_irq`/`_bh`/`_irqsave(lock_a)` keeps
+    whatever masking was in place from lock_a while lock_b is held. The locks
     MUST be nested for this to work.
 - `spin_lock_bh` disables softirqs; use when the lock is shared between
   process context and softirq context
@@ -53,8 +53,8 @@ sleeping with preemption disabled.
   interrupts will be delivered on this CPU. Implies preemption disabled (since
   the scheduler's timer tick is an IRQ). Required when sharing data between
   process/softirq context and hardirq handlers without a lock.
-  - lock_irq_disable(); spin_lock(lock_b) ; critical section ; spin_unlock(lock_b) ; lock_irq_enable();
-    - critical section is run with irqs off, just like if spin_lock_irq() was used
+  - `local_irq_disable(); spin_lock(lock_b); critical section; spin_unlock(lock_b); local_irq_enable();`
+    - critical section runs with IRQs off, just like `spin_lock_irq()` would provide
 
 ## IRQ-Safe Lock Variants
 
@@ -89,14 +89,16 @@ lockdep splat (`BUG: Invalid wait context`) on RT.
 
 - `spinlock_t`: becomes an rt_mutex-based lock on RT. Acquisition may sleep on
   contention, and the holder can be preempted, but the critical section still
-  cannot acquire a mutex or call sleeping functions. Must not be held in hardirq
-  context or with preemption/IRQs explicitly disabled.
+  cannot acquire a mutex or other sleeping lock (the lockdep wait-context
+  hierarchy `LD_WAIT_CONFIG` < `LD_WAIT_SLEEP` forbids it). Must not be held
+  in hardirq context or with preemption/IRQs explicitly disabled.
 - `raw_spinlock_t`: remains a true spinning lock on RT. Never sleeps. Use for
   code that must run in hardirq context or with IRQs disabled even on RT
   (e.g., scheduler, interrupt controller, low-level timer code).
 - `local_irq_disable()`: still disables IRQs on RT. Note that
   `spin_lock_irq()` on a `spinlock_t` does NOT disable IRQs on RT (it
-  acquires the underlying rt_mutex without masking interrupts)
+  acquires the underlying rt_mutex without masking interrupts;
+  see `spin_lock_irq()` in `include/linux/spinlock_rt.h`)
 
 ## Seqlocks and Seqcounts
 
@@ -109,9 +111,10 @@ counter to detect whether a writer was active during the read. If so, the
 read is retried. Writers increment the sequence counter before and after the
 update, and must serialize against each other.
 
-Two variants exist: `seqlock_t` bundles a `seqcount_t` with a `spinlock_t`
-that provides writer serialization automatically. A bare `seqcount_t` can
-be used when writer serialization is provided by an external lock.
+Two variants exist: `seqlock_t` bundles a `seqcount_spinlock_t` with a
+`spinlock_t` that provides writer serialization automatically (see
+`include/linux/seqlock_types.h`). A bare `seqcount_t` can be used when
+writer serialization is provided by an external lock.
 
 Use seqlocks when the protected data is small enough that retrying reads is
 cheap. Incorrect usage causes readers to use partially-updated data (missed
@@ -172,7 +175,8 @@ performance overhead (holding spinlocks where RCU suffices).
 - Holding `spin_lock()` or `raw_spin_lock()` implicitly provides RCU
   read-side protection. On non-RT kernels this is because they disable
   preemption; on PREEMPT_RT, `spin_lock()` calls `rcu_read_lock()`
-  internally to preserve this guarantee.
+  internally to preserve this guarantee (see `__rt_spin_lock()` in
+  `kernel/locking/spinlock_rt.c`).
 
 ## Memory Barriers
 
@@ -204,6 +208,50 @@ to confirm.
   `atomic_cmpxchg()`) provide full ordering. Use `smp_load_acquire()` /
   `smp_store_release()` or the `_acquire`/`_release` atomic variants when
   ordering is needed for plain loads and stores.
+
+## Lockdep Lock Pinning (`lockdep_pin_lock`/`lockdep_unpin_lock`)
+
+Misusing `lockdep_pin_lock()` triggers false positive lockdep warnings
+("releasing a pinned lock") that mask real bugs or cause CI failures.
+
+**How lock pinning works** (see `lock_pin_lock()` in
+`kernel/locking/lockdep.c`):
+- `lockdep_pin_lock(lock)` finds the `held_lock` entry for `lock` in the
+  current task's lock stack and increments its `pin_count`
+- When any held lock is released, lockdep checks `hlock->pin_count` via
+  `find_held_lock()` and warns if the pin_count is non-zero
+- Matching uses `match_held_lock()`, which compares by lock instance first.
+  For `ww_mutex`-based locks (e.g., `dma_resv`) where multiple instances
+  with a `nest_lock` share a single `held_lock` entry via reference
+  counting, matching falls back to lock class comparison
+
+**Problematic pattern with ww_mutex locks:**
+
+When multiple `ww_mutex` locks of the same class are held with the same
+`nest_lock`, lockdep folds them into a single `held_lock` entry with
+`references > 0`. Pinning that entry and then unlocking any of the folded
+instances triggers the "releasing a pinned lock" warning.
+
+```c
+// WRONG: Pinning a ww_mutex-based lock when other instances may be unlocked
+lockdep_pin_lock(&vm->resv->lock.base);
+ttm_bo_validate(...);  // May lock/unlock OTHER bos' dma_resv locks
+lockdep_unpin_lock(&vm->resv->lock.base);  // Lockdep warned during validate!
+```
+
+**When lock pinning is safe:**
+- The pinned region only manipulates the specific pinned lock instance
+- No subsystem callbacks are invoked that might release the pinned lock
+  or, for `ww_mutex`-based locks, other instances sharing the `held_lock`
+  entry
+- No iteration over lists of objects that share the lock class
+
+**Alternative approaches when pinning is not safe:**
+- Use a simple flag or pointer variable to track the state that pinning was
+  meant to enforce (e.g., `vm->validating = current`)
+- Use `lockdep_assert_held()` checks at critical points instead of continuous
+  pinning
+- Document the invariant rather than trying to enforce it through pinning
 
 ## Quick Checks
 
