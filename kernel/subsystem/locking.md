@@ -55,6 +55,34 @@ sleeping with preemption disabled.
   process/softirq context and hardirq handlers without a lock.
   - `local_irq_disable(); spin_lock(lock_b); critical section; spin_unlock(lock_b); local_irq_enable();`
     - critical section runs with IRQs off, just like `spin_lock_irq()` would provide
+- **CPU hotplug protection** (`cpus_read_lock()`/`cpus_read_unlock()`):
+  prevents CPUs from being brought online or offline while held. Required
+  when using per-CPU resources that are allocated in a CPU hotplug
+  "prepare" callback and freed in a "dead" callback (registered via
+  `cpuhp_setup_state()` or `cpuhp_setup_state_multi()` in
+  `kernel/cpu.c`). Neither preemption disable nor migration disable
+  prevents a CPU from being hotunplugged -- they only keep the current
+  task pinned. If a task retrieves a per-CPU pointer with
+  `raw_cpu_ptr()`, gets migrated, and the original CPU goes offline,
+  the hotplug teardown callback frees the per-CPU resources while they
+  are still in use.
+  - `cpus_read_lock()` acquires `cpu_hotplug_lock` as a
+    `percpu_rw_semaphore` for read (see `cpus_read_lock()` in
+    `kernel/cpu.c`) -- it may sleep, so it cannot be held in atomic
+    context
+  - When sleeping is required in the per-CPU critical section (making
+    `get_cpu_ptr()`/preempt_disable infeasible), alternatives include:
+    (a) `cpus_read_lock()` to block hotplug entirely, (b) a mutex
+    within each per-CPU structure that serializes with the teardown
+    callback (the callback NULLs fields under the mutex, users retry
+    on another CPU if fields are NULL; see `acomp_ctx_get_cpu_lock()`
+    and `zswap_cpu_comp_dead()` in `mm/zswap.c`), or (c) a refcount
+    on the per-CPU structure
+
+**None of the above (preemption, migration, IRQ disable) prevent CPU
+hotplug.** When reviewing code that switches from `get_cpu_ptr()` to
+`raw_cpu_ptr()` or `this_cpu_ptr()` to accommodate a sleepable API,
+verify that CPU hotplug teardown of the per-CPU resource is still safe.
 
 ## IRQ-Safe Lock Variants
 
@@ -95,10 +123,31 @@ lockdep splat (`BUG: Invalid wait context`) on RT.
 - `raw_spinlock_t`: remains a true spinning lock on RT. Never sleeps. Use for
   code that must run in hardirq context or with IRQs disabled even on RT
   (e.g., scheduler, interrupt controller, low-level timer code).
+- `local_lock` / `local_lock_irqsave()`: on non-RT, these disable
+  preemption or IRQs respectively (no actual lock). On PREEMPT_RT, they
+  map to `spinlock_t` (an rt_mutex sleeping lock) plus `migrate_disable()`
+  (see `__local_lock()` and `__local_lock_irqsave()` in
+  `include/linux/local_lock_internal.h`). This means `local_lock` can
+  sleep on RT. Code that conditionally guards against calling
+  `local_lock` on RT must check `!preemptible()`, NOT `in_nmi() ||
+  in_hardirq()` -- the latter misses contexts where preemption is
+  disabled but IRQs are enabled (e.g., `preempt_disable()` sections,
+  BPF tracepoint callbacks). `preemptible()` (in `include/linux/preempt.h`)
+  checks `preempt_count() == 0 && !irqs_disabled()`
 - `local_irq_disable()`: still disables IRQs on RT. Note that
   `spin_lock_irq()` on a `spinlock_t` does NOT disable IRQs on RT (it
   acquires the underlying rt_mutex without masking interrupts;
   see `spin_lock_irq()` in `include/linux/spinlock_rt.h`)
+- **Converting `spinlock_t` to `raw_spinlock_t` requires auditing all
+  callees**: on PREEMPT_RT, code running under a `raw_spinlock_t` must
+  not call any function that acquires a `spinlock_t`, because `spinlock_t`
+  is a sleeping lock on RT. When a patch converts a lock from `spinlock_t`
+  to `raw_spinlock_t`, verify that no function reachable from the critical
+  section acquires a `spinlock_t`. Lockdep enforces this via wait types:
+  `raw_spinlock_t` uses `LD_WAIT_SPIN` while `spinlock_t` uses
+  `LD_WAIT_CONFIG` (see `include/linux/lockdep_types.h`). When
+  `CONFIG_PROVE_RAW_LOCK_NESTING` is enabled, lockdep flags the nesting
+  even on non-RT kernels
 
 ## Seqlocks and Seqcounts
 
@@ -280,3 +329,18 @@ RT/SMP configurations.
 - **`percpu_rw_semaphore` for read-heavy patterns**: when reads vastly
   outnumber writes, `percpu_rw_semaphore` avoids cache-line bouncing
   (see `include/linux/percpu-rwsem.h`)
+- **Context guards for sleeping locks on RT**: when code conditionally
+  falls back or returns early because a lock may sleep on PREEMPT_RT,
+  verify the context check covers all non-preemptible contexts. The
+  correct check is `!preemptible()`, not `in_nmi() || in_hardirq()`.
+  `in_hardirq()` only detects hardware interrupt context; it misses
+  `preempt_disable()` sections and other non-preemptible contexts
+- **Reclaim-reachable lock ordering**: any lock held on a path that
+  allocates memory with `__GFP_RECLAIM` (including `GFP_KERNEL`) must
+  be orderable above all locks taken by reclaim (`->writepages`,
+  shrinkers, `folio_lock()`). A lock ordering violation causes deadlock
+  only under memory pressure when direct reclaim is triggered. Lockdep
+  detects this via the `__GFP_FS` / `__GFP_IO` / `__GFP_RECLAIM` flags
+  and the `memalloc_nofs` / `memalloc_noio` scope annotations. Use
+  `memalloc_nofs_save()` when holding a lock that conflicts with
+  filesystem reclaim
