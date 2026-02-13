@@ -13,7 +13,12 @@ regexes
 | Subsystem | Triggers | File |
 |-----------|----------|------|
 | Networking | net/, drivers/net/, skb_, sockets | networking.md |
-| Memory Management | mm/, page/folio ops, alloc/free, slab, vmalloc, `__GFP_*`, `page_*`, `folio_*`, `kmalloc`, `kmem_cache_*`, `vmalloc`, `alloc_pages` | mm.md |
+| MM Page Tables | `pte_*`, `pmd_*`, `pud_*`, `set_pte`, `ptep_*`, `tlb_*`, `page_vma_mapped_walk`, `walk_page_range`, `zap_pte_range`, mm/memory.c, mm/mprotect.c, mm/pagewalk.c | mm-pagetable.md |
+| MM Folio/Page Cache | `folio_*`, `page_folio`, `compound_head`, `filemap_*`, `xa_*`, `xas_*`, `page_cache_*`, mm/filemap.c, mm/swap.c, mm/truncate.c | mm-folio.md |
+| MM Large Folios/THP/Hugetlb | `huge_memory`, `hugetlb`, `split_huge_*`, `folio_test_large`, `hstate`, PMD sharing, mm/huge_memory.c, mm/hugetlb.c, mm/memory-failure.c | mm-largepage.md |
+| MM VMA Operations | `vma_*`, `mmap_*`, `vm_area_struct`, `vm_flags`, `anon_vma`, `maple_tree`, mm/vma.c, mm/mmap.c, mm/mmap_lock.c | mm-vma.md |
+| MM Allocation | `alloc_pages`, `__GFP_*`, `kmalloc`, `kmem_cache_*`, `slub`, `vmalloc`, `zone_watermark`, `mempool`, `memblock`, mm/page_alloc.c, mm/slub.c, mm/vmalloc.c | mm-alloc.md |
+| MM Reclaim/Swap/Migration | `vmscan`, `shrink_*`, `lru_*`, `swap_*`, `shmem_*`, `mem_cgroup_*`, `writeback`, `migrate_*`, mm/vmscan.c, mm/swap_state.c, mm/migrate.c, mm/memcontrol.c | mm-reclaim.md |
 | VFS | inode, dentry, vfs_, fs/*.c | vfs.md |
 | Locking | spin_lock*, mutex_*, rwsem*, seqlock*, *seqcount* | locking.md |
 | Scheduler | kernel/sched/, sched_, schedule, *wakeup* | scheduler.md |
