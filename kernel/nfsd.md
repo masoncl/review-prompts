@@ -130,15 +130,7 @@ skipped (e.g., when `maxcount==0`); every defined field must be encoded
 
 ## Reference Counting [NFSD-REF]
 
-#### NFSD-REF-001: Acquisition/release balance
-
-**Risk**: Use-after-free, resource leak
-
-**Details**: Flag `*_get()` / `refcount_inc()` / `kref_get()` without a
-matching release on all exit paths; flag `find_*` return values used without
-a corresponding put
-
-#### NFSD-REF-002: Early assignment before validation
+#### NFSD-REF-001: Early assignment before validation
 
 **Risk**: Dangling pointer, cleanup complexity
 
@@ -146,44 +138,7 @@ a corresponding put
 completes; use temp variables until validation passes; pattern from
 nfsd_set_fh_dentry() fix (b3da9b141578)
 
-#### NFSD-REF-003: Use-after-put ordering
-
-**Risk**: Use-after-free on embedded fields
-
-**Details**: Flag field access on an object after `nfs4_put_stid()` or
-similar put call; the put may free the containing struct
-(fix 1116e0e372eb)
-
-#### NFSD-REF-004: Unconditional field overwrite
-
-**Risk**: Reference leak
-
-**Details**: Flag assignment to a struct field that may already hold a
-reference, without checking or releasing the old value first
-(fix 8072e34e1387)
-
-#### NFSD-REF-005: Retry path reference leak
-
-**Risk**: Cumulative resource leak
-
-**Details**: Flag `goto retry` without releasing the reference acquired in
-the current iteration (fix 8a7926176378)
-
-#### NFSD-REF-006: Object access after lock release
-
-**Risk**: Use-after-free
-
-**Details**: Flag when an object found under lock is accessed after lock
-release without a prior `refcount_inc_not_zero()`
-
-#### NFSD-REF-007: RCU lookup/free mismatch
-
-**Risk**: Use-after-free under RCU reader
-
-**Details**: Flag `kfree()` on objects found via RCU-protected lookup;
-these require `kfree_rcu()` or `call_rcu()` (fix 2530766492ec)
-
-#### NFSD-REF-008: Multiple counters on same object
+#### NFSD-REF-002: Multiple counters on same object
 
 **Risk**: Wrong lifetime guarantee
 
@@ -191,12 +146,6 @@ these require `kfree_rcu()` or `call_rcu()` (fix 2530766492ec)
 vice versa; `cl_rpc_users` prevents unhashing while `cl_ref` prevents
 freeing only. Both `nfsd4_run_cb()` and async copy workers require
 `cl_rpc_users` to hold the client alive past the compound's lifetime
-
-Example -- field accessed after final put:
-```diff
-     nfs4_put_stid(&dp->dl_stid);
-+    flags = dp->dl_stid.sc_flags;  /* use-after-free */
-```
 
 **Acceptable**:
 - Transfer semantics where function "steals" a reference
@@ -220,15 +169,7 @@ a prior successful `fh_verify()`; `fh_dentry` is NULL before verification
 MAY_READ before `vfs_write()`, missing EXEC for directory traversal, missing
 SATTR for setattr
 
-#### NFSD-FH-003: Missing fh_put on verified handles
-
-**Risk**: Dentry reference leak, prevents unmount
-
-**Details**: Flag exit paths after successful `fh_verify()` that skip
-`fh_put()`; flag stack-allocated handles without `fh_init()` or
-`SVC_FH3_INIT`
-
-#### NFSD-FH-004: File type check
+#### NFSD-FH-003: File type check
 
 **Risk**: Type confusion
 
@@ -243,14 +184,7 @@ specific file type; pass `S_IFREG`/`S_IFDIR` to enforce
 
 ## NFSv4 Stateid Lifecycle [NFSD-STID]
 
-#### NFSD-STID-001: Lookup without matching put
-
-**Risk**: Use-after-free, resource leak
-
-**Details**: Flag exit paths after `nfsd4_lookup_stateid()` that lack
-`nfs4_put_stid()`; flag field access after the final put
-
-#### NFSD-STID-002: Delegation callback reference
+#### NFSD-STID-001: Delegation callback reference
 
 **Risk**: Use-after-free
 
@@ -258,14 +192,14 @@ specific file type; pass `S_IFREG`/`S_IFDIR` to enforce
 `refcount_inc(&dp->dl_stid.sc_count)`; without a reference, concurrent
 DELEGRETURN may free the delegation
 
-#### NFSD-STID-003: SC_STATUS_CLOSED check
+#### NFSD-STID-002: SC_STATUS_CLOSED check
 
 **Risk**: State modification on closed stateid
 
 **Details**: Flag state-modifying operations that do not check `sc_status`
 under `st_mutex` or `cl_lock` first; check-and-modify must be atomic
 
-#### NFSD-STID-004: Generation increment
+#### NFSD-STID-003: Generation increment
 
 **Risk**: Replay attack, protocol violation
 
@@ -273,7 +207,7 @@ under `st_mutex` or `cl_lock` first; check-and-modify must be atomic
 `nfs4_inc_and_copy_stateid()`; flag stateid copy without generation bump
 on state-modifying operations
 
-#### NFSD-STID-005: CLAIM_DELEG_CUR file verification
+#### NFSD-STID-004: CLAIM_DELEG_CUR file verification
 
 **Risk**: Unauthorized file access
 
@@ -281,7 +215,7 @@ on state-modifying operations
 `fh_match()` against `sc_file->fi_fhandle`; stateid-only lookup allows
 access to the wrong file
 
-#### NFSD-STID-006: Third-party lease safety
+#### NFSD-STID-005: Third-party lease safety
 
 **Risk**: Type confusion crash
 
@@ -289,7 +223,7 @@ access to the wrong file
 `fl->fl_lmops == &nfsd_lease_mng_ops`; non-NFSD leases have a different
 `fl_owner` type
 
-#### NFSD-STID-007: Delegation type validation
+#### NFSD-STID-006: Delegation type validation
 
 **Risk**: Incorrect timestamp suppression
 
@@ -297,7 +231,7 @@ access to the wrong file
 `OPEN_DELEGATE_WRITE_ATTRS_DELEG`; flag `dl_atime`/`dl_mtime` access on
 non-WRITE_ATTRS delegations
 
-#### NFSD-STID-008: Multi-client delegation conflict
+#### NFSD-STID-007: Multi-client delegation conflict
 
 **Risk**: Other clients' delegations not broken
 
@@ -305,7 +239,7 @@ non-WRITE_ATTRS delegations
 OTHER clients' delegations; `if (same_client) return` without an else clause
 that recalls other-client delegations
 
-#### NFSD-STID-009: VFS operations during delegation release
+#### NFSD-STID-008: VFS operations during delegation release
 
 **Risk**: Delegation break re-triggered
 
@@ -313,7 +247,7 @@ that recalls other-client delegations
 `ATTR_DELEG` in `ia.ia_valid`; its absence causes the delegation being
 released to be re-broken
 
-#### NFSD-STID-010: Layout stateid locking
+#### NFSD-STID-009: Layout stateid locking
 
 **Risk**: Sleeping under spinlock, race condition
 
@@ -384,15 +318,7 @@ pre-v4.1 paths
 deadlocks under load. `nfsd_ssc_lock` is independent; it must not be held
 simultaneously with `s2s_cp_lock`
 
-#### NFSD-LOCK-002: Sleeping under spinlock
-
-**Risk**: System hang
-
-**Details**: Flag `mutex_lock()`, `msleep()`, `GFP_KERNEL` allocation, or
-other sleeping ops under `state_lock`, `client_lock`, `cl_lock`, `fi_lock`,
-`ls_lock`, `se_lock`, `s2s_cp_lock`, or `nfsd_ssc_lock` (all are spinlocks)
-
-#### NFSD-LOCK-003: Wrong lock for stateid type
+#### NFSD-LOCK-002: Wrong lock for stateid type
 
 **Risk**: Inadequate protection, race condition
 
@@ -400,7 +326,7 @@ other sleeping ops under `state_lock`, `client_lock`, `cl_lock`, `fi_lock`,
 stateids require `st_mutex` or `cl_lock`; delegations require `state_lock`;
 layouts require `ls_mutex`
 
-#### NFSD-LOCK-004: Wrong lock scope (client vs namespace)
+#### NFSD-LOCK-003: Wrong lock scope (client vs namespace)
 
 **Risk**: Race condition
 
@@ -409,7 +335,7 @@ without `nn->client_lock` (per-namespace); flag `cl_openowners`,
 `cl_sessions`, `cl_revoked`, `cl_reclaim_complete` accessed without
 `clp->cl_lock` (per-client)
 
-#### NFSD-LOCK-005: Lookup-to-lock window (TOCTOU)
+#### NFSD-LOCK-004: Lookup-to-lock window (TOCTOU)
 
 **Risk**: Race with concurrent unhash
 
@@ -417,20 +343,13 @@ without `nn->client_lock` (per-namespace); flag `cl_openowners`,
 `mutex_lock(&stp->st_mutex)` without a subsequent
 `nfsd4_verify_open_stid()` check
 
-#### NFSD-LOCK-006: VFS callback lock interaction
+#### NFSD-LOCK-005: VFS callback lock interaction
 
 **Risk**: Deadlock
 
 **Details**: Flag `nfs4_put_stid()` in a VFS break callback path (under
 `flc_lock`); the put may acquire `cl_lock` via `refcount_dec_and_lock()`;
 use `refcount_dec()` when refcount cannot reach zero
-
-#### NFSD-LOCK-007: Shutdown synchronization
-
-**Risk**: Use-after-free
-
-**Details**: Flag `cancel_work()` during shutdown; non-synchronous cancel
-allows the work to run after resource destruction; use `cancel_work_sync()`
 
 ---
 
@@ -451,28 +370,14 @@ return to ACTIVE on reconnect)
 **Details**: Flag transition to COURTESY without laundromat integration;
 `cl_time` must be set and laundromat must check and expire after timeout
 
-#### NFSD-CLI-003: State modification without lock
-
-**Risk**: Race condition
-
-**Details**: Flag `cl_state` modification without `client_lock` held; flag
-check-then-modify on `cl_state` that is not atomic under lock
-
-#### NFSD-CLI-004: Missing cleanup on transition
-
-**Risk**: Resource leak
-
-**Details**: Flag `destroy_client()` paths that skip revoking delegations,
-freeing stateids (open, lock), or cleaning up sessions
-
-#### NFSD-CLI-005: Admin interface race
+#### NFSD-CLI-003: Admin interface race
 
 **Risk**: Use-after-free
 
 **Details**: Flag admin sysfs/procfs writes that access state without holding
 `nfsd_mutex` or without checking `nn->nfsd_serv`
 
-#### NFSD-CLI-006: Child stateid orphaning
+#### NFSD-CLI-004: Child stateid orphaning
 
 **Risk**: List corruption, crash
 
@@ -480,7 +385,7 @@ freeing stateids (open, lock), or cleaning up sessions
 (copynotify); `release_openowner()` may skip
 `nfs4_free_cpntf_statelist()`
 
-#### NFSD-CLI-007: Double initialization
+#### NFSD-CLI-005: Double initialization
 
 **Risk**: Kernel panic (BUG_ON)
 
@@ -616,35 +521,28 @@ freed while the callback is in flight
 `cl_cb_state == NFSD4_CB_UP` under `cl_lock`; flag `cb_client` access
 outside the same lock hold
 
-#### NFSD-CB-003: Unbounded retry
-
-**Risk**: Resource exhaustion, blocked clients
-
-**Details**: Flag callback retry loops without backoff or bound; unbounded
-retry on an unreachable client holds delegations indefinitely
-
-#### NFSD-CB-004: Sequence number atomicity
+#### NFSD-CB-003: Sequence number atomicity
 
 **Risk**: Callback rejection
 
 **Details**: Flag `cl_cb_seq_nr` modification without `cl_lock`; concurrent
 increment causes duplicate sequence numbers and BAD_SEQUENCE rejection
 
-#### NFSD-CB-005: Release handler reference drop
+#### NFSD-CB-004: Release handler reference drop
 
 **Risk**: Delegation and client leak
 
 **Details**: Flag callback release handlers that omit dropping delegation
 `sc_count` or client `cl_rpc_users`
 
-#### NFSD-CB-006: Client destroyed with callbacks in flight
+#### NFSD-CB-005: Client destroyed with callbacks in flight
 
 **Risk**: Use-after-free in completion handler
 
 **Details**: Flag `destroy_client()` paths that do not call
 `nfsd4_shutdown_callback()` to drain in-flight callbacks before freeing
 
-#### NFSD-CB-007: NFSv4.0 callback compatibility
+#### NFSD-CB-006: NFSv4.0 callback compatibility
 
 **Risk**: NULL dereference on v4.0 clients
 
@@ -753,15 +651,7 @@ v2/v3 procedures; `fh_verify()` enforces the version gate
 without a corresponding entry in the `nla_policy` array; attributes
 without policy entries reach handlers unvalidated
 
-#### NFSD-NL-002: Missing NULL check on optional attribute
-
-**Risk**: NULL dereference
-
-**Details**: Flag `nla_get_*()` calls without a preceding
-`if (attrs[NFSD_A_*])` guard when the attribute is not enforced as
-required by policy; absent optional attributes are NULL
-
-#### NFSD-NL-003: Missing capability check
+#### NFSD-NL-002: Missing capability check
 
 **Risk**: Privilege escalation
 
@@ -769,7 +659,7 @@ required by policy; absent optional attributes are NULL
 or configuration without a `capable(CAP_NET_ADMIN)` or
 `ns_capable()` check before any side effects
 
-#### NFSD-NL-004: Unbounded string attribute
+#### NFSD-NL-003: Unbounded string attribute
 
 **Risk**: Memory exhaustion
 
@@ -777,7 +667,7 @@ or configuration without a `capable(CAP_NET_ADMIN)` or
 use `NLA_NUL_STRING` with an explicit length bound; flag `nla_data()`
 on string attributes whose policy does not guarantee null termination
 
-#### NFSD-NL-005: Nested attribute without policy
+#### NFSD-NL-004: Nested attribute without policy
 
 **Risk**: Unvalidated input
 
@@ -785,7 +675,7 @@ on string attributes whose policy does not guarantee null termination
 argument; nested attributes require their own policy array to
 validate inner attribute types and lengths
 
-#### NFSD-NL-006: Namespace isolation
+#### NFSD-NL-005: Namespace isolation
 
 **Risk**: Cross-namespace state modification
 
@@ -794,7 +684,7 @@ validate inner attribute types and lengths
 network namespace; flag `capable()` where `ns_capable()` is needed
 for namespace-relative privilege checks
 
-#### NFSD-NL-007: TOCTOU on NFSD state
+#### NFSD-NL-006: TOCTOU on NFSD state
 
 **Risk**: Race condition
 
@@ -802,14 +692,6 @@ for namespace-relative privilege checks
 protected by `nfsd_mutex` through the subsequent modification;
 a gap between check and modify allows NFSD to start or stop
 concurrently
-
-#### NFSD-NL-008: Userspace integer in allocation
-
-**Risk**: Integer overflow, undersized allocation
-
-**Details**: Flag `nla_get_u32()` or `nla_get_u64()` values passed
-to `kmalloc()` or `kmalloc_array()` without an upper-bound check;
-large values cause integer overflow in size calculations
 
 **Acceptable**:
 - Attributes enforced as required by genetlink policy validation
@@ -889,17 +771,7 @@ Example -- rq_next_page accessed after read advances it:
 under `s2s_cp_lock`; stale entries allow clients to query freed state
 via OFFLOAD_STATUS; IDR removal must precede the final put
 
-#### NFSD-COPY-002: Compound-scope reference escape
-
-**Risk**: Use-after-free
-
-**Details**: Flag async copy setup that stores compound-scoped
-references (`cstate->clp`, `nf_src`, `nf_dst`) without taking
-independent references (`atomic_inc(&clp->cl_rpc_users)`,
-`nfsd_file_get()`); the compound releases its references before
-the async worker runs
-
-#### NFSD-COPY-003: Cancellation race with completion
+#### NFSD-COPY-002: Cancellation race with completion
 
 **Risk**: Use-after-free, double free
 
@@ -907,7 +779,7 @@ the async worker runs
 atomic state transition under lock; a window between check and cancel
 allows the copy to complete and free its resources concurrently
 
-#### NFSD-COPY-004: CB_OFFLOAD result ordering
+#### NFSD-COPY-003: CB_OFFLOAD result ordering
 
 **Risk**: Race condition, stale data sent to client
 
@@ -915,7 +787,7 @@ allows the copy to complete and free its resources concurrently
 modified after `nfsd4_run_cb()` queues the CB_OFFLOAD callback; the
 callback may read results before the assignment completes
 
-#### NFSD-COPY-005: S2S credential lifetime
+#### NFSD-COPY-004: S2S credential lifetime
 
 **Risk**: Authentication failure during long copy
 
@@ -923,7 +795,7 @@ callback may read results before the assignment completes
 without verifying validity before each chunk; GSS credentials may
 expire during multi-hour copies
 
-#### NFSD-COPY-006: COPY_NOTIFY authorization validation
+#### NFSD-COPY-005: COPY_NOTIFY authorization validation
 
 **Risk**: Unauthorized cross-server access
 
@@ -931,15 +803,7 @@ expire during multi-hour copies
 verifying the `cnr_stateid` from COPY_NOTIFY exists, belongs to the
 requesting client, and has not expired
 
-#### NFSD-COPY-007: Partial VFS copy result
-
-**Risk**: Silent data loss
-
-**Details**: Flag `vfs_copy_file_range()` callers that treat a short
-return (0 < ret < count) as complete; partial results require a
-continuation loop or accurate `wr_bytes_written` reporting
-
-#### NFSD-COPY-008: Unbounded async copy queue
+#### NFSD-COPY-006: Unbounded async copy queue
 
 **Risk**: Memory exhaustion
 
@@ -981,34 +845,7 @@ bound on `args->opcnt`; unbounded compounds allow a single request
 to monopolize a worker thread; the server should return
 `nfserr_resource` when the limit is exceeded
 
-#### NFSD-DOS-004: Blocking wait without timeout
-
-**Risk**: Worker thread starvation
-
-**Details**: Flag `wait_event()` or `wait_for_completion()` without
-a timeout variant; unresponsive clients must have delegations
-revoked after a bounded period to avoid blocking conflicting
-operations for other clients
-
-#### NFSD-DOS-005: Unbounded retry loop
-
-**Risk**: CPU starvation, soft lockup
-
-**Details**: Flag `while`/`for` loops that retry on `-EAGAIN` or
-similar transient errors without a maximum iteration count or
-backoff; flag long-running loops without `cond_resched()`
-
-#### NFSD-DOS-006: Client-triggerable BUG_ON
-
-**Risk**: Kernel panic
-
-**Details**: Flag new or newly-reachable `BUG_ON()` or `BUG()`
-conditions where the triggering value originates from
-client-supplied data (opcodes, slot indices, counts); these must
-return an error instead of crashing the server; do not flag
-removal of such assertions
-
-#### NFSD-DOS-007: Work queue exhaustion
+#### NFSD-DOS-004: Work queue exhaustion
 
 **Risk**: Worker pool starvation
 
@@ -1016,7 +853,7 @@ removal of such assertions
 without per-client limits on pending work items; key queues to
 audit: `nfsd4_callback_wq`, `nfsd_copy_wq`, `laundry_wq`
 
-#### NFSD-DOS-008: Limit counter leak on error
+#### NFSD-DOS-005: Limit counter leak on error
 
 **Risk**: Limit drift, eventual exhaustion
 
@@ -1027,7 +864,7 @@ corresponding resources; this covers admission-control counters
 (`num_delegations`, `num_opens`, etc.), not object lifetime
 refcounts
 
-#### NFSD-DOS-009: Amplification via expensive attributes
+#### NFSD-DOS-006: Amplification via expensive attributes
 
 **Risk**: CPU and memory exhaustion
 
