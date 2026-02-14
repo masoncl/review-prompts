@@ -77,6 +77,7 @@
 - If you find a type mismatch (using `*foo` instead of `foo` etc), trace the type
   fully and check against the expected type to make sure you're flagging it correctly
 - global variables and static variables are zero filled automatically
+- When fields move into a sub-struct, search for all static instances of the parent struct (e.g., init_mm, init_task) and verify their initializers are updated — especially locks, which require explicit initialization macros (e.g., `__RAW_SPIN_LOCK_UNLOCKED`) rather than zero-fill
 - slab and vmalloc APIs have variants that zero fill, and __GFP_ZERO gfp mask does as well
 - kmem_cache_create() can use an init_once() function to initialize slab objects
   - this only happens on the first allocation, and protects us from garbage in the struct

@@ -9,6 +9,13 @@ as carefully as possible.
 ## Core Principle
 **If you cannot prove an issue exists with concrete evidence, do not report it.**
 
+**Corollary (from callstack.md)**: For deadlocks, infinite waits, crashes, and
+data corruption, "concrete evidence" means proving the code path is structurally
+possible — not proving it will definitely execute on every run. A
+`wait_event` with no timeout and no fallback wake condition is a deadlock bug
+if the wake condition depends on external events that can stop. Do not dismiss
+such bugs as "unlikely in practice."
+
 This file contains instructions to help you prove a given bug is real.  You
 must follow every instruction in every section.  Do not skip steps, and you
 must complete task POSITIVE.1 before completing the false positive check.
@@ -212,11 +219,15 @@ Before reporting ANY regression, verify:
      - Output: list conditions checked and their evaluation
    - Verify not in dead code or disabled features
      - Output: enabled-by config option or "always enabled"
-2. **Is the bad behavior guaranteed?**
-   - Prove "will happen" not just "might happen"
+2. **Is the bad behavior structurally possible?**
+   - Prove the code path exists and the triggering conditions are not structurally impossible
      - Output: step-by-step execution path with function names and locations showing the failure
-   - Prove "causes failure" not just "increases risk"
+   - Prove the failure mode is concrete (crash, deadlock, corruption, leak), not just "increases risk"
      - Output: the specific failure mode and triggering condition
+   - NOTE: A deadlock, infinite wait, or crash that depends on runtime conditions
+     (timing, memory pressure, shutdown state, allocation patterns) is a real bug
+     if the code has no structural prevention (timeout, fallback wake condition,
+     bounded retry). Do not dismiss these by arguing the conditions are unlikely.
 3. **Did I check the full context?**
    - Examine calling functions (2-3 levels up)
      - Output: list each caller checked with a random line from each
@@ -233,6 +244,9 @@ Before reporting ANY regression, verify:
      - Output: "production code" or "test code - severity adjusted"
    - Confirm bug exists today, not just if code changes later
      - Output: current triggering path or "theoretical future issue only"
+     - NOTE: "theoretical" means the code path cannot be reached today.
+       A bug that depends on runtime conditions (timing, system state) is
+       not theoretical — it is a real bug with a conditional trigger.
 5. **Did I check the commit message and surrounding comments?**
    - Read the entire commit message
      - Output: quote any text explaining this behavior, or "no explanation found"
@@ -275,8 +289,12 @@ Before reporting ANY regression, verify:
      - **For all issues, ask as the author:**
        * Did they check if this is intentional based on commit message or comments?
        * Did they verify the conditions for the bug are actually possible?
-       * Are they being overly defensive about theoretical issues?
+       * Are they confusing a structurally possible bug with a defensive programming suggestion?
      - Output: strongest argument against reporting this bug
+     - IMPORTANT: "unlikely in practice" is not a valid argument against a
+       deadlock, crash, or data corruption. Only "structurally impossible"
+       (the code literally cannot reach that state) is valid. See
+       callstack.md "Reachability Dismissals".
    - 9.2 Now pretend you're the reviewer. Think extremely hard about the author's arguments and decide if the review is correct.
      - Address each author argument with code evidence
      - Output: code evidence refuting the author, or "cannot refute with code - likely false positive"
@@ -324,9 +342,14 @@ Before adding to report, think about the regression and ask:
   - Existing defensive pattern checks for the same condition also count as proof.
     - ONLY if you can prove the condition can occur
   - Existing WARN_ON()/BUG_ON() don't count as proof.
+  - For deadlocks/hangs: showing that a wait has no timeout and no alternative
+    wake condition IS proof. You do not also need to prove the system will
+    definitely enter that state.
 2. **Would an expert see this as a real issue?** [ yes / no ]
 3. **Is this worth the maintainer's time?** [ yes / no ]
-4. **Am I being overly defensive?** [ yes / no ]
+4. **Am I suggesting defensive programming, or reporting a concrete bug?** [ yes / no ]
+  - Defensive programming: "add a NULL check here for safety" → discard
+  - Concrete bug: "this wait_event has no timeout and no fallback wake" → report
 
 ### MANDATORY Final Filter validation
 
@@ -334,5 +357,6 @@ If you didn't answer yes to all 4 questions, investigate further or discard
 
 ## Remember
 - **False positives waste everyone's time**
-- **Kernel developers are experts** - respect their judgment
-- **Real bugs have real proof**
+- **Missed bugs also waste everyone's time** - a deadlock in production is worse than a false positive in review
+- **Kernel developers are experts** - but experts miss bugs too, especially subtle interactions between subsystems (workqueues, notifiers, shutdown ordering)
+- **Real bugs have real proof** - but proof means showing the code path exists and has no structural prevention, not proving the bug will definitely fire on every execution

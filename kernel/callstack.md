@@ -13,9 +13,13 @@ Note: foo->ptr dereferences foo BUT NOT ptr
 
 This callstack analysis is required for all non-trivial changes.
 
+Add each Task from this prompt (Task 1,2,3,4,5,6,7,8,9) into a TodoWrite.
+The TodoWrite must ensure that you complete every task before completing
+this prompt.
+
 ---
 
-## CRITICAL: Retraction Rule
+## CRITICAL: RETRACTION RULE
 
 If during analysis you conclude something IS a bug and later reverse that
 conclusion, you must treat the reversal with extreme skepticism. State the
@@ -24,11 +28,12 @@ and apply a higher burden of proof. "Caller should prevent this" or "normally
 handled" are not sufficient — you must prove the triggering condition is
 structurally impossible with concrete code references.
 
-## CRITICAL: Reachability Dismissals
+## CRITICAL: REACHABILITY DISMISSALS
 
 A code path that can infinite loop, deadlock, crash, or corrupt data is a bug
 even if you believe preconditions make it unlikely. Do not dismiss such bugs
 by arguing:
+
 - "The caller normally prevents this input"
 - "This only happens if [upstream function] fails"
 - "The old code had a worse bug in the same path"
@@ -292,25 +297,23 @@ Step init.1:
 
 ## Task 9
 
-At this point, you're going to want to mark callstack.md complete, but it's very likely
-you've skipped most of the steps.  Skipping work makes the regression analysis
-fail and means all of the time spent so far was wasted.  Fully process the
-instructions as required by the prompt.
-
 Output: a one line description of potential regressions you found and ruled out.
+For every potential regression ruled out:
 
-Think about potential regressions that you found and ruled out.  While you were
-processing those potential regressions, you skipped steps and ignored other
-potential problems.  This is a deep dive analysis, double check your work.
+```
+Ruled out regression N: Task N <one sentence description>
+```
 
-Output: elements of callstack.md that you skipped because you were focused on
-regressions that later you ruled out.
+Think about potential regressions that you found and ruled out, and consider
+them against the RETRACTION RULE and REACHABILITY DISMISSAL sections at
+the top of this prompt.  Was it wrong to exclude them?
 
-Even if you've already used a lot of tokens, go back and check the
-skipped steps now that you know these potential regressions were safe.
+While you were processing these potential bugs, did you ignore other
+possible problems?  Reconsider issues that might have been hidden by
+focusing too heavily on issues you later ruled out.
 
-- Did you fully analyze and complete Tasks 1-8 for every category? y/n
+- Did you fully analyze and complete Tasks 1-9 for every category? y/n
 - Did you batch all semcode calls to minimize API turns? y/n
 
-If the answer to either question was no, do not complete callstack.md.  Go back and
-finish analysis as instructed.
+This is a deep analsys, and correctness matters more than speed.  Make sure
+every step was fully executed.
