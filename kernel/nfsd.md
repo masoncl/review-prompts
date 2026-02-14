@@ -12,10 +12,10 @@ validation.
 
 | Files | Domain |
 |-------|--------|
-| nfs4xdr.c, nfs3xdr.c | XDR codec |
+| nfs4xdr.c, nfs3xdr.c | XDR codec, page encoding |
 | nfs4state.c, nfs4proc.c | NFSv4 state and operations |
-| nfs3proc.c, nfsproc.c | NFSv2/v3 operations |
-| vfs.c, nfsfh.c, nfsfh.h | VFS interface, file handles |
+| nfs3proc.c, nfsproc.c | NFSv2/v3 operations, page setup |
+| vfs.c, nfsfh.c, nfsfh.h | VFS interface, file handles, splice |
 | nfs4callback.c | Callbacks |
 | nfs4layouts.c | pNFS layouts |
 | filecache.c, nfscache.c | File cache, DRC |
@@ -36,6 +36,9 @@ validation.
 | `from_kuid`, `make_kuid`, ACL encode | NFSD-NS |
 | `nfsd4_run_cb`, callback completion | NFSD-CB |
 | Session slot, SEQUENCE processing | NFSD-SLOT |
+| `rq_pages`, `rq_next_page`, `rq_page_end` | NFSD-PAGE |
+| READ/READDIR/READLINK procedures | NFSD-PAGE, NFSD-ERR |
+| Splice read or page handling | NFSD-PAGE |
 | New procedure or operation handler | NFSD-XDR, NFSD-FH, NFSD-ERR, NFSD-SEC |
 
 ---
@@ -753,6 +756,77 @@ v2/v3 procedures; `fh_verify()` enforces the version gate
 
 ---
 
+## Page Array Management [NFSD-PAGE]
+
+**Scan for**: `rq_pages`, `rq_next_page`, `rq_page_end`, `rq_respages`,
+`rq_maxpages`, `rq_bvec`, `svc_rqst_replace_page`, `xdr_write_pages`,
+`page_ptr`, `resp->pages`, `nfsd_splice_actor`, `nfsd_iter_read`,
+`nfsd3_init_dirlist_pages`
+
+#### NFSD-PAGE-001: Response page pointer saved before read
+
+**Risk**: NULL dereference, data corruption
+
+**Details**: Flag read procedures where `resp->pages` is not saved from
+`rqstp->rq_next_page` BEFORE the read call; read operations advance
+`rq_next_page`, so encoders that reference `rq_next_page` afterward
+use the wrong pointer (fix 7978e9bea278)
+
+#### NFSD-PAGE-002: Page array bounds before dereference
+
+**Risk**: Array overrun, kernel crash
+
+**Details**: Flag loops advancing `rq_next_page` without a
+`rq_next_page < rq_page_end` guard in the loop condition; flag
+`rq_bvec` indexing without an `rq_maxpages` bound; the advancing
+pointer depends on variable-length read data, making overrun a
+proven failure mode (fixes e1b495d02c53, 3be7f32878e7; see also
+SUNRPC-CORE-004)
+
+#### NFSD-PAGE-003: COMPOUND page_ptr / rq_next_page sync
+
+**Risk**: Data corruption, wrong pages sent to client
+
+**Details**: Flag NFSv4 operations that encode to pages and return
+before `nfsd4_encode_operation()` can execute
+`rqstp->rq_next_page = xdr->page_ptr + 1`; individual operations
+must not manually sync -- sync is centralized after each operation
+(fix ed4a567a179e)
+
+#### NFSD-PAGE-004: READDIR page recycling
+
+**Risk**: Page array exhaustion, unnecessary allocator pressure
+
+**Details**: Flag READDIR paths that pre-allocate pages but omit
+`rqstp->rq_next_page = xdr.page_ptr + 1` after completion; unused
+pages are released instead of recycled; flag page count arithmetic
+that does not use `(count + PAGE_SIZE - 1) >> PAGE_SHIFT`
+(fixes 3c86794ac0e6, 76ed0dd96eeb)
+
+#### NFSD-PAGE-005: Splice continuation detection
+
+**Risk**: Page array corruption, rq_next_page overrun
+
+**Details**: Flag `nfsd_splice_actor()` modifications that remove the
+continuation check: when `page == *(rq_next_page - 1)` AND the
+offset is not page-aligned, the same page is being continued and
+must not be added again; flag missing return value check on
+`svc_rqst_replace_page()` (fixes 27c934dd8832, 91e23b1c3982)
+
+Example -- rq_next_page accessed after read advances it:
+```diff
+     nfsd_read(rqstp, ...);
++    svcxdr_encode_opaque_pages(rqstp, xdr, rqstp->rq_next_page, ...);
++    /* WRONG: rq_next_page already advanced past the data pages */
+```
+
+**Acceptable**:
+- `nfsd4_encode_operation()` centralizing page_ptr sync
+- Page allocation during `svc_rqst_init()` before any request
+- XDR page encoding via `xdr_write_pages()` in encode helpers
+
+---
+
 ## Code Style
 
 Reverse-christmas tree variable ordering. `nfs_ok`/`nfserr_*` error
@@ -775,6 +849,11 @@ spinlocks.
 **Trust boundaries**: XDR decode (untrusted) -> `fh_verify()` ->
 `nfs4_preprocess_stateid_op()` -> VFS data (trusted).
 
+**Page array pointers**: `rq_pages` (base), `rq_next_page` (next slot),
+`rq_page_end` (sentinel), `rq_maxpages` (array size). Save
+`resp->pages` before read; bounds-check before advancing; recycle
+after READDIR.
+
 **Invariants**: Verify before dereference; hold reference before async work;
 release on all error paths; encode before committing state; use
 `nfsd_user_namespace()` for ID conversion.
@@ -788,5 +867,5 @@ refcount primitives changed; `fh_verify()` semantics modified; stateid
 lifecycle changed; lock ordering changed; client state machine or grace period
 logic modified; callback dispatch/completion/retry changed; session slot or
 SEQUENCE processing modified; new RPC procedure or NFSv4 op added; namespace
-conversion paths changed; changes exceed 100 lines touching multiple core
-files.
+conversion paths changed; page array or splice read infrastructure
+modified; changes exceed 100 lines touching multiple core files.
