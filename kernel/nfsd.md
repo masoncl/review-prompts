@@ -46,6 +46,7 @@ validation.
 | Grace period, reclaim, lease renewal | NFSD-GRACE, NFSD-CLI, NFSD-STID |
 | Netlink/genetlink handlers, `nla_policy` | NFSD-NL, NFSD-SEC |
 | Resource allocation, `kmalloc`, limits | NFSD-DOS, NFSD-REF |
+| Re-export, `NFS_SUPER_MAGIC`, `crossmnt` | NFSD-REEXP, NFSD-FH, NFSD-ERR |
 | New procedure or operation handler | NFSD-XDR, NFSD-FH, NFSD-ERR, NFSD-SEC |
 
 ---
@@ -1216,6 +1217,97 @@ Example -- allocation without limit check:
 
 ---
 
+## NFS Re-export Safety [NFSD-REEXP]
+
+**Scan for**: `NFS_SUPER_MAGIC`, `s_magic`, `NFSEXP_CROSSMOUNT`,
+`nfsd_cross_mnt`, `follow_down`, `crossmnt`, `NFS_FH`,
+`fh_compose` near NFS superblock checks, `exp->ex_path.mnt`;
+in re-export context only: `ESTALE`, `EAGAIN`, `vfs_lock_file`,
+`nfs4_handle_exception`
+
+#### NFSD-REEXP-001: File handle uses local inode number
+
+**Risk**: Handle instability after upstream reconnect
+
+**Details**: Flag `fh_compose()` or file handle encoding that uses
+`i_ino` on an NFS superblock (`s_magic == NFS_SUPER_MAGIC`); inode
+numbers on NFS are not stable across upstream reconnects; the
+upstream file handle (`NFS_FH()`) must be embedded instead
+
+#### NFSD-REEXP-002: ESTALE masked or retried
+
+**Risk**: Infinite loop, stale data served
+
+**Details**: Flag VFS operation error paths that retry on `-ESTALE`
+from an NFS-backed filesystem without propagating the error to the
+client; ESTALE indicates permanent handle invalidity on the upstream
+server and retrying cannot resolve it (see also NFSD-ERR-006 for
+EOPENSTALE propagation in the local error path)
+
+#### NFSD-REEXP-003: Lock state committed before upstream
+
+**Risk**: Client holds lock that re-exporter cannot maintain
+
+**Details**: Flag lock acquisition paths that update local NFSD state
+before the VFS lock call (`vfs_lock_file()`) succeeds on the upstream
+NFS mount; upstream must be locked first, then local state committed;
+failure of the upstream lock must not leave stale local state (same
+commit-before-confirm class as NFSD-XDR-007)
+
+#### NFSD-REEXP-004: Mount crossing without filesystem check
+
+**Risk**: Wrong file handle encoding, credential mismatch
+
+**Details**: Flag `nfsd_cross_mnt()` or `follow_down()` usage that
+does not check whether the target superblock is an NFS filesystem;
+crossing into an NFS mount creates a re-export situation requiring
+different handle encoding and credential handling
+
+#### NFSD-REEXP-005: Upstream grace period ignored
+
+**Risk**: Protocol violation, lock conflicts
+
+**Details**: Flag operations on re-exported filesystems that only
+check local grace state (`nfsd4_grace_period()`) without handling
+upstream grace errors (`-EAGAIN` from NFS client during upstream
+grace); upstream grace and local grace are independent (see also
+NFSD-GRACE-001 for missing local grace checks)
+
+#### NFSD-REEXP-006: Credential double-mapping
+
+**Risk**: Unexpected access denial or privilege escalation
+
+**Details**: Flag credential handling that assumes single-layer
+mapping; re-export applies squash and security flavor transforms
+twice (re-export settings then upstream mount settings); flag
+`no_root_squash` on re-export when the upstream mount uses
+`root_squash` (see also NFSD-NS-001 for single-layer namespace
+conversion)
+
+#### NFSD-REEXP-007: Export fsid stability
+
+**Risk**: File handles invalid after remount
+
+**Details**: Flag re-exports where `exp->ex_fsid` or `exp->ex_uuid`
+is derived from the NFS mount rather than set explicitly; mount
+device numbers change across remounts, invalidating all outstanding
+file handles
+
+Example -- inode number used for NFS superblock:
+```diff
+     struct inode *inode = d_inode(fhp->fh_dentry);
++    fh->fh_ino = inode->i_ino;
++    /* WRONG on NFS: i_ino is unstable across upstream
++       reconnects; use NFS_FH(inode) instead */
+```
+
+**Acceptable**:
+- Local filesystem exports (s_magic != NFS_SUPER_MAGIC)
+- Explicit fsid/uuid configuration on re-exports
+- ESTALE handling that invalidates dentries then returns the error
+
+---
+
 ## Code Style
 
 Reverse-christmas tree variable ordering. `nfs_ok`/`nfserr_*` error
@@ -1267,4 +1359,5 @@ conversion paths changed; page array or splice read infrastructure
 modified; copy offload lifecycle or s2s authentication changed; grace
 period state machine or lease timing modified; genetlink family or
 policy definitions changed; resource limits or allocation patterns
-modified; changes exceed 100 lines touching multiple core files.
+modified; re-export or cross-mount handling changed; changes exceed
+100 lines touching multiple core files.
