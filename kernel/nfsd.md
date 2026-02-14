@@ -20,6 +20,7 @@ validation.
 | nfs4layouts.c | pNFS layouts |
 | filecache.c, nfscache.c | File cache, DRC |
 | export.c, nfsctl.c | Export mgmt, admin |
+| nfs4copy.c | Copy offload, s2s copy |
 | state.h, netns.h | Data structures |
 
 ## Dispatch
@@ -39,6 +40,8 @@ validation.
 | `rq_pages`, `rq_next_page`, `rq_page_end` | NFSD-PAGE |
 | READ/READDIR/READLINK procedures | NFSD-PAGE, NFSD-ERR |
 | Splice read or page handling | NFSD-PAGE |
+| COPY, OFFLOAD_CANCEL, OFFLOAD_STATUS | NFSD-COPY, NFSD-REF, NFSD-CB |
+| `nfsd4_copy`, `s2s_cp_stateids`, SSC mount | NFSD-COPY, NFSD-LOCK |
 | New procedure or operation handler | NFSD-XDR, NFSD-FH, NFSD-ERR, NFSD-SEC |
 
 ---
@@ -197,7 +200,8 @@ these require `kfree_rcu()` or `call_rcu()` (fix 2530766492ec)
 
 **Details**: Flag `cl_rpc_users` used where `cl_ref` is appropriate, or
 vice versa; `cl_rpc_users` prevents unhashing while `cl_ref` prevents
-freeing only
+freeing only. Both `nfsd4_run_cb()` and async copy workers require
+`cl_rpc_users` to hold the client alive past the compound's lifetime
 
 Example -- field accessed after final put:
 ```diff
@@ -413,14 +417,17 @@ pre-v4.1 paths
 
 **Scan for**: `spin_lock`, `spin_unlock`, `mutex_lock`, `mutex_unlock`,
 `client_lock`, `state_lock`, `cl_lock`, `fi_lock`, `ls_lock`, `se_lock`,
-`st_mutex`, `ls_mutex`, `cancel_work`, `flc_lock`, `refcount_dec_and_lock`
+`s2s_cp_lock`, `nfsd_ssc_lock`, `st_mutex`, `ls_mutex`, `cancel_work`,
+`flc_lock`, `refcount_dec_and_lock`
 
 #### NFSD-LOCK-001: Lock ordering violation
 
 **Risk**: ABBA deadlock
 
 **Details**: Flag acquisition that violates nesting order: `client_lock` ->
-`state_lock` -> `fi_lock` -> `cl_lock`; reverse order deadlocks under load
+`state_lock` -> `s2s_cp_lock` -> `fi_lock` -> `cl_lock`; reverse order
+deadlocks under load. `nfsd_ssc_lock` is independent; it must not be held
+simultaneously with `s2s_cp_lock`
 
 #### NFSD-LOCK-002: Sleeping under spinlock
 
@@ -428,7 +435,7 @@ pre-v4.1 paths
 
 **Details**: Flag `mutex_lock()`, `msleep()`, `GFP_KERNEL` allocation, or
 other sleeping ops under `state_lock`, `client_lock`, `cl_lock`, `fi_lock`,
-`ls_lock`, or `se_lock` (all are spinlocks)
+`ls_lock`, `se_lock`, `s2s_cp_lock`, or `nfsd_ssc_lock` (all are spinlocks)
 
 #### NFSD-LOCK-003: Wrong lock for stateid type
 
@@ -559,7 +566,8 @@ invocation triggers BUG_ON
 **Details**: Flag `from_kuid`/`from_kgid` in request paths using
 `init_user_ns` or `current_user_ns()` instead of
 `nfsd_user_namespace(rqstp)`; NFSD kthreads have `init_user_ns` as
-`current_user_ns()`
+`current_user_ns()`. Similarly, flag inter-server socket creation
+using `current->nsproxy->net_ns` instead of `nn->net`
 
 #### NFSD-NS-002: Missing uid_valid/gid_valid check
 
@@ -827,6 +835,94 @@ Example -- rq_next_page accessed after read advances it:
 
 ---
 
+## Copy Offload Operations [NFSD-COPY]
+
+**Scan for**: `nfsd4_copy`, `nfsd4_do_async_copy`, `dup_copy_fields`,
+`cleanup_async_copy`, `s2s_cp_stateids`, `s2s_cp_lock`, `nfsd_ssc_lock`,
+`nfsd4_ssc_umount_item`, `cp_stateid`, `cp_clp`, `cp_cb`,
+`nfsd4_run_cb`, `CB_OFFLOAD`, `COPY_NOTIFY`, `OFFLOAD_CANCEL`,
+`OFFLOAD_STATUS`, `nfs4_cpntf_state`, `nfsd4_interssc_connect`
+
+#### NFSD-COPY-001: Copy stateid IDR cleanup
+
+**Risk**: Stale state, resource leak
+
+**Details**: Flag async copy completion paths that omit IDR removal
+under `s2s_cp_lock`; stale entries allow clients to query freed state
+via OFFLOAD_STATUS; IDR removal must precede the final put
+
+#### NFSD-COPY-002: Compound-scope reference escape
+
+**Risk**: Use-after-free
+
+**Details**: Flag async copy setup that stores compound-scoped
+references (`cstate->clp`, `nf_src`, `nf_dst`) without taking
+independent references (`atomic_inc(&clp->cl_rpc_users)`,
+`nfsd_file_get()`); the compound releases its references before
+the async worker runs
+
+#### NFSD-COPY-003: Cancellation race with completion
+
+**Risk**: Use-after-free, double free
+
+**Details**: Flag OFFLOAD_CANCEL that modifies copy state without an
+atomic state transition under lock; a window between check and cancel
+allows the copy to complete and free its resources concurrently
+
+#### NFSD-COPY-004: CB_OFFLOAD result ordering
+
+**Risk**: Race condition, stale data sent to client
+
+**Details**: Flag result fields (`wr_bytes_written`, `wr_stable_how`)
+modified after `nfsd4_run_cb()` queues the CB_OFFLOAD callback; the
+callback may read results before the assignment completes
+
+#### NFSD-COPY-005: S2S credential lifetime
+
+**Risk**: Authentication failure during long copy
+
+**Details**: Flag inter-server copy that caches an RPC credential
+without verifying validity before each chunk; GSS credentials may
+expire during multi-hour copies
+
+#### NFSD-COPY-006: COPY_NOTIFY authorization validation
+
+**Risk**: Unauthorized cross-server access
+
+**Details**: Flag `nfsd4_setup_inter_ssc()` that proceeds without
+verifying the `cnr_stateid` from COPY_NOTIFY exists, belongs to the
+requesting client, and has not expired
+
+#### NFSD-COPY-007: Partial VFS copy result
+
+**Risk**: Silent data loss
+
+**Details**: Flag `vfs_copy_file_range()` callers that treat a short
+return (0 < ret < count) as complete; partial results require a
+continuation loop or accurate `wr_bytes_written` reporting
+
+#### NFSD-COPY-008: Unbounded async copy queue
+
+**Risk**: Memory exhaustion
+
+**Details**: Flag async copy submission paths that lack per-client or
+global limits; an attacker can exhaust memory by issuing unbounded
+concurrent COPY operations
+
+Example -- async copy without file reference:
+```diff
+     async_copy->nf_src = copy->nf_src;
++    /* WRONG: no nfsd_file_get(); compound releases nf_src
++       before worker runs */
+```
+
+**Acceptable**:
+- Synchronous copy uses compound-scoped references directly
+- `refcount_set(1)` at allocation is the initial reference
+- Cleanup in `nfsd4_cb_offload_release()` via release handler
+
+---
+
 ## Code Style
 
 Reverse-christmas tree variable ordering. `nfs_ok`/`nfserr_*` error
@@ -840,11 +936,13 @@ should use nfs3xdr_gen.c (xdrgen).
 **Refcount pairs**: `nfs4_get_stid`/`nfs4_put_stid`,
 `nfsd_file_get`/`nfsd_file_put`, `exp_get`/`exp_put`, `fh_put` (copy
 semantics). Client: `cl_rpc_users` (unhash guard), `cl_ref` (kref).
-`nfsd_net_try_get`/`nfsd_net_put`.
+`nfsd_net_try_get`/`nfsd_net_put`. Async copy:
+`refcount`/`nfsd4_put_copy`, `cl_rpc_users`/`put_client_renew`.
 
 **Lock hierarchy** (outer to inner): `nn->client_lock` -> `state_lock` ->
-`fp->fi_lock` -> `clp->cl_lock` -> `stp->st_mutex`. All except st_mutex are
-spinlocks.
+`nn->s2s_cp_lock` -> `fp->fi_lock` -> `clp->cl_lock` -> `stp->st_mutex`.
+All except st_mutex are spinlocks. `nn->nfsd_ssc_lock` is independent of
+`s2s_cp_lock`; they must not be held simultaneously.
 
 **Trust boundaries**: XDR decode (untrusted) -> `fh_verify()` ->
 `nfs4_preprocess_stateid_op()` -> VFS data (trusted).
@@ -868,4 +966,5 @@ lifecycle changed; lock ordering changed; client state machine or grace period
 logic modified; callback dispatch/completion/retry changed; session slot or
 SEQUENCE processing modified; new RPC procedure or NFSv4 op added; namespace
 conversion paths changed; page array or splice read infrastructure
-modified; changes exceed 100 lines touching multiple core files.
+modified; copy offload lifecycle or s2s authentication changed; changes
+exceed 100 lines touching multiple core files.
