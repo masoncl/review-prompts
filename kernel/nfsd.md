@@ -45,6 +45,7 @@ validation.
 | `nfsd4_copy`, `s2s_cp_stateids`, SSC mount | NFSD-COPY, NFSD-LOCK |
 | Grace period, reclaim, lease renewal | NFSD-GRACE, NFSD-CLI, NFSD-STID |
 | Netlink/genetlink handlers, `nla_policy` | NFSD-NL, NFSD-SEC |
+| Resource allocation, `kmalloc`, limits | NFSD-DOS, NFSD-REF |
 | New procedure or operation handler | NFSD-XDR, NFSD-FH, NFSD-ERR, NFSD-SEC |
 
 ---
@@ -68,7 +69,8 @@ checked before the decoded variable is used
 
 **Details**: Flag decoded lengths passed to `kmalloc()` without an upper-bound
 check; flag decoded counts driving loops without a cap; flag missing
-`check_mul_overflow()` on `count * sizeof(...)` calculations
+`check_mul_overflow()` on `count * sizeof(...)` calculations (see also
+NFSD-NL-008 for the netlink input channel)
 
 #### NFSD-XDR-003: Array index from client
 
@@ -716,7 +718,8 @@ outside the same lock hold
 **Risk**: Resource exhaustion, blocked clients
 
 **Details**: Flag callback retry loops without backoff or bound; unbounded
-retry on an unreachable client holds delegations indefinitely
+retry on an unreachable client holds delegations indefinitely (see also
+NFSD-DOS-005 for general retry loop analysis)
 
 #### NFSD-CB-004: Sequence number atomicity
 
@@ -1102,6 +1105,117 @@ Example -- async copy without file reference:
 
 ---
 
+## Denial of Service Vectors [NFSD-DOS]
+
+**Scan for**: `kmalloc`, `kzalloc`, `kvmalloc`, `alloc_*`,
+`nfs4_alloc_stid`, `alloc_init_deleg`, `alloc_lock_stateid`,
+`create_session`, `list_add`, `queue_work`, `wait_event`,
+`wait_for_completion`, `BUG_ON`, `cond_resched`,
+`max_delegations`, `max_*`, `nfserr_resource`, `nfserr_delay`
+
+#### NFSD-DOS-001: Unbounded state accumulation
+
+**Risk**: Memory exhaustion
+
+**Details**: Flag `nfs4_alloc_stid()`, `alloc_init_deleg()`,
+`alloc_lock_stateid()`, or `create_session()` without a preceding
+per-client limit check; a single client must not consume unbounded
+stateids, delegations, locks, or sessions; flag global limits
+without a corresponding per-client limit (see also NFSD-COPY-008
+for async copy queue limits)
+
+#### NFSD-DOS-002: Limit checked after allocation
+
+**Risk**: OOM on limit enforcement
+
+**Details**: Flag allocation followed by a limit check and free;
+the limit must be verified before the allocation to avoid transient
+OOM under heavy load
+
+#### NFSD-DOS-003: COMPOUND operation count
+
+**Risk**: CPU exhaustion
+
+**Details**: Flag NFSv4 COMPOUND dispatch loops without an upper
+bound on `args->opcnt`; unbounded compounds allow a single request
+to monopolize a worker thread; the server should return
+`nfserr_resource` when the limit is exceeded
+
+#### NFSD-DOS-004: Blocking wait without timeout
+
+**Risk**: Worker thread starvation
+
+**Details**: Flag `wait_event()` or `wait_for_completion()` without
+a timeout variant (`wait_event_timeout`,
+`wait_for_completion_timeout`); a client that never responds pins
+the worker thread indefinitely; in delegation recall paths,
+unresponsive clients must have delegations revoked after a bounded
+period to avoid blocking conflicting operations for other clients
+
+#### NFSD-DOS-005: Unbounded retry loop
+
+**Risk**: CPU starvation, soft lockup
+
+**Details**: Flag `while`/`for` loops that retry on `-EAGAIN` or
+similar transient errors without a maximum iteration count or
+backoff; flag long-running loops without `cond_resched()` (see
+also NFSD-CB-003 for callback-specific retry)
+
+#### NFSD-DOS-006: Client-triggerable BUG_ON
+
+**Risk**: Kernel panic
+
+**Details**: Flag new or newly-reachable `BUG_ON()` or `BUG()`
+conditions where the triggering value originates from
+client-supplied data (opcodes, slot indices, counts); these must
+return an error instead of crashing the server; do not flag
+removal of such assertions
+
+#### NFSD-DOS-007: Work queue exhaustion
+
+**Risk**: Worker pool starvation
+
+**Details**: Flag `queue_work()` calls driven by client requests
+without per-client limits on pending work items; this addresses
+runtime queue depth, not shutdown cleanup; key queues to audit:
+`nfsd4_callback_wq`, `nfsd_copy_wq`, `laundry_wq`
+
+#### NFSD-DOS-008: Limit counter leak on error
+
+**Risk**: Limit drift, eventual exhaustion
+
+**Details**: Flag `atomic_inc()` on a resource counter before
+allocation without a matching `atomic_dec()` on all error paths;
+leaked increments gradually consume the limit budget without
+corresponding resources; this covers admission-control counters
+(`num_delegations`, `num_opens`, etc.), not object lifetime
+refcounts (see NFSD-REF-001, NFSD-REF-005)
+
+#### NFSD-DOS-009: Amplification via expensive attributes
+
+**Risk**: CPU and memory exhaustion
+
+**Details**: Flag READDIR or GETATTR paths that honor arbitrary
+client `maxcount` without capping; flag expensive attribute
+encoding (ACLs, security labels, owner name idmap lookups)
+without per-entry or per-response size limits (see also
+NFSD-XDR-004 for maxcount encode space accounting)
+
+Example -- allocation without limit check:
+```diff
++    stp = nfs4_alloc_stid(clp, ...);
++    /* WRONG: no per-client stateid limit; a single client
++       can exhaust kernel memory */
+```
+
+**Acceptable**:
+- Server-generated limits (session slot count after CREATE_SESSION)
+- Allocations bounded by fixed protocol maximums
+- Shrinker callbacks that release state under memory pressure
+- `cond_resched()` in iteration over server-controlled collections
+
+---
+
 ## Code Style
 
 Reverse-christmas tree variable ordering. `nfs_ok`/`nfserr_*` error
@@ -1152,5 +1266,5 @@ SEQUENCE processing modified; new RPC procedure or NFSv4 op added; namespace
 conversion paths changed; page array or splice read infrastructure
 modified; copy offload lifecycle or s2s authentication changed; grace
 period state machine or lease timing modified; genetlink family or
-policy definitions changed; changes exceed 100 lines touching multiple
-core files.
+policy definitions changed; resource limits or allocation patterns
+modified; changes exceed 100 lines touching multiple core files.
