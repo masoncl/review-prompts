@@ -23,7 +23,7 @@ regexes
 | Locking | spin_lock*, mutex_*, rwsem*, seqlock*, *seqcount* | locking.md |
 | Scheduler | kernel/sched/, sched_, schedule, *wakeup* | scheduler.md |
 | BPF | kernel/bpf/, bpf, verifier | bpf.md |
-| RCU | rcu*, call_rcu, synchronize_rcu, kfree_rcu | rcu.md |
+| RCU | rcu*, call_rcu, synchronize_rcu, kfree_rcu, kvfree_call_rcu | rcu.md |
 | Encryption | crypto, fscrypt_ | fscrypt.md |
 | Tracing | trace_, tracepoints | tracing.md |
 | Workqueue | kernel/workqueue.c, work_struct | workqueue.md |
