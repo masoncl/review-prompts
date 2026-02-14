@@ -19,7 +19,7 @@ validation.
 | nfs4callback.c | Callbacks |
 | nfs4layouts.c | pNFS layouts |
 | filecache.c, nfscache.c | File cache, DRC |
-| export.c, nfsctl.c | Export mgmt, admin |
+| export.c, nfsctl.c, netlink.c | Export mgmt, admin, netlink |
 | nfs4copy.c | Copy offload, s2s copy |
 | nfs4recover.c | Grace period, reclaim |
 | state.h, netns.h | Data structures |
@@ -44,6 +44,7 @@ validation.
 | COPY, OFFLOAD_CANCEL, OFFLOAD_STATUS | NFSD-COPY, NFSD-REF, NFSD-CB |
 | `nfsd4_copy`, `s2s_cp_stateids`, SSC mount | NFSD-COPY, NFSD-LOCK |
 | Grace period, reclaim, lease renewal | NFSD-GRACE, NFSD-CLI, NFSD-STID |
+| Netlink/genetlink handlers, `nla_policy` | NFSD-NL, NFSD-SEC |
 | New procedure or operation handler | NFSD-XDR, NFSD-FH, NFSD-ERR, NFSD-SEC |
 
 ---
@@ -853,6 +854,95 @@ v2/v3 procedures; `fh_verify()` enforces the version gate
 
 ---
 
+## Netlink Interface [NFSD-NL]
+
+**Scan for**: `nla_get_*`, `nla_policy`, `nla_parse_nested`,
+`NFSD_A_`, `genl_info`, `genl_register_family`, `genl_info_net`,
+`capable`, `ns_capable`, `NL_SET_ERR_MSG`, `nfsd_mutex`,
+`nfsd_running`, `nla_data`, `nla_strdup`, `NLA_NUL_STRING`
+
+#### NFSD-NL-001: Policy gap for new attribute
+
+**Risk**: Input validation bypass
+
+**Details**: Flag new `NFSD_A_*` enum values in `nfsd_netlink.h`
+without a corresponding entry in the `nla_policy` array; attributes
+without policy entries reach handlers unvalidated
+
+#### NFSD-NL-002: Missing NULL check on optional attribute
+
+**Risk**: NULL dereference
+
+**Details**: Flag `nla_get_*()` calls without a preceding
+`if (attrs[NFSD_A_*])` guard when the attribute is not enforced as
+required by policy; absent optional attributes are NULL
+
+#### NFSD-NL-003: Missing capability check
+
+**Risk**: Privilege escalation
+
+**Details**: Flag genetlink handler functions that modify NFSD state
+or configuration without a `capable(CAP_NET_ADMIN)` or
+`ns_capable()` check before any side effects
+
+#### NFSD-NL-004: Unbounded string attribute
+
+**Risk**: Memory exhaustion
+
+**Details**: Flag `NLA_STRING` policy entries without a `.len` field;
+use `NLA_NUL_STRING` with an explicit length bound; flag `nla_data()`
+on string attributes whose policy does not guarantee null termination
+
+#### NFSD-NL-005: Nested attribute without policy
+
+**Risk**: Unvalidated input
+
+**Details**: Flag `nla_parse_nested()` called with a NULL policy
+argument; nested attributes require their own policy array to
+validate inner attribute types and lengths
+
+#### NFSD-NL-006: Namespace isolation
+
+**Risk**: Cross-namespace state modification
+
+**Details**: Flag handlers that use `&init_net` or a global
+`nfsd_net` pointer instead of `genl_info_net(info)` to obtain the
+network namespace; flag `capable()` where `ns_capable()` is needed
+for namespace-relative privilege checks (see also NFSD-NS-001 for
+UID/GID namespace conversion)
+
+#### NFSD-NL-007: TOCTOU on NFSD state
+
+**Risk**: Race condition
+
+**Details**: Flag `nfsd_running()` or similar state checks not
+protected by `nfsd_mutex` through the subsequent modification;
+a gap between check and modify allows NFSD to start or stop
+concurrently (same class as NFSD-CLI-005 for the genetlink
+interface layer)
+
+#### NFSD-NL-008: Userspace integer in allocation
+
+**Risk**: Integer overflow, undersized allocation
+
+**Details**: Flag `nla_get_u32()` or `nla_get_u64()` values passed
+to `kmalloc()` or `kmalloc_array()` without an upper-bound check;
+large values cause integer overflow in size calculations (same
+class as NFSD-XDR-002 for the netlink input channel)
+
+Example -- attribute extracted without NULL check:
+```diff
++    threads = nla_get_u32(info->attrs[NFSD_A_SERVER_THREADS]);
++    /* WRONG: NFSD_A_SERVER_THREADS may be absent; NULL deref */
+```
+
+**Acceptable**:
+- Attributes enforced as required by genetlink policy validation
+- Read-only dump handlers without capability requirements
+- `genl_register_family()` / `genl_unregister_family()` at init/exit
+
+---
+
 ## Page Array Management [NFSD-PAGE]
 
 **Scan for**: `rq_pages`, `rq_next_page`, `rq_page_end`, `rq_respages`,
@@ -1061,5 +1151,6 @@ logic modified; callback dispatch/completion/retry changed; session slot or
 SEQUENCE processing modified; new RPC procedure or NFSv4 op added; namespace
 conversion paths changed; page array or splice read infrastructure
 modified; copy offload lifecycle or s2s authentication changed; grace
-period state machine or lease timing modified; changes exceed 100 lines
-touching multiple core files.
+period state machine or lease timing modified; genetlink family or
+policy definitions changed; changes exceed 100 lines touching multiple
+core files.
