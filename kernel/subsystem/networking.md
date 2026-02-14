@@ -191,45 +191,6 @@ wrong handler or silently dropped. The field classifies received packets:
 
 These are defined in `include/uapi/linux/if_packet.h`.
 
-## Special Port Constants
-
-Failing to exclude the `VMADDR_PORT_ANY` sentinel from port iteration
-causes the vsock subsystem to bind to the wildcard port, breaking port
-allocation.
-
-`VMADDR_PORT_ANY` is defined as `-1U` (0xFFFFFFFF) in
-`include/uapi/linux/vm_sockets.h` for the vsock subsystem. Port allocation
-logic that iterates or wraps around port ranges must explicitly exclude this
-sentinel value to avoid binding to the wildcard port.
-
-## TCP Receive Buffer and Window Clamping
-
-Calling `tcp_clamp_window()` when the receive queue is empty
-(`sk_rmem_alloc == 0`) sets `sk_rcvbuf` to zero, permanently stalling the
-connection because `tcp_can_ingest()` rejects all incoming packets.
-
-`tcp_clamp_window()` (in `net/ipv4/tcp_input.c`) adjusts the receive
-buffer based on current memory usage via
-`min(atomic_read(&sk->sk_rmem_alloc), rmem2)`. With `sk_rmem_alloc == 0`,
-this produces a zero `sk_rcvbuf`. Once `sk_rcvbuf` is zero,
-`tcp_can_ingest()` (which checks `rmem + skb->len <= sk->sk_rcvbuf`)
-rejects all packets and the receiver cannot advertise a non-zero window.
-
-`tcp_prune_queue()` guards against this by returning early when
-`sk_rmem_alloc` is zero:
-
-```c
-if (!atomic_read(&sk->sk_rmem_alloc))
-    return -1;  /* nothing to prune, avoid clamping empty queue */
-```
-
-Any code path that can reach `tcp_clamp_window()` must preserve this
-invariant: `tcp_clamp_window()` must not be called when
-`sk_rmem_alloc == 0`. Patches that change receive buffer checks
-(`sk_rcvbuf`, `sk_rmem_alloc` comparisons) or introduce helper functions
-that replace such checks can break this invariant if the new code allows
-reaching `tcp_clamp_window()` with empty queues where the old code did not.
-
 ## SKB Control Block Lifetime
 
 The `skb->cb` field is a 48-byte scratch area (`char cb[48]` in
@@ -276,86 +237,40 @@ void my_destructor(struct sk_buff *skb) {
 enqueue/dequeue) where the data is consumed before the SKB moves to the
 next layer.
 
-## PHY Initialization Completeness
+## UAPI Structure Alignment Inheritance
 
-Incomplete PHY `config_init` functions cause the PHY to malfunction in
-certain interface modes (RGMII, MII, GMII, MII-Lite). The PHY may fail to
-link, operate at reduced speeds, or exhibit data corruption. Hardware
-strapping alone is often insufficient -- software must also configure
-mode-selection registers.
+Adding fields with wider alignment requirements to a structure that embeds
+a narrowly-aligned UAPI struct causes misaligned memory accesses. On some
+architectures this traps; on others it silently degrades performance (up to
+50% throughput loss for hot-path headers) without functional failures,
+making the bug difficult to detect through testing.
 
-PHY `config_init` functions must configure mode-selection registers based on
-`phydev->interface`. Use `phy_interface_is_rgmii(phydev)`
-(`include/linux/phy.h`) to detect RGMII mode variants (RGMII, RGMII-ID,
-RGMII-RXID, RGMII-TXID).
+UAPI structures use only the types present in their definition to determine
+alignment. When a structure embeds another, the outer structure inherits
+the inner structure's alignment, not the alignment of any new fields added
+after it.
 
-For Broadcom PHYs: the RGMII Enable bit
-(`MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_EN`, defined in
-`include/linux/brcmphy.h`) must be set via software when RGMII mode is
-configured, even if the hardware strapping indicates RGMII. Use
-`bcm54xx_auxctl_write()` (`drivers/net/phy/bcm-phy-lib.c`) to configure
-shadow register 0x07.
+The virtio network headers illustrate this pattern. `virtio_net_hdr_v1`
+(`include/uapi/linux/virtio_net.h`) contains only `__u8` and `__virtio16`
+fields, giving it 2-byte alignment. The embedding chain
+`virtio_net_hdr_v1` -> `virtio_net_hdr_v1_hash` ->
+`virtio_net_hdr_v1_hash_tunnel` preserves 2-byte alignment throughout by
+using only `__le16` fields after the embedded struct. A `__le32` or `__u32`
+field placed after the 12-byte `virtio_net_hdr_v1` would sit at a 2-byte
+aligned offset, violating the field's natural 4-byte alignment requirement.
 
-RGMII modes require TX/RX delay configuration based on the specific
-interface mode variant:
+When extending UAPI structures that embed other structures:
 
-- `PHY_INTERFACE_MODE_RGMII`: no internal delays
-- `PHY_INTERFACE_MODE_RGMII_ID`: internal delays on both TX and RX
-- `PHY_INTERFACE_MODE_RGMII_RXID`: internal delay on RX only
-- `PHY_INTERFACE_MODE_RGMII_TXID`: internal delay on TX only
-
-The skew enable bit (`MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN`, defined in
-`include/linux/brcmphy.h`) controls whether internal delays are applied.
-
-A `config_init` function that configures features (LEDs, clocks, special
-modes) but omits interface mode register writes is likely incomplete if the
-PHY supports multiple interface modes. Compare against existing PHYs in the
-same driver family to verify all required initialization steps are present.
-
-## Virtio Network Header Alignment
-
-Misaligned fields in virtio_net header structures cause severe performance
-degradation (up to 50% throughput loss) without any functional failures or
-crashes, making this bug class difficult to detect through testing.
-
-`virtio_net_hdr_v1` (`include/uapi/linux/virtio_net.h`) is 12 bytes with
-2-byte alignment. The structure contains `__u8`, `__virtio16` (which is
-`__u16 __bitwise`), and `__le16` fields. All structures that embed
-`virtio_net_hdr_v1` inherit this 2-byte alignment.
-
-Adding `__le32` or `__u32` fields after an embedded `virtio_net_hdr_v1`
-places the 4-byte field at a 2-byte aligned offset, causing misaligned
-memory accesses:
-
-```c
-// WRONG: hash_value at offset 12 (2-byte aligned, needs 4-byte)
-struct virtio_net_hdr_v1_hash {
-    struct virtio_net_hdr_v1 hdr;  // 12 bytes, 2-byte aligned
-    __le32 hash_value;              // offset 12, misaligned!
-    __le16 hash_report;
-    __le16 padding;
-};
-
-// CORRECT: split 4-byte field into two 2-byte fields
-struct virtio_net_hdr_v1_hash {
-    struct virtio_net_hdr_v1 hdr;
-    __le16 hash_value_lo;           // offset 12, 2-byte aligned
-    __le16 hash_value_hi;           // offset 14, 2-byte aligned
-    __le16 hash_report;
-    __le16 padding;
-};
-```
-
-Use `BUILD_BUG_ON` assertions when casting between header formats to catch
-alignment mismatches at compile time:
-
-```c
-BUILD_BUG_ON(__alignof__(struct_a) != __alignof__(struct_b));
-```
-
-For new fields added after an embedded struct, the field offset must satisfy
-`offset % sizeof(field_type) == 0`. The alignment is inherited from the
-embedded struct, not the desired field type.
+- Check the embedded struct's alignment (`__alignof__`) -- new fields must
+  not require wider alignment than the embedding struct provides.
+- If a wider value is needed, split it into smaller fields that match the
+  inherited alignment (e.g., two `__le16` fields instead of one `__le32`).
+- Use `BUILD_BUG_ON(__alignof__(outer) != __alignof__(inner))` to catch
+  alignment mismatches at compile time when casting between related header
+  formats. See `xmit_skb()` in `drivers/net/virtio_net.c` for an example.
+- Verify that `offset % sizeof(field_type) == 0` for every new field,
+  where offset accounts for the inherited alignment, not the desired field
+  type.
 
 ## XFRM/IPsec Packet Family Determination
 
