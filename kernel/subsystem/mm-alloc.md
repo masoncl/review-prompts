@@ -304,10 +304,6 @@ calls must be guarded by the same condition.
   fails, the error-free path must undo all that already ran. Compare any
   specialized free/abort path against `slab_free()` for the required hook
   sequence
-- **SLUB bulk free staging buffer flush**: `free_to_pcs_bulk()` destructively
-  moves objects from the caller's array to a staging buffer (`p[i] = p[--size]`).
-  The staging buffer becomes the only reference. Every exit path must flush it
-  if `remote_nr > 0` — missing a flush is a permanent leak
 - **Direct map restore before page free**: when a page has been removed from
   the kernel direct map (via `set_direct_map_invalid_noflush()` in
   `include/linux/set_memory.h`), the direct map entry must be restored with

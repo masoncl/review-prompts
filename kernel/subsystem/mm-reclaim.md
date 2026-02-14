@@ -229,11 +229,6 @@ explicit count instead.
   `local_lock()` (preemption disabled). No sleeping operations reachable
   from this scope. Drop the lock for sleeping ops. Silent in typical testing;
   fires under `CONFIG_DEBUG_PREEMPT` or PREEMPT_RT
-- **Writeback dirty limit dual-parameter ordering**: `vm_dirty_bytes` vs
-  `vm_dirty_ratio` are mutually exclusive; bytes takes priority when
-  non-zero. Switching to ratio mode must zero bytes *before*
-  `writeback_set_ratelimit()`. See `dirty_ratio_handler()` in
-  `mm/page-writeback.c`
 - **Zone skip criteria consistency in vmscan**: zone-skip logic must be
   consistent across `balance_pgdat()`, `pgdat_balanced()`,
   `allow_direct_reclaim()`, and `skip_throttle_noprogress()`. If one counts a
@@ -244,20 +239,7 @@ explicit count instead.
   Error paths must check the counter before `list_del_init()` — the object
   may already be on the list from a prior operation. Unconditional removal
   causes iterators to loop forever unable to find remaining resources
-- **mTHP order-fallback index alignment**: compute alignment into a
-  temporary, not in-place on the original index. `round_down(index,
-  larger_pages)` destroys info for subsequent smaller-order iterations.
-  See `shmem_alloc_and_add_folio()` in `mm/shmem.c`
 - **List iteration with lock drop**: `list_for_each_entry_safe` is not safe
   when the lock is dropped mid-iteration. Concurrent `list_del_init()` makes
   the element self-referential → infinite loop. After reacquiring, check
   `list_empty()` and restart from head. See `shmem_unuse()` in `mm/shmem.c`
-- **Swap `address_space` mutability**: `struct address_space` contains mutable
-  fields (`wb_err`, `flags`, locks) that generic error-reporting infrastructure
-  may write through error paths. Never mark any `address_space` instance as
-  `__ro_after_init`; use `__read_mostly` instead
-- **Bit-based locking barrier pairing**: when a bit flag is used for mutual
-  exclusion (trylock pattern), the unlock must use `clear_bit_unlock()` (release
-  semantics), not `clear_bit()` (relaxed, no barrier). The lock side must use
-  `test_and_set_bit_lock()` (acquire semantics). MM uses this for
-  `PGDAT_RECLAIM_LOCKED` in `mm/vmscan.c`
