@@ -21,6 +21,7 @@ validation.
 | filecache.c, nfscache.c | File cache, DRC |
 | export.c, nfsctl.c | Export mgmt, admin |
 | nfs4copy.c | Copy offload, s2s copy |
+| nfs4recover.c | Grace period, reclaim |
 | state.h, netns.h | Data structures |
 
 ## Dispatch
@@ -42,6 +43,7 @@ validation.
 | Splice read or page handling | NFSD-PAGE |
 | COPY, OFFLOAD_CANCEL, OFFLOAD_STATUS | NFSD-COPY, NFSD-REF, NFSD-CB |
 | `nfsd4_copy`, `s2s_cp_stateids`, SSC mount | NFSD-COPY, NFSD-LOCK |
+| Grace period, reclaim, lease renewal | NFSD-GRACE, NFSD-CLI, NFSD-STID |
 | New procedure or operation handler | NFSD-XDR, NFSD-FH, NFSD-ERR, NFSD-SEC |
 
 ---
@@ -449,9 +451,10 @@ layouts require `ls_mutex`
 
 **Risk**: Race condition
 
-**Details**: Flag `cl_time`, `cl_lru`, `cl_idhash` accessed without
-`nn->client_lock` (per-namespace); flag `cl_openowners`, `cl_sessions`,
-`cl_revoked` accessed without `clp->cl_lock` (per-client)
+**Details**: Flag `cl_time`, `cl_lru`, `cl_idhash`, `grace_ended` accessed
+without `nn->client_lock` (per-namespace); flag `cl_openowners`,
+`cl_sessions`, `cl_revoked`, `cl_reclaim_complete` accessed without
+`clp->cl_lock` (per-client)
 
 #### NFSD-LOCK-005: Lookup-to-lock window (TOCTOU)
 
@@ -550,6 +553,92 @@ invocation triggers BUG_ON
 - Initial state assignment during allocation, before visibility
 - Read-only state checks for logging
 - Atomic transition helpers that encapsulate proper locking
+
+---
+
+## Grace Period and Lease Management [NFSD-GRACE]
+
+**Scan for**: `nfsd4_grace_period`, `grace_ended`, `nfsd4_end_grace`,
+`nfsd4_reclaim_complete`, `cl_reclaim_complete`, `cl_time`,
+`nfsd4_lease`, `nfsd4_grace`, `CLAIM_PREVIOUS`, `lk_reclaim`,
+`nfsd4_client_record_create`, `ktime_get_boottime_seconds`,
+`laundromat`, `courtesy`, `nfserr_grace`
+
+#### NFSD-GRACE-001: Missing grace check before state creation
+
+**Risk**: Protocol violation, lock conflicts
+
+**Details**: Flag OPEN, LOCK, or size-changing SETATTR that creates
+new state without a prior `nfsd4_grace_period()` check; non-reclaim
+operations must return `nfserr_grace` during the grace period
+(RFC 8881 section 9.6)
+
+#### NFSD-GRACE-002: Reclaim type mismatch
+
+**Risk**: Unauthorized state recovery
+
+**Details**: Flag reclaim paths that accept claim types other than
+`CLAIM_PREVIOUS` or `CLAIM_DELEGATE_PREV` for opens, or
+`lk_reclaim=true` for locks; non-reclaim claim types must be
+rejected during grace
+
+#### NFSD-GRACE-003: Grace end vs active reclaim race
+
+**Risk**: Premature state loss
+
+**Details**: Flag `nfsd4_end_grace()` that does not account for
+clients with reclaims still in progress; ending grace while a client
+is mid-reclaim causes that client to lose state
+
+#### NFSD-GRACE-004: Lease time source inconsistency
+
+**Risk**: Premature expiry or unbounded lease
+
+**Details**: Flag lease expiry checks that use a hard-coded value
+instead of `nn->nfsd4_lease`; flag grace duration not derived from
+`nn->nfsd4_grace`; all timing must reference the per-namespace
+configuration
+
+#### NFSD-GRACE-005: Lease clock API mismatch
+
+**Risk**: Incorrect expiry after suspend/resume
+
+**Details**: Flag `cl_time` updates or comparisons using
+`ktime_get()` instead of `ktime_get_boottime_seconds()`; lease
+times must survive suspend, so boot-time monotonic clock is
+required
+
+#### NFSD-GRACE-006: Reclaim record persistence
+
+**Risk**: Reclaim failure after crash
+
+**Details**: Flag client state creation that bypasses
+`nfsd4_client_record_create()` for persistent storage; in-memory-only
+reclaim records are lost on crash, preventing the client from
+reclaiming after the subsequent grace period
+
+#### NFSD-GRACE-007: Post-grace client cleanup
+
+**Risk**: Resource leak, memory exhaustion
+
+**Details**: Flag grace-end paths that do not expire clients which
+failed to complete reclaim; clients that never issued
+RECLAIM_COMPLETE must be destroyed after the grace period ends
+
+Example -- new state allowed during grace:
+```diff
+     __be32 nfsd4_lock(...)
+     {
++        /* WRONG: no grace check; new locks granted during
++           grace period violate RFC 8881 section 9.6 */
+         return process_lock(...);
+     }
+```
+
+**Acceptable**:
+- Reclaim operations (CLAIM_PREVIOUS, lk_reclaim) during grace
+- Grace period state read for logging or diagnostics
+- Lease renewal on any valid client operation (not grace-specific)
 
 ---
 
@@ -952,6 +1041,11 @@ All except st_mutex are spinlocks. `nn->nfsd_ssc_lock` is independent of
 `resp->pages` before read; bounds-check before advancing; recycle
 after READDIR.
 
+**Grace period**: `nn->grace_ended` (per-namespace, under `client_lock`),
+`cl_reclaim_complete` (per-client, under `cl_lock`). Lease times use
+`ktime_get_boottime_seconds()`; durations from `nn->nfsd4_lease` and
+`nn->nfsd4_grace`.
+
 **Invariants**: Verify before dereference; hold reference before async work;
 release on all error paths; encode before committing state; use
 `nfsd_user_namespace()` for ID conversion.
@@ -966,5 +1060,6 @@ lifecycle changed; lock ordering changed; client state machine or grace period
 logic modified; callback dispatch/completion/retry changed; session slot or
 SEQUENCE processing modified; new RPC procedure or NFSv4 op added; namespace
 conversion paths changed; page array or splice read infrastructure
-modified; copy offload lifecycle or s2s authentication changed; changes
-exceed 100 lines touching multiple core files.
+modified; copy offload lifecycle or s2s authentication changed; grace
+period state machine or lease timing modified; changes exceed 100 lines
+touching multiple core files.
