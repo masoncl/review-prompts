@@ -53,10 +53,6 @@ validation.
 
 ## XDR Input Trust Boundaries [NFSD-XDR]
 
-**Scan for**: `xdr_stream_decode_*`, `xdr_reserve_space`,
-`xdr_stream_encode_*`, `xdr_inline_decode`, `maxcount`, `so_replay`,
-`rp_buf`, response encode loops
-
 #### NFSD-XDR-001: Decode return value checking
 
 **Risk**: Buffer overflow, uninitialized data use
@@ -70,8 +66,7 @@ checked before the decoded variable is used
 
 **Details**: Flag decoded lengths passed to `kmalloc()` without an upper-bound
 check; flag decoded counts driving loops without a cap; flag missing
-`check_mul_overflow()` on `count * sizeof(...)` calculations (see also
-NFSD-NL-008 for the netlink input channel)
+`check_mul_overflow()` on `count * sizeof(...)` calculations
 
 #### NFSD-XDR-003: Array index from client
 
@@ -127,25 +122,13 @@ garbage
 **Details**: Flag RFC-required structure members that are conditionally
 skipped (e.g., when `maxcount==0`); every defined field must be encoded
 
-Example -- bounds check removed from decode path:
-```diff
--    if (count > NFS3_FHSIZE)
--        return nfserr_bad_xdr;
-     p = xdr_inline_decode(xdr, count);
-```
-
 **Acceptable**:
 - xdrgen code (nfs3xdr_gen.c, nfs4xdr_gen.c) has built-in validation
 - Metadata from `fh_dentry` after `fh_verify()` is trusted
-- Pre-reserved fixed-size encodes need no per-call check
 
 ---
 
 ## Reference Counting [NFSD-REF]
-
-**Scan for**: `*_get`, `*_put`, `refcount_inc`, `refcount_dec`,
-`kref_get`, `kref_put`, `refcount_inc_not_zero`, `kfree`, `kfree_rcu`,
-`goto retry`, error-path returns after lookup
 
 #### NFSD-REF-001: Acquisition/release balance
 
@@ -217,16 +200,10 @@ Example -- field accessed after final put:
 
 **Acceptable**:
 - Transfer semantics where function "steals" a reference
-- `refcount_inc_not_zero` failure returning immediately
-- Initialization with `refcount_set(1)`
-- Conditional get/put with matching conditions
 
 ---
 
 ## File Handle Lifecycle [NFSD-FH]
-
-**Scan for**: `fh_verify`, `fh_put`, `fh_init`, `fh_dentry`,
-`fh_export`, `d_inode`, `NFSD_MAY_*`, `S_IFREG`, `S_IFDIR`
 
 #### NFSD-FH-001: Access before verification
 
@@ -260,17 +237,11 @@ specific file type; pass `S_IFREG`/`S_IFDIR` to enforce
 
 **Acceptable**:
 - Request-scoped handles in args structs are released by framework
-- fh_verify failure paths need no fh_put
 - COMPOUND framework manages cstate handle lifecycle
 
 ---
 
 ## NFSv4 Stateid Lifecycle [NFSD-STID]
-
-**Scan for**: `nfsd4_lookup_stateid`, `nfs4_put_stid`, `nfs4_get_stid`,
-`sc_count`, `sc_status`, `sc_type`, `si_generation`,
-`nfs4_inc_and_copy_stateid`, `nfsd4_run_cb`, `fl_lmops`, `fh_match`,
-`CLAIM_DELEG_CUR`, `nfs4_unlock_deleg_lease`
 
 #### NFSD-STID-001: Lookup without matching put
 
@@ -349,25 +320,12 @@ released to be re-broken
 **Details**: Flag sleeping operations (segment manipulation, allocation) under
 `ls_lock`; these require `ls_mutex` instead
 
-Example -- missing put on error path:
-```diff
-     stp = nfsd4_lookup_stateid(cstate, stateid, ...);
-+    if (check_something(stp))
-+        return nfserr_bad_stateid;
-+    /* leaked: no nfs4_put_stid() before return */
-```
-
 **Acceptable**:
-- Allocation sets initial refcount (no matching get needed)
-- Lookup failure paths need no put
 - Destructor field access during final put is safe
 
 ---
 
 ## Error Code Mapping [NFSD-ERR]
-
-**Scan for**: `nfserrno`, `nfserr_*`, `PTR_ERR`, `rpc_success`,
-`nfsd3_map_status`, `EOPENSTALE`, `nfserr_delay`, `nfserr_file_open`
 
 #### NFSD-ERR-001: Missing NFSv3 status mapping
 
@@ -413,18 +371,9 @@ pre-v4.1 paths
 **Details**: Flag direct conversion of `EOPENSTALE` to `nfserr_stale`;
 `EOPENSTALE` requires retry at a higher level
 
-**Acceptable**:
-- `nfserr_*` constants in version-specific code
-- `nfserrno()` applied to VFS/errno returns
-
 ---
 
 ## Locking Correctness [NFSD-LOCK]
-
-**Scan for**: `spin_lock`, `spin_unlock`, `mutex_lock`, `mutex_unlock`,
-`client_lock`, `state_lock`, `cl_lock`, `fi_lock`, `ls_lock`, `se_lock`,
-`s2s_cp_lock`, `nfsd_ssc_lock`, `st_mutex`, `ls_mutex`, `cancel_work`,
-`flc_lock`, `refcount_dec_and_lock`
 
 #### NFSD-LOCK-001: Lock ordering violation
 
@@ -483,24 +432,9 @@ use `refcount_dec()` when refcount cannot reach zero
 **Details**: Flag `cancel_work()` during shutdown; non-synchronous cancel
 allows the work to run after resource destruction; use `cancel_work_sync()`
 
-Example -- reverse lock ordering:
-```diff
-+    spin_lock(&clp->cl_lock);
-+    spin_lock(&nn->client_lock);  /* ABBA: cl_lock before client_lock */
-```
-
-**Acceptable**:
-- RCU read-side access for RCU-protected data
-- Initialization before object is visible needs no lock
-- Single-threaded teardown with exclusive refcount access
-
 ---
 
 ## Client State Transitions [NFSD-CLI]
-
-**Scan for**: `cl_state`, `COURTESY`, `EXPIRED`, `CONFIRMED`,
-`destroy_client`, `nfsd_mutex`, `nfsd_serv`, `cl_time`,
-`release_openowner`, `nfs4_free_cpntf_statelist`, `laundromat`
 
 #### NFSD-CLI-001: Invalid state transition
 
@@ -553,20 +487,9 @@ freeing stateids (open, lock), or cleaning up sessions
 **Details**: Flag init functions reachable from multiple call paths; second
 invocation triggers BUG_ON
 
-**Acceptable**:
-- Initial state assignment during allocation, before visibility
-- Read-only state checks for logging
-- Atomic transition helpers that encapsulate proper locking
-
 ---
 
 ## Grace Period and Lease Management [NFSD-GRACE]
-
-**Scan for**: `nfsd4_grace_period`, `grace_ended`, `nfsd4_end_grace`,
-`nfsd4_reclaim_complete`, `cl_reclaim_complete`, `cl_time`,
-`nfsd4_lease`, `nfsd4_grace`, `CLAIM_PREVIOUS`, `lk_reclaim`,
-`nfsd4_client_record_create`, `ktime_get_boottime_seconds`,
-`laundromat`, `courtesy`, `nfserr_grace`
 
 #### NFSD-GRACE-001: Missing grace check before state creation
 
@@ -629,28 +552,12 @@ reclaiming after the subsequent grace period
 failed to complete reclaim; clients that never issued
 RECLAIM_COMPLETE must be destroyed after the grace period ends
 
-Example -- new state allowed during grace:
-```diff
-     __be32 nfsd4_lock(...)
-     {
-+        /* WRONG: no grace check; new locks granted during
-+           grace period violate RFC 8881 section 9.6 */
-         return process_lock(...);
-     }
-```
-
 **Acceptable**:
 - Reclaim operations (CLAIM_PREVIOUS, lk_reclaim) during grace
-- Grace period state read for logging or diagnostics
-- Lease renewal on any valid client operation (not grace-specific)
 
 ---
 
 ## User Namespace ID Conversion [NFSD-NS]
-
-**Scan for**: `from_kuid`, `from_kgid`, `make_kuid`, `make_kgid`,
-`uid_valid`, `gid_valid`, `init_user_ns`, `current_user_ns`,
-`nfsd_user_namespace`, `from_kuid_munged`, `GLOBAL_ROOT_UID`
 
 #### NFSD-NS-001: Wrong namespace source
 
@@ -687,16 +594,11 @@ operation
 
 **Acceptable**:
 - Host-only internal paths (module init, procfs) may use `init_user_ns`
-- `from_kuid_munged()` for GETATTR encoding
 - Idmap path handles namespace conversion internally
 
 ---
 
 ## Callback Operations [NFSD-CB]
-
-**Scan for**: `nfsd4_run_cb`, `cl_rpc_users`, `cl_cb_state`, `NFSD4_CB_UP`,
-`cl_cb_seq_nr`, `nfsd4_shutdown_callback`, `cl_session`,
-`cl_minorversion`, callback release handlers, `cb_client`
 
 #### NFSD-CB-001: Missing client reference
 
@@ -719,8 +621,7 @@ outside the same lock hold
 **Risk**: Resource exhaustion, blocked clients
 
 **Details**: Flag callback retry loops without backoff or bound; unbounded
-retry on an unreachable client holds delegations indefinitely (see also
-NFSD-DOS-005 for general retry loop analysis)
+retry on an unreachable client holds delegations indefinitely
 
 #### NFSD-CB-004: Sequence number atomicity
 
@@ -751,17 +652,11 @@ increment causes duplicate sequence numbers and BAD_SEQUENCE rejection
 `cl_session` is NULL for NFSv4.0 clients
 
 **Acceptable**:
-- Callback queue creation at server start
-- Read-only state checks for logging
 - Deferred release via RPC completion handler
 
 ---
 
 ## Session Slots [NFSD-SLOT]
-
-**Scan for**: `se_slots`, `slotid`, `maxreqs`, `sl_seqid`, `sl_inuse`,
-`sl_reply`, `same_creds`, `nfsd4_slot`, `SEQUENCE`,
-`CREATE_SESSION`, `DESTROY_SESSION`
 
 #### NFSD-SLOT-001: Slot index bounds
 
@@ -808,18 +703,9 @@ the session from the hash table and draining active compounds
 **Details**: Flag `kfree(slot->sl_reply)` without clearing the pointer;
 replay returns freed memory
 
-**Acceptable**:
-- Read-only slot access for tracing
-- Slot init during CREATE_SESSION before visibility
-- `maxreqs` immutable after creation
-
 ---
 
 ## Security Validation [NFSD-SEC]
-
-**Scan for**: `fh_verify`, `fh_dentry`, `nfs4_preprocess_stateid_op`,
-`NFSD_MAY_*`, new procedure handlers, `nfsd_rename`, `nfsd_link`,
-pseudo-filesystem access
 
 #### NFSD-SEC-001: Validation bypass via new code path
 
@@ -854,16 +740,10 @@ v2/v3 procedures; `fh_verify()` enforces the version gate
 **Acceptable**:
 - Caller already verified fh (documented in function comment/contract)
 - Compound framework pre-validates cstate file handles
-- Export cache lookups in nfsd_fh_init path (no dentry yet)
 
 ---
 
 ## Netlink Interface [NFSD-NL]
-
-**Scan for**: `nla_get_*`, `nla_policy`, `nla_parse_nested`,
-`NFSD_A_`, `genl_info`, `genl_register_family`, `genl_info_net`,
-`capable`, `ns_capable`, `NL_SET_ERR_MSG`, `nfsd_mutex`,
-`nfsd_running`, `nla_data`, `nla_strdup`, `NLA_NUL_STRING`
 
 #### NFSD-NL-001: Policy gap for new attribute
 
@@ -912,8 +792,7 @@ validate inner attribute types and lengths
 **Details**: Flag handlers that use `&init_net` or a global
 `nfsd_net` pointer instead of `genl_info_net(info)` to obtain the
 network namespace; flag `capable()` where `ns_capable()` is needed
-for namespace-relative privilege checks (see also NFSD-NS-001 for
-UID/GID namespace conversion)
+for namespace-relative privilege checks
 
 #### NFSD-NL-007: TOCTOU on NFSD state
 
@@ -922,8 +801,7 @@ UID/GID namespace conversion)
 **Details**: Flag `nfsd_running()` or similar state checks not
 protected by `nfsd_mutex` through the subsequent modification;
 a gap between check and modify allows NFSD to start or stop
-concurrently (same class as NFSD-CLI-005 for the genetlink
-interface layer)
+concurrently
 
 #### NFSD-NL-008: Userspace integer in allocation
 
@@ -931,28 +809,14 @@ interface layer)
 
 **Details**: Flag `nla_get_u32()` or `nla_get_u64()` values passed
 to `kmalloc()` or `kmalloc_array()` without an upper-bound check;
-large values cause integer overflow in size calculations (same
-class as NFSD-XDR-002 for the netlink input channel)
-
-Example -- attribute extracted without NULL check:
-```diff
-+    threads = nla_get_u32(info->attrs[NFSD_A_SERVER_THREADS]);
-+    /* WRONG: NFSD_A_SERVER_THREADS may be absent; NULL deref */
-```
+large values cause integer overflow in size calculations
 
 **Acceptable**:
 - Attributes enforced as required by genetlink policy validation
-- Read-only dump handlers without capability requirements
-- `genl_register_family()` / `genl_unregister_family()` at init/exit
 
 ---
 
 ## Page Array Management [NFSD-PAGE]
-
-**Scan for**: `rq_pages`, `rq_next_page`, `rq_page_end`, `rq_respages`,
-`rq_maxpages`, `rq_bvec`, `svc_rqst_replace_page`, `xdr_write_pages`,
-`page_ptr`, `resp->pages`, `nfsd_splice_actor`, `nfsd_iter_read`,
-`nfsd3_init_dirlist_pages`
 
 #### NFSD-PAGE-001: Response page pointer saved before read
 
@@ -971,8 +835,7 @@ use the wrong pointer (fix 7978e9bea278)
 `rq_next_page < rq_page_end` guard in the loop condition; flag
 `rq_bvec` indexing without an `rq_maxpages` bound; the advancing
 pointer depends on variable-length read data, making overrun a
-proven failure mode (fixes e1b495d02c53, 3be7f32878e7; see also
-SUNRPC-CORE-004)
+proven failure mode (fixes e1b495d02c53, 3be7f32878e7)
 
 #### NFSD-PAGE-003: COMPOUND page_ptr / rq_next_page sync
 
@@ -1013,18 +876,10 @@ Example -- rq_next_page accessed after read advances it:
 
 **Acceptable**:
 - `nfsd4_encode_operation()` centralizing page_ptr sync
-- Page allocation during `svc_rqst_init()` before any request
-- XDR page encoding via `xdr_write_pages()` in encode helpers
 
 ---
 
 ## Copy Offload Operations [NFSD-COPY]
-
-**Scan for**: `nfsd4_copy`, `nfsd4_do_async_copy`, `dup_copy_fields`,
-`cleanup_async_copy`, `s2s_cp_stateids`, `s2s_cp_lock`, `nfsd_ssc_lock`,
-`nfsd4_ssc_umount_item`, `cp_stateid`, `cp_clp`, `cp_cb`,
-`nfsd4_run_cb`, `CB_OFFLOAD`, `COPY_NOTIFY`, `OFFLOAD_CANCEL`,
-`OFFLOAD_STATUS`, `nfs4_cpntf_state`, `nfsd4_interssc_connect`
 
 #### NFSD-COPY-001: Copy stateid IDR cleanup
 
@@ -1092,27 +947,12 @@ continuation loop or accurate `wr_bytes_written` reporting
 global limits; an attacker can exhaust memory by issuing unbounded
 concurrent COPY operations
 
-Example -- async copy without file reference:
-```diff
-     async_copy->nf_src = copy->nf_src;
-+    /* WRONG: no nfsd_file_get(); compound releases nf_src
-+       before worker runs */
-```
-
 **Acceptable**:
 - Synchronous copy uses compound-scoped references directly
-- `refcount_set(1)` at allocation is the initial reference
-- Cleanup in `nfsd4_cb_offload_release()` via release handler
 
 ---
 
 ## Denial of Service Vectors [NFSD-DOS]
-
-**Scan for**: `kmalloc`, `kzalloc`, `kvmalloc`, `alloc_*`,
-`nfs4_alloc_stid`, `alloc_init_deleg`, `alloc_lock_stateid`,
-`create_session`, `list_add`, `queue_work`, `wait_event`,
-`wait_for_completion`, `BUG_ON`, `cond_resched`,
-`max_delegations`, `max_*`, `nfserr_resource`, `nfserr_delay`
 
 #### NFSD-DOS-001: Unbounded state accumulation
 
@@ -1122,8 +962,7 @@ Example -- async copy without file reference:
 `alloc_lock_stateid()`, or `create_session()` without a preceding
 per-client limit check; a single client must not consume unbounded
 stateids, delegations, locks, or sessions; flag global limits
-without a corresponding per-client limit (see also NFSD-COPY-008
-for async copy queue limits)
+without a corresponding per-client limit
 
 #### NFSD-DOS-002: Limit checked after allocation
 
@@ -1147,11 +986,9 @@ to monopolize a worker thread; the server should return
 **Risk**: Worker thread starvation
 
 **Details**: Flag `wait_event()` or `wait_for_completion()` without
-a timeout variant (`wait_event_timeout`,
-`wait_for_completion_timeout`); a client that never responds pins
-the worker thread indefinitely; in delegation recall paths,
-unresponsive clients must have delegations revoked after a bounded
-period to avoid blocking conflicting operations for other clients
+a timeout variant; unresponsive clients must have delegations
+revoked after a bounded period to avoid blocking conflicting
+operations for other clients
 
 #### NFSD-DOS-005: Unbounded retry loop
 
@@ -1159,8 +996,7 @@ period to avoid blocking conflicting operations for other clients
 
 **Details**: Flag `while`/`for` loops that retry on `-EAGAIN` or
 similar transient errors without a maximum iteration count or
-backoff; flag long-running loops without `cond_resched()` (see
-also NFSD-CB-003 for callback-specific retry)
+backoff; flag long-running loops without `cond_resched()`
 
 #### NFSD-DOS-006: Client-triggerable BUG_ON
 
@@ -1177,9 +1013,8 @@ removal of such assertions
 **Risk**: Worker pool starvation
 
 **Details**: Flag `queue_work()` calls driven by client requests
-without per-client limits on pending work items; this addresses
-runtime queue depth, not shutdown cleanup; key queues to audit:
-`nfsd4_callback_wq`, `nfsd_copy_wq`, `laundry_wq`
+without per-client limits on pending work items; key queues to
+audit: `nfsd4_callback_wq`, `nfsd_copy_wq`, `laundry_wq`
 
 #### NFSD-DOS-008: Limit counter leak on error
 
@@ -1190,7 +1025,7 @@ allocation without a matching `atomic_dec()` on all error paths;
 leaked increments gradually consume the limit budget without
 corresponding resources; this covers admission-control counters
 (`num_delegations`, `num_opens`, etc.), not object lifetime
-refcounts (see NFSD-REF-001, NFSD-REF-005)
+refcounts
 
 #### NFSD-DOS-009: Amplification via expensive attributes
 
@@ -1199,31 +1034,15 @@ refcounts (see NFSD-REF-001, NFSD-REF-005)
 **Details**: Flag READDIR or GETATTR paths that honor arbitrary
 client `maxcount` without capping; flag expensive attribute
 encoding (ACLs, security labels, owner name idmap lookups)
-without per-entry or per-response size limits (see also
-NFSD-XDR-004 for maxcount encode space accounting)
-
-Example -- allocation without limit check:
-```diff
-+    stp = nfs4_alloc_stid(clp, ...);
-+    /* WRONG: no per-client stateid limit; a single client
-+       can exhaust kernel memory */
-```
+without per-entry or per-response size limits
 
 **Acceptable**:
 - Server-generated limits (session slot count after CREATE_SESSION)
 - Allocations bounded by fixed protocol maximums
-- Shrinker callbacks that release state under memory pressure
-- `cond_resched()` in iteration over server-controlled collections
 
 ---
 
 ## NFS Re-export Safety [NFSD-REEXP]
-
-**Scan for**: `NFS_SUPER_MAGIC`, `s_magic`, `NFSEXP_CROSSMOUNT`,
-`nfsd_cross_mnt`, `follow_down`, `crossmnt`, `NFS_FH`,
-`fh_compose` near NFS superblock checks, `exp->ex_path.mnt`;
-in re-export context only: `ESTALE`, `EAGAIN`, `vfs_lock_file`,
-`nfs4_handle_exception`
 
 #### NFSD-REEXP-001: File handle uses local inode number
 
@@ -1241,8 +1060,7 @@ upstream file handle (`NFS_FH()`) must be embedded instead
 **Details**: Flag VFS operation error paths that retry on `-ESTALE`
 from an NFS-backed filesystem without propagating the error to the
 client; ESTALE indicates permanent handle invalidity on the upstream
-server and retrying cannot resolve it (see also NFSD-ERR-006 for
-EOPENSTALE propagation in the local error path)
+server and retrying cannot resolve it
 
 #### NFSD-REEXP-003: Lock state committed before upstream
 
@@ -1251,8 +1069,7 @@ EOPENSTALE propagation in the local error path)
 **Details**: Flag lock acquisition paths that update local NFSD state
 before the VFS lock call (`vfs_lock_file()`) succeeds on the upstream
 NFS mount; upstream must be locked first, then local state committed;
-failure of the upstream lock must not leave stale local state (same
-commit-before-confirm class as NFSD-XDR-007)
+failure of the upstream lock must not leave stale local state
 
 #### NFSD-REEXP-004: Mount crossing without filesystem check
 
@@ -1270,8 +1087,7 @@ different handle encoding and credential handling
 **Details**: Flag operations on re-exported filesystems that only
 check local grace state (`nfsd4_grace_period()`) without handling
 upstream grace errors (`-EAGAIN` from NFS client during upstream
-grace); upstream grace and local grace are independent (see also
-NFSD-GRACE-001 for missing local grace checks)
+grace); upstream grace and local grace are independent
 
 #### NFSD-REEXP-006: Credential double-mapping
 
@@ -1281,8 +1097,7 @@ NFSD-GRACE-001 for missing local grace checks)
 mapping; re-export applies squash and security flavor transforms
 twice (re-export settings then upstream mount settings); flag
 `no_root_squash` on re-export when the upstream mount uses
-`root_squash` (see also NFSD-NS-001 for single-layer namespace
-conversion)
+`root_squash`
 
 #### NFSD-REEXP-007: Export fsid stability
 
@@ -1293,18 +1108,8 @@ is derived from the NFS mount rather than set explicitly; mount
 device numbers change across remounts, invalidating all outstanding
 file handles
 
-Example -- inode number used for NFS superblock:
-```diff
-     struct inode *inode = d_inode(fhp->fh_dentry);
-+    fh->fh_ino = inode->i_ino;
-+    /* WRONG on NFS: i_ino is unstable across upstream
-+       reconnects; use NFS_FH(inode) instead */
-```
-
 **Acceptable**:
 - Local filesystem exports (s_magic != NFS_SUPER_MAGIC)
-- Explicit fsid/uuid configuration on re-exports
-- ESTALE handling that invalidates dentries then returns the error
 
 ---
 
