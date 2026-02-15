@@ -113,8 +113,23 @@ Scan the loaded CHANGEs and create a TodoWrite of what to load in PHASE 3.
 
 ### Subsystem Guides MUST be loaded
 
-Read `<prompt_dir>/subsystem/subsystem.md` and load all matching subsystem guides and
-critical patterns based on what the patch touches.
+Read `<prompt_dir>/subsystem/subsystem.md` and check EVERY row in the table against
+the patch diff, commit message, and all CHANGE files. A subsystem matches if ANY
+of its triggers appear anywhere in the patch — function names, type names, macro
+calls, file paths, or symbols.
+
+**MANDATORY output before proceeding:**
+```
+Subsystem trigger scan:
+  [subsystem name]: [MATCHED trigger] → loading [file] | no match
+  [subsystem name]: [MATCHED trigger] → loading [file] | no match
+  ... (every row in subsystem.md)
+Guides to load: [complete list]
+```
+
+You MUST enumerate every single row. Do not skip rows that "obviously" don't match.
+Then load ALL matched guides in a single parallel Read before proceeding.
+Failing to load a matched guide means the analysis is incomplete.
 
 ### Per-CHANGE Planning
 
