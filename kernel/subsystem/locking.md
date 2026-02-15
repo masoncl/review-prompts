@@ -14,13 +14,44 @@ column indicates whether acquiring the lock may sleep, which determines
 what other operations are legal while holding it (sleeping locks cannot be
 held in atomic context or under a spinlock).
 
-| Lock Variant | vs Process | vs Softirq | vs Hardirq | Sleeps |
-|---|---|---|---|---|
-| `spin_lock` | Yes | No | No | No |
-| `spin_lock_bh` | Yes | Yes | No | No |
-| `spin_lock_irq` | Yes | Yes | Yes | No |
-| `spin_lock_irqsave` | Yes | Yes | Yes | No |
-| `mutex` / `rwsem` | Yes | No | No | Yes |
+| Lock Variant | Wait Type | vs Process | vs Softirq | vs Hardirq | Sleeps |
+|---|---|---|---|---|---|
+| `raw_spin_lock` | LD_WAIT_SPIN | Yes | No | No | No |
+| `raw_spin_lock_irqsave` | LD_WAIT_SPIN | Yes | Yes | Yes | No |
+| `spin_lock` | LD_WAIT_CONFIG | Yes | No | No | No (non-RT) / Yes (RT) |
+| `spin_lock_bh` | LD_WAIT_CONFIG | Yes | Yes | No | No (non-RT) / Yes (RT) |
+| `spin_lock_irq` | LD_WAIT_CONFIG | Yes | Yes | Yes | No (non-RT) / Yes (RT) |
+| `spin_lock_irqsave` | LD_WAIT_CONFIG | Yes | Yes | Yes | No (non-RT) / Yes (RT) |
+| `local_lock` | LD_WAIT_CONFIG | Per-CPU | No | No | No (non-RT) / Yes (RT) |
+| `local_trylock` | LD_WAIT_CONFIG | Per-CPU | No | No | No (non-RT) / Yes (RT) |
+| `mutex` / `rwsem` | LD_WAIT_SLEEP | Yes | No | No | Yes |
+
+### Lock Nesting Compatibility
+
+Lockdep enforces wait-type nesting: an inner lock's wait type must be <=
+the outer lock's wait type. `CONFIG_PROVE_RAW_LOCK_NESTING` (default `y`)
+enforces this **even on non-RT kernels**. `!IS_ENABLED(CONFIG_PREEMPT_RT)`
+guards do NOT suppress these checks.
+
+**Any violation in the table below is a bug. Report it.**
+
+| Outer lock held | Can nest | CANNOT nest (lockdep BUG) |
+|---|---|---|
+| `raw_spinlock_t` | `raw_spinlock_t` | `spinlock_t`, `local_lock`, `local_trylock`, `mutex`, `rwsem` |
+| `spinlock_t` | `raw_spinlock_t`, `spinlock_t`, `local_lock`, `local_trylock` | `mutex`, `rwsem` |
+| `local_lock` / `local_trylock` | `raw_spinlock_t`, `spinlock_t`, `local_lock`, `local_trylock` | `mutex`, `rwsem` |
+| `mutex` / `rwsem` | all | — |
+
+To check for violations: trace the call chain in both directions. If code
+acquires `spinlock_t`, `local_lock`, or `local_trylock`, check whether ANY
+caller in the chain holds `raw_spinlock_t`. If code holds `raw_spinlock_t`,
+check whether ANY callee acquires `spinlock_t`, `local_lock`, or
+`local_trylock`.
+
+Fix: `DEFINE_WAIT_OVERRIDE_MAP(map, LD_WAIT_CONFIG)` with
+`lock_map_acquire_try(&map)` / `lock_map_release(&map)` around the inner
+lock acquisition. This tells lockdep the nesting is intentional (e.g.,
+because the LD_WAIT_CONFIG path is unreachable on PREEMPT_RT).
 
 **Notes:**
 - `spin_lock` does not mask softirqs or hardirqs; data can still be
@@ -138,16 +169,9 @@ lockdep splat (`BUG: Invalid wait context`) on RT.
   `spin_lock_irq()` on a `spinlock_t` does NOT disable IRQs on RT (it
   acquires the underlying rt_mutex without masking interrupts;
   see `spin_lock_irq()` in `include/linux/spinlock_rt.h`)
-- **Converting `spinlock_t` to `raw_spinlock_t` requires auditing all
-  callees**: on PREEMPT_RT, code running under a `raw_spinlock_t` must
-  not call any function that acquires a `spinlock_t`, because `spinlock_t`
-  is a sleeping lock on RT. When a patch converts a lock from `spinlock_t`
-  to `raw_spinlock_t`, verify that no function reachable from the critical
-  section acquires a `spinlock_t`. Lockdep enforces this via wait types:
-  `raw_spinlock_t` uses `LD_WAIT_SPIN` while `spinlock_t` uses
-  `LD_WAIT_CONFIG` (see `include/linux/lockdep_types.h`). When
-  `CONFIG_PROVE_RAW_LOCK_NESTING` is enabled, lockdep flags the nesting
-  even on non-RT kernels
+- **`raw_spinlock_t` nesting rules**: see the Lock Nesting Compatibility
+  table above. Code reachable from `raw_spinlock_t` must not acquire
+  `spinlock_t`, `local_lock`, or `local_trylock`
 
 ## Seqlocks and Seqcounts
 
