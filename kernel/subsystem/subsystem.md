@@ -27,7 +27,7 @@ regexes
 | Encryption | crypto, fscrypt_ | fscrypt.md |
 | Tracing | trace_, tracepoints | tracing.md |
 | Workqueue | kernel/workqueue.c, work_struct | workqueue.md |
-| Syscalls | syscall definitions | syscall.md |
+| Syscalls | `SYSCALL_DEFINE`, `copy_from_user`, `copy_to_user`, `get_user`, `put_user`, any change to syscall parameter validation | syscall.md |
 | btrfs | fs/btrfs/ | btrfs.md |
 | DAX | dax operations | dax.md |
 | Block/NVMe | block layer, nvme | block.md |
