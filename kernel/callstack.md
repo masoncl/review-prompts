@@ -308,6 +308,21 @@ Think about potential regressions that you found and ruled out, and consider
 them against the RETRACTION RULE and REACHABILITY DISMISSAL sections at
 the top of this prompt.  Was it wrong to exclude them?
 
+### Forward search for latent issues
+
+For any ruled-out regression dismissed because the code path "isn't reachable
+yet" or "no callers exist yet": patch series often add infrastructure in one
+commit and wire it up later.  A bug in the infrastructure is still a bug.
+
+If a git range was provided (`current_sha..series_end_sha`), use
+`find_commit` with `symbol_patterns` or `subject_patterns` to search forward
+for commits that enable the dismissed code path.  If found, **reinstate the
+issue as confirmed**.
+
+If no git range was provided, report the issue and note that a subsequent
+commit may enable it.  Do NOT dismiss solely because the current commit
+doesn't trigger it.
+
 While you were processing these potential bugs, did you ignore other
 possible problems?  Reconsider issues that might have been hidden by
 focusing too heavily on issues you later ruled out.
