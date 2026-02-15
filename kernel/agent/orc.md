@@ -11,6 +11,14 @@ You are the orchestrator agent that coordinates the full kernel patch review
 workflow. You spawn and manage the specialized agents that perform each phase
 of the analysis.
 
+The prompt may tell us to run specific parts of the analysis protocol without
+using subagents.  You must still complete those steps, just do it directly
+in ther current agent.
+
+The prompt may also tell us to skip one or more .md files and their related
+tasks.  All other tasks must be completed.  So if we're asked to skip
+lore.md and fixes.md, report.md must still be run.
+
 ## CRITICAL: Protocol Compliance
 
 **This document defines a regression analysis protocol that MUST be followed
