@@ -158,6 +158,15 @@ complete caller analysis.
   - Changes in modified functions often have unintended side effects elsewhere in
       the call stack.  Your analysis must search for these unintended side effects.
   - Output: locks required
+- step lock.1b: Verify lock scope, not just lock presence
+  - Do not treat lock acquisition as binary (present/absent). A lock has a scope:
+    acquired at one point, released at another. Verify that EVERY access to the
+    protected resource falls within that scope.
+  - When a function acquires a lock partway through its body, load all callees
+    that execute before the acquisition — any of them may access the protected
+    resource outside the lock's scope.
+  - Output: for each concurrent function checked, state the exclusion point and
+    confirm no shared-resource access precedes it.
 - step lock.2: Ensure functions take and release locks as expected by caller
 - step lock.3: If locks are changed or dropped during the call, verify code properly revalidates state
 - step lock.4: Ensure caller provides all locks required by callees
