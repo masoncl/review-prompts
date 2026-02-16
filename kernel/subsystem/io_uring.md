@@ -112,7 +112,7 @@ Wrong `cqe32` boolean to `io_get_cqe()` / `io_get_cqe_overflow()` causes
 CQ tail mis-advancement and data corruption. The parameter means "mixed-mode
 per-CQE 32B entry needing extra advancement," NOT "this CQE is 32 bytes."
 
-The two modes are mutually exclusive (enforced in `io_uring_create()`):
+The two modes are mutually exclusive (enforced in `io_uring_sanitise_params()`):
 
 | Ring mode | `cqe32` param | Why |
 |---|---|---|
@@ -202,8 +202,9 @@ corruption or out-of-bounds access.
   `data.first_folio_page_idx << PAGE_SHIFT` accounts for the first page's
   position within its folio. See `io_sqe_buffer_register()` in
   `io_uring/rsrc.c`.
-- Use `unpin_user_folio()`, never `unpin_user_page()` — compound folios
-  cause a BUG in `sanity_check_pinned_pages()`. See `io_release_ubuf()`.
+- Use `unpin_user_folio()`, never `unpin_user_page()` — registered buffers
+  are pinned per-folio after coalescing, so unpin must match.
+  See `io_release_ubuf()`.
 
 **REPORT as bugs**: Offset derived by masking virtual address instead of
 `imu->bvec[0].bv_offset`. `unpin_user_page()` in io_uring buffer code.
@@ -268,28 +269,12 @@ setting it makes the request invisible to polling, causing a hang.
 - `io_complete_rw_iopoll()` must always reach
   `smp_store_release(&req->iopoll_completed, 1)`. Never return early.
   See `io_uring/rw.c`.
-- IOPOLL reissue (`-EAGAIN`): set `REQ_F_REISSUE | REQ_F_BL_NO_RECYCLE`
-  and fall through. Actual reissue is handled by flush logic.
-- Non-IOPOLL uses `io_req_task_queue_reissue()`. IOPOLL must not.
+- Reissue (`-EAGAIN`): set `REQ_F_REISSUE | REQ_F_BL_NO_RECYCLE`
+  and fall through. The flush path in `io_uring/io_uring.c` checks
+  `REQ_F_REISSUE` and calls `io_queue_iowq()`.
 
 **REPORT as bugs**: Early return in `io_complete_rw_iopoll()` skipping
-`iopoll_completed`. IOPOLL path calling `io_req_task_queue_reissue()`.
-
-## kiocb Flag Lifecycle on Retry
-
-`kiocb->ki_flags |= file->f_iocb_flags` (merge) instead of `=`
-(overwrite) causes stale flags (`IOCB_NOWAIT`, `IOCB_WAITQ`) to persist
-across retries.
-
-**Rules**:
-- Overwrite: `kiocb->ki_flags = file->f_iocb_flags` in
-  `io_rw_init_file()`. See `io_uring/rw.c`.
-- Persistent state goes in `req->flags` (e.g., `REQ_F_HAS_METADATA`), not
-  `kiocb->ki_flags`. Late flags (e.g., `IOCB_HAS_METADATA`) are set after
-  the overwrite, guarded by the `req->flags` bit.
-
-**REPORT as bugs**: `|=` instead of `=` for `file->f_iocb_flags` in
-`io_rw_init_file()`.
+`iopoll_completed`.
 
 ## Timeout Cancellation and Lock Ordering
 
@@ -338,8 +323,6 @@ See `io_uring/timeout.c`.
 - **Eventfd RCU freeing**: Use `io_eventfd_put()` (calls `call_rcu()`),
   never `io_eventfd_free()` directly. See `io_eventfd_do_signal()` in
   `io_uring/eventfd.c`.
-- **Multishot timeout re-arm**: Store new value in `data->ts`, not just pass
-  to `hrtimer_start()`. See `io_uring/timeout.c`.
 - **Cross-ring cloning accounting**: Both rings must share `ctx->user` and
   `ctx->mm_account`. See `io_clone_buffers()` in `io_uring/rsrc.c`.
 - **io_wq NULL after teardown**: `io_queue_iowq()` checks `!tctx->io_wq`
@@ -356,7 +339,3 @@ See `io_uring/timeout.c`.
   interpret event bits as errors — `POLLERR` signals data availability for
   some sockets (e.g., `MSG_ERRQUEUE`). Operation-specific interpretation
   belongs in issue handlers.
-- **REQ_F_ISREG correctness**: `io_file_get_flags()` uses `S_ISREG()`,
-  currently correct because VFS no longer sets `S_IFREG` on anonymous
-  inodes (commit `1e7ab6f67824`). Watch for VFS changes that reintroduce
-  `S_IFREG` on non-disk-backed files.
