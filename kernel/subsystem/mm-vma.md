@@ -92,6 +92,39 @@ The VMA-modifying paths -- `__split_vma()`, `commit_merge()`, and
   that the needed locks are already held (see `hugetlb_split()` in
   `mm/hugetlb.c`)
 
+## Per-VMA Lock Exclusion via vma_start_write()
+
+`mmap_write_lock()` alone does NOT exclude per-VMA lock holders. Code that
+holds `mmap_write_lock` runs concurrently with code holding per-VMA read
+locks (acquired via `lock_vma_under_rcu()` / `vma_start_read()`).
+Full exclusion requires calling `vma_start_write(vma)`, which drains
+all VMA read lock holders before returning.
+
+**The two-step exclusion protocol:**
+1. `mmap_write_lock(mm)` — excludes other mmap_lock holders (readers and writers)
+2. `vma_start_write(vma)` — drains per-VMA read lock holders for this VMA
+
+Code between `mmap_write_lock()` and `vma_start_write()` runs concurrently
+with VMA-locked operations (page faults, per-VMA-locked madvise, etc.).
+The ordering of `vma_start_write()` relative to shared resource access
+defines the scope of exclusion. Any access to shared resources (page
+tables, PTE pages, VMA fields) before `vma_start_write()` is unprotected
+against VMA-locked concurrent paths.
+
+**VMA-locked operations modify page tables at ALL levels, not just PTEs.**
+`MADV_DONTNEED` under a per-VMA lock zaps PTEs via
+`zap_page_range_single_batched()`, and when all PTEs in a page table are
+cleared, PT_RECLAIM (`try_to_free_pte()` in `mm/pt_reclaim.c`) frees the
+PTE page and calls `pmd_clear()` — modifying the PMD entry itself. Code
+holding `mmap_write_lock` that reads a PMD before `vma_start_write()` can
+be left with a stale pointer to freed memory (use-after-free / kernel
+panic). Do NOT assume PTE-level zap and PMD-level access are "different
+granularities" that cannot conflict — PT_RECLAIM bridges the gap.
+
+**REPORT as bugs**: Functions holding `mmap_write_lock` that access shared
+resources (page tables, PTE pages) before calling `vma_start_write(vma)`,
+when those resources can also be accessed under a per-VMA read lock.
+
 ## VMA Flags Modification API
 
 Key distinction: `vm_flags_set()` ORs (adds bits, never clears),

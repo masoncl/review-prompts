@@ -329,7 +329,17 @@ NULL; call `folio_get()` before releasing PTL if returning a folio reference.
   `mmap_write_lock` does NOT exclude per-VMA lock readers (e.g., madvise
   under `lock_vma_under_rcu()`). Call `vma_start_write(vma)` before
   checking/modifying page tables to drain per-VMA lock holders. See
-  `collapse_huge_page()` in `mm/khugepaged.c`
+  `collapse_huge_page()` in `mm/khugepaged.c`.
+  **Critical: PTE-level zap operations cross granularity boundaries.**
+  VMA-locked `MADV_DONTNEED` calls `zap_page_range_single_batched()` →
+  `unmap_page_range()` → `zap_pmd_range()` → `zap_pte_range()` →
+  `try_to_free_pte()` (in `mm/pt_reclaim.c`) → `pmd_clear()`. When all
+  PTEs in a page table are zapped, PT_RECLAIM frees the PTE page **and
+  clears the PMD entry**. Code that read the PMD before
+  `vma_start_write()` now holds a stale pointer to freed memory — this is
+  use-after-free (kernel panic), not just stale data. Do NOT dismiss
+  PMD-level accesses before `vma_start_write()` as "different granularity"
+  from PTE-level zap operations — the zap path modifies PMDs too
 - **Page fault path lock constraints**: `->fault`/`->page_mkwrite` run
   under `mmap_lock`, nested below `i_rwsem` and `sb_start_write`. Fault
   handlers must not wait on freeze protection (ABBA deadlock). Copy user
