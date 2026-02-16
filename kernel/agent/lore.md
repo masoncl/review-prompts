@@ -224,5 +224,6 @@ Output file: ./review-context/LORE-result.json
 
 ## Notes
 
-- If no lore threads are found, create LORE-result.json with `threads-found: 0` and empty issues array
+- If no lore threads are found, do NOT create LORE-result.json. A missing
+  file means no issues were found (consistent with all other agents)
 - If semcode lore tools are not available, skip this agent
