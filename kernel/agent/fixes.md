@@ -171,6 +171,8 @@ From the commit message and diff, determine:
 ## PHASE 4: Search for the Introducing Commit
 
 Use semcode tools to search git history for the commit that introduced the bug.
+Try strategies in order. Use multiple strategies if the first doesn't produce
+a strong candidate.
 
 ### Strategy 1: Search by symbols
 
