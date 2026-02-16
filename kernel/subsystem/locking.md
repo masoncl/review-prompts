@@ -501,6 +501,12 @@ c = next_c ← FREED MEMORY
   If code checks shared state then acquires exclusion, the check is
   TOCTOU — a concurrent path can modify/free the data between the check
   and exclusion. Do not dismiss because "the check would detect it."
+- **A single abort path does not make a race safe.** When evaluating
+  whether a race is "handled," you will find one recovery point and
+  stop looking. This is wrong. You must trace every instruction between
+  the race window and the recovery point. If any intermediate
+  instruction dereferences, locks, or depends on the contested resource,
+  the race causes a crash before the recovery ever executes.
 - **Subsystem guide directives are authoritative.** When a guide says
   "Do NOT dismiss X" or "REPORT as bugs", do not override with your
   own reasoning. Report it.

@@ -54,7 +54,9 @@ must complete task POSITIVE.1 before completing the false positive check.
 ### 3. Unverifiable Assumptions
 **Assume the author is wrong** and require proof they are correct
 - Look for the author in the MAINTAINERS file, if found, assume their comments,
-  commit messages and assertions are correct.
+  commit messages and assertions in the patch's modified code are correct.
+  Comments and documentation in existing unmodified code must still be verified
+  against the actual implementation per section 3.1.
 - Untrusted sources (network/user) always need concrete proof of correctness
 - Research assumptions and claims in commit messages, comments and code, prove them correct
 - If the author makes claims without code evidence, treat them as unverified
@@ -67,6 +69,29 @@ verify the explanation is correct with code evidence.
 - You found specific code that proves the author correct
 - You can verify all assumptions with concrete code paths
 - The behavior is proven correct, not just claimed
+
+### 3.1 Comment-Based Dismissals (MANDATORY)
+**CRITICAL**: When dismissing an issue because a comment or documentation says
+the code behaves a certain way, you MUST verify against the actual implementation:
+
+1. **Read the function body, not just the comment**
+   - Comments can be copy-pasted to multiple implementations with different semantics
+   - The same comment may appear on both sides of an `#ifdef/#else` block
+   - Output: quote the actual implementation code, not just the comment
+
+2. **Check for conditional compilation**
+   - If code has `#ifdef CONFIG_FOO` / `#else` branches, determine which applies
+   - A comment describing behavior in one branch may not apply to the other
+   - Output: which config branch applies and why
+
+3. **Verify helper function behavior**
+   - If dismissing because "function X returns Y", read function X's implementation
+   - Check if function X has config-dependent behavior
+   - Output: quote function X's implementation showing it guarantees the claimed behavior
+
+4. **When in doubt, report the issue**
+   - If you cannot verify the comment matches the implementation under all configs, report it
+   - A bug dismissed based on incorrect documentation is worse than a false positive
 
 ### 4. Locking False Positives
 **Before reporting** a locking issue:
@@ -119,7 +144,6 @@ verify the explanation is correct with code evidence.
 - State becomes invalid
 
 ### 8. Races
-**You're especially bad at finding races, assume you're wrong unless you have concrete proof**
 - Identify the EXACT data structure names and definitions
   - Output: struct name and location
 - Identify the locks that should protect them
@@ -127,7 +151,26 @@ verify the explanation is correct with code evidence.
 - Prove the race exists with CODE SNIPPETS
   - Output: two code paths that can execute concurrently, with locations
 
-**Just because** operations moved doesn't mean it's wrong.
+### 8.1. Race Dismissal: Full-Path Verification (MANDATORY)
+When dismissing a race because "the code detects the invalid state and aborts,"
+you MUST verify the ENTIRE instruction sequence between the race window and the
+recovery point. A single abort path later in the function does not make earlier
+dereferences safe.
+
+Before accepting a race dismissal, answer ALL of these:
+1. What exact instruction opens the race window?
+   - Output: function, file:line, what state becomes stale
+2. What exact instruction closes it (drain/barrier/lock)?
+   - Output: function, file:line, synchronization mechanism
+3. What is the "graceful handler" you claim makes this safe?
+   - Output: function, file:line, how it detects invalid state
+4. **List every instruction between #1 and #3 that touches the contested
+   resource. Are ALL of them safe if the resource was invalidated by the
+   racing thread?**
+   - Output: enumerate each instruction with verdict (safe/unsafe)
+
+If you cannot affirmatively answer #4 for every intermediate instruction,
+the dismissal is invalid. Report the race.
 
 ### 9. Performance Tradeoffs
 **Not a regression if**:
@@ -203,6 +246,43 @@ must still report this regression []
 - Was a git range provided in the prompt? [ y / n, range ]
 - Did you use it to search forward? [ y / n ]
 
+### 15. Subsystem guide violations (hallucination check ONLY)
+
+Issues tagged `subsystem_guide_violation: true`, or with category
+`guide-directive` or `issue_type: "potential-issue"` with a `guide_directive`
+field, are subsystem guide violations. The subsystem guide is authoritative —
+the violation itself is treated as factually correct.
+
+**STOP. For these issues, ONLY perform these three hallucination checks. Do
+NOTHING else. Do NOT apply sections 1-14. Do NOT apply TASK POSITIVE.1.**
+
+1. **Does the cited guide rule exist?** Re-read the subsystem guide and confirm
+   the quoted directive actually appears in the guide text. If the agent
+   fabricated or misquoted the rule, eliminate the issue.
+
+2. **Does the cited code exist?** Confirm the function, variable, or code
+   pattern the agent cited is real. Use `find_function` or read the file. If
+   the agent hallucinated the code (wrong function name, nonexistent variable,
+   fabricated code path), eliminate the issue.
+
+3. **Does the code actually violate the guide rule?** Read the cited code and
+   the guide rule side by side. Confirm the code does the thing the guide says
+   not to do (or fails to do the thing the guide requires). If the agent
+   mismatched rule to code — e.g., the guide prohibits pattern X but the code
+   does pattern Y, or the guide requires lock L but the code already holds
+   lock L — eliminate the issue.
+
+**If all three checks pass, PRESERVE the issue. You are done.**
+
+**Explicit prohibitions for subsystem guide violations:**
+- Do NOT analyze whether the bug is "real" or "theoretical"
+- Do NOT check if the code "handles it gracefully"
+- Do NOT evaluate locking, races, reachability, or safety
+- Do NOT apply your own reasoning about whether the pattern is dangerous
+- Do NOT check callers, callees, or context beyond confirming the code exists
+- Do NOT debate yourself about the issue
+- The ONLY reason to eliminate is hallucination: fabricated rule or fabricated code
+
 ## TASK POSITIVE.1 Verification Checklist
 
 Complete each verification step below and produce the required output.
@@ -267,9 +347,19 @@ Before reporting ANY regression, verify:
      - Output: commits checked or "no git range provided"
    - If fix found later in series
      - Output: "found fix in [commit] - reporting as real bug with later fix" or "no fix found"
-9. **Debate yourself**
+9. **If dismissing based on comments or documentation, verify the implementation**
+   - Did you read the actual function implementation, not just the comment?
+     - Output: quote the implementation code that proves the comment is accurate
+   - Does the function have #ifdef/#else branches with different behavior?
+     - Output: list config options that affect behavior, state which applies
+   - Did you verify helper functions behave as their comments claim?
+     - Output: quote helper implementation or "no helper functions involved"
+   - If you cannot verify implementation matches documentation, do NOT dismiss
+     - Output: "implementation verified" or "cannot verify - reporting issue"
+
+10. **Debate yourself**
    - Do these two steps in order:
-   - 9.1 Pretend you are the author. Think extremely hard about the review and try to prove it incorrect.
+   - 10.1 Pretend you are the author. Think extremely hard about the review and try to prove it incorrect.
      - Check for hallucinations or invented information
      - **For NULL safety, ask as the author:**
        * Did reviewer search for similar code in my subsystem accessing this pointer?
@@ -295,7 +385,7 @@ Before reporting ANY regression, verify:
        deadlock, crash, or data corruption. Only "structurally impossible"
        (the code literally cannot reach that state) is valid. See
        callstack.md "Reachability Dismissals".
-   - 9.2 Now pretend you're the reviewer. Think extremely hard about the author's arguments and decide if the review is correct.
+   - 10.2 Now pretend you're the reviewer. Think extremely hard about the author's arguments and decide if the review is correct.
      - Address each author argument with code evidence
      - Output: code evidence refuting the author, or "cannot refute with code - likely false positive"
 

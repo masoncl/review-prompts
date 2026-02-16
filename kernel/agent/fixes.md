@@ -128,7 +128,19 @@ If files span multiple subsystems, use the subsystem of the primary change
 so we never flag missing tags. However, if a networking commit already has a
 Fixes: tag, we still validate that it points to the correct commit.
 
-**If EXIT**: Stop and output:
+**If EXIT**: Write `./review-context/FIXES-result.json` with no issues:
+
+```json
+{
+  "search-completed": true,
+  "fixed-commit-found": false,
+  "suggested-fixes-tag": null,
+  "confidence": null,
+  "issues": []
+}
+```
+
+Then output:
 
 ```
 FIXES TAG SEARCH COMPLETE
@@ -138,7 +150,7 @@ Reason: <e.g., "networking subsystem", "minor bug", "not a bug fix">
 Fixed commit found: n/a
 Confidence: n/a
 Suggested tag: none
-Output file: not created
+Output file: ./review-context/FIXES-result.json
 ```
 
 ---
@@ -249,7 +261,9 @@ Verify:
 
 ## PHASE 6: Write Results
 
-**Only create `./review-context/FIXES-result.json` if PHASE 5 identified an issue.**
+**ALWAYS** write `./review-context/FIXES-result.json`.  The orchestrator
+requires this file to confirm the agent completed successfully.  When no issue
+was found, use `"issues": []` and `"fixed-commit-found": false`.
 
 ### FIXES-result.json format:
 
@@ -296,7 +310,7 @@ Reason: <e.g., "networking subsystem", "minor bug", "found introducing commit">
 Fixed commit found: <yes|no|n/a>
 Confidence: <high|medium|low|n/a>
 Suggested tag: <Fixes: sha ("subject")> | none | existing tag correct
-Output file: ./review-context/FIXES-result.json | not created
+Output file: ./review-context/FIXES-result.json
 ```
 
 ---

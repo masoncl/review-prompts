@@ -9,6 +9,13 @@
   errors or conditions a function can accept.  They indicate changes to
   what is printed to the console, and nothing else.
 - IMPORTANT: never skip any steps just because you found a bug in a previous step.
+- IMPORTANT: kernel documentation and comments are sometimes incomplete, outdated, or
+  misleading. When relying on documentation or comments to understand behavior:
+  - Always read the ACTUAL IMPLEMENTATION, not just the comment
+  - Check for #ifdef/#else branches - the same comment may be copy-pasted to multiple
+    implementations with different semantics
+  - If a function comment says "returns X" but the code shows conditional behavior
+    based on config options, verify which config applies to your analysis
 - Never report errors without checking to see if the error is impossible in the
   call path you found.
     - Some call paths might always check IS_ENABLED(feature) before

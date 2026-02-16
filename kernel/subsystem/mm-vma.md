@@ -94,36 +94,35 @@ The VMA-modifying paths -- `__split_vma()`, `commit_merge()`, and
 
 ## Per-VMA Lock Exclusion via vma_start_write()
 
-`mmap_write_lock()` alone does NOT exclude per-VMA lock holders. Code that
-holds `mmap_write_lock` runs concurrently with code holding per-VMA read
-locks (acquired via `lock_vma_under_rcu()` / `vma_start_read()`).
-Full exclusion requires calling `vma_start_write(vma)`, which drains
-all VMA read lock holders before returning.
+`mmap_write_lock()` alone does NOT exclude per-VMA lock holders — per-VMA
+read locks acquired **before** `mmap_write_lock()` remain held, because the
+seqcount in `vma_start_read()` only prevents **new** acquisitions, not
+revocation of existing ones. Only `vma_start_write(vma)` drains existing
+per-VMA read lock holders. VMA-locked operations (MADV_DONTNEED,
+page faults) modify page tables at all levels including PMDs via
+PT_RECLAIM (`pmd_clear()` in `try_to_free_pte()`), so any
+`mmap_write_lock` holder accessing page tables before `vma_start_write()`
+races with per-VMA locked paths.
 
-**The two-step exclusion protocol:**
-1. `mmap_write_lock(mm)` — excludes other mmap_lock holders (readers and writers)
-2. `vma_start_write(vma)` — drains per-VMA read lock holders for this VMA
+**`check_pmd_still_valid()` / `find_pmd_or_thp_or_none()`**: These
+functions walk page tables (`mm_find_pmd` → PGD→P4D→PUD→PMD) and then
+read the PMD value via `pmdp_get_lockless(pmd)` in `check_pmd_state()`.
+A concurrent per-VMA locked `MADV_DONTNEED` can call `try_to_free_pte()`
+→ `pmd_clear()` + `free_pte()` between the PMD read and subsequent use
+of the result — the check succeeds, the caller proceeds assuming a valid
+PMD, but the PMD has been cleared and the PTE page freed underneath it.
+Code that calls these functions before `vma_start_write()` and then acts
+on the result (e.g., proceeding to `pmd_lock` + `pmdp_collapse_flush` on
+the assumption the PMD is still populated) is a bug — even though the
+PMD *pointer* remains valid (it's in the PUD page which isn't freed),
+the *value* and the PTE page it pointed to are gone.
 
-Code between `mmap_write_lock()` and `vma_start_write()` runs concurrently
-with VMA-locked operations (page faults, per-VMA-locked madvise, etc.).
-The ordering of `vma_start_write()` relative to shared resource access
-defines the scope of exclusion. Any access to shared resources (page
-tables, PTE pages, VMA fields) before `vma_start_write()` is unprotected
-against VMA-locked concurrent paths.
-
-**VMA-locked operations modify page tables at ALL levels, not just PTEs.**
-`MADV_DONTNEED` under a per-VMA lock zaps PTEs via
-`zap_page_range_single_batched()`, and when all PTEs in a page table are
-cleared, PT_RECLAIM (`try_to_free_pte()` in `mm/pt_reclaim.c`) frees the
-PTE page and calls `pmd_clear()` — modifying the PMD entry itself. Code
-holding `mmap_write_lock` that reads a PMD before `vma_start_write()` can
-be left with a stale pointer to freed memory (use-after-free / kernel
-panic). Do NOT assume PTE-level zap and PMD-level access are "different
-granularities" that cannot conflict — PT_RECLAIM bridges the gap.
-
-**REPORT as bugs**: Functions holding `mmap_write_lock` that access shared
-resources (page tables, PTE pages) before calling `vma_start_write(vma)`,
-when those resources can also be accessed under a per-VMA read lock.
+**REPORT as bugs**: Functions holding `mmap_write_lock` that access page
+tables or PTE pages before calling `vma_start_write(vma)`. When a patch
+adds new per-VMA lock users (e.g., converting a path from `mmap_read_lock`
+to per-VMA lock), search with `grep_functions`/`find_callers` for
+`mmap_write_lock` holders that access page tables for the same VMA and
+verify each calls `vma_start_write()` before the access.
 
 ## VMA Flags Modification API
 
