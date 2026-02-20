@@ -219,6 +219,10 @@ set_claude_opts() {
 
 	CLI_OPTS="--verbose"
 	CLI_OUT="--output-format=stream-json | tee $OUTFILE | $JSONPROG"
+	CLI_OPTS+=" --permission-mode acceptEdits"
+	CLI_OPTS+=" --add-dir /tmp"
+	CLI_OPTS+=" --add-dir $WORKING_DIR"
+	CLI_OPTS+=" --add-dir $SCRIPT_DIR/.."
 }
 
 set_copilot_opts() {
