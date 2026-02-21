@@ -231,3 +231,13 @@ not also check `d_unhashed()`.
   sleep), verify the code re-validates all protected state after
   reacquiring -- the dentry may have gone negative, the inode may have been
   evicted, or the directory may have been removed.
+- **`folio->private` validity after page cache lookup**: Consumers of
+  `filemap_get_folio()` or `filemap_lock_folio()` cannot assume
+  `folio->private` is valid. A race between lookup and reclaim exists in
+  which `release_folio()` frees `folio->private` but a task in parallel can
+  find the folio in the cache, increment its refcount, and cause
+  `__remove_mapping()` to fail. Filesystems that allocate state in
+  `folio->private` and free it in `release_folio()` must re-validate (and
+  re-attach if needed) private data after acquiring a folio from the page
+  cache. For btrfs, this means calling `set_folio_extent_mapped()` before
+  accessing `folio->private`.
