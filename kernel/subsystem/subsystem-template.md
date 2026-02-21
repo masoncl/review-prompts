@@ -148,6 +148,27 @@ additional items that don't warrant their own section.
   or "check return values" belong in `../technical-patterns.md`, not in every
   subsystem guide.
 
+- **Single-commit fixes** — knowledge that only applies to one specific bug
+  fix does not belong here. Each section should describe a **reusable
+  invariant, API contract, or bug pattern** that applies across multiple
+  call sites or future patches. Ask: "would this help review a *different*
+  patch in this subsystem?" If the answer is no, it is too specific.
+  Examples of what to avoid:
+  - A guard condition in one specific function that prevents a bad state
+    (e.g., "function X returns early when counter is zero to avoid calling
+    function Y") — this is a description of one fix, not a reusable rule.
+  - Hardware register names and bit definitions for a single driver chip —
+    unless the pattern generalizes across a driver family.
+  - Struct field layout details for one specific structure with no broader
+    lesson — instead, extract the general principle (e.g., "UAPI structs
+    that embed other structs inherit their alignment").
+
+- **Vendor-specific driver details** — register names, shadow register
+  numbers, and chip-specific initialization sequences belong in driver
+  comments or vendor documentation, not in a subsystem-wide guide. If there
+  is a general principle (e.g., "PHY config_init must handle all interface
+  modes"), state the principle without enumerating vendor-specific registers.
+
 ## Checklist for New Guides
 
 1. Title is `# <Name> Subsystem Details`
@@ -157,6 +178,7 @@ additional items that don't warrant their own section.
 5. No numbered pattern IDs as top-level headers
 6. No Risk/Details/When-to-check boilerplate
 7. No TodoWrite or workflow steps
-8. Quick Checks section at the end (if applicable)
-9. Code examples use `// CORRECT` / `// WRONG` labels
-10. Added to `subsystem.md` trigger table
+8. No single-commit-specific knowledge — every section must be reusable
+9. Quick Checks section at the end (if applicable)
+10. Code examples use `// CORRECT` / `// WRONG` labels
+11. Added to `subsystem.md` trigger table

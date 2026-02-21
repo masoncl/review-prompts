@@ -52,7 +52,7 @@ Read `./review-context/commit-message.json` to get:
 **DO NOT READ**:
 - index.json (not needed)
 - FILE-N-CHANGE-M.json files (not needed)
-- FILE-N-CHANGE-M-result.json files (not needed)
+- FILE-N-review-result.json files (not needed)
 - Any other files
 
 ---
@@ -143,7 +143,10 @@ Only flag comments that:
 
 ## Step 6: Write LORE-result.json
 
-Write all unaddressed comments to `./review-context/LORE-result.json`:
+**ALWAYS** write `./review-context/LORE-result.json`, even when no issues were
+found.  The orchestrator requires this file to confirm the agent completed
+successfully.  When no issues exist, use `"issues": []` and
+`"unaddressed-count": 0`.
 
 ```json
 {
@@ -202,7 +205,7 @@ Write all unaddressed comments to `./review-context/LORE-result.json`:
 | `lore_reference` | Lore-specific metadata for linking to original discussion |
 
 **DO NOT**:
-- Read or modify FILE-N-CHANGE-M-result.json files
+- Read or modify FILE-N-review-result.json files
 - Create lore-summary.json (replaced by LORE-result.json)
 
 ---
@@ -224,5 +227,5 @@ Output file: ./review-context/LORE-result.json
 
 ## Notes
 
-- If no lore threads are found, create LORE-result.json with `threads-found: 0` and empty issues array
+- ALWAYS create LORE-result.json — see Step 6 for the empty-result format.
 - If semcode lore tools are not available, skip this agent

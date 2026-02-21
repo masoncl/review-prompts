@@ -9,6 +9,13 @@ as carefully as possible.
 ## Core Principle
 **If you cannot prove an issue exists with concrete evidence, do not report it.**
 
+**Corollary (from callstack.md)**: For deadlocks, infinite waits, crashes, and
+data corruption, "concrete evidence" means proving the code path is structurally
+possible — not proving it will definitely execute on every run. A
+`wait_event` with no timeout and no fallback wake condition is a deadlock bug
+if the wake condition depends on external events that can stop. Do not dismiss
+such bugs as "unlikely in practice."
+
 This file contains instructions to help you prove a given bug is real.  You
 must follow every instruction in every section.  Do not skip steps, and you
 must complete task POSITIVE.1 before completing the false positive check.
@@ -47,7 +54,9 @@ must complete task POSITIVE.1 before completing the false positive check.
 ### 3. Unverifiable Assumptions
 **Assume the author is wrong** and require proof they are correct
 - Look for the author in the MAINTAINERS file, if found, assume their comments,
-  commit messages and assertions are correct.
+  commit messages and assertions in the patch's modified code are correct.
+  Comments and documentation in existing unmodified code must still be verified
+  against the actual implementation per section 3.1.
 - Untrusted sources (network/user) always need concrete proof of correctness
 - Research assumptions and claims in commit messages, comments and code, prove them correct
 - If the author makes claims without code evidence, treat them as unverified
@@ -60,6 +69,29 @@ verify the explanation is correct with code evidence.
 - You found specific code that proves the author correct
 - You can verify all assumptions with concrete code paths
 - The behavior is proven correct, not just claimed
+
+### 3.1 Comment-Based Dismissals (MANDATORY)
+**CRITICAL**: When dismissing an issue because a comment or documentation says
+the code behaves a certain way, you MUST verify against the actual implementation:
+
+1. **Read the function body, not just the comment**
+   - Comments can be copy-pasted to multiple implementations with different semantics
+   - The same comment may appear on both sides of an `#ifdef/#else` block
+   - Output: quote the actual implementation code, not just the comment
+
+2. **Check for conditional compilation**
+   - If code has `#ifdef CONFIG_FOO` / `#else` branches, determine which applies
+   - A comment describing behavior in one branch may not apply to the other
+   - Output: which config branch applies and why
+
+3. **Verify helper function behavior**
+   - If dismissing because "function X returns Y", read function X's implementation
+   - Check if function X has config-dependent behavior
+   - Output: quote function X's implementation showing it guarantees the claimed behavior
+
+4. **When in doubt, report the issue**
+   - If you cannot verify the comment matches the implementation under all configs, report it
+   - A bug dismissed based on incorrect documentation is worse than a false positive
 
 ### 4. Locking False Positives
 **Before reporting** a locking issue:
@@ -112,7 +144,6 @@ verify the explanation is correct with code evidence.
 - State becomes invalid
 
 ### 8. Races
-**You're especially bad at finding races, assume you're wrong unless you have concrete proof**
 - Identify the EXACT data structure names and definitions
   - Output: struct name and location
 - Identify the locks that should protect them
@@ -120,7 +151,26 @@ verify the explanation is correct with code evidence.
 - Prove the race exists with CODE SNIPPETS
   - Output: two code paths that can execute concurrently, with locations
 
-**Just because** operations moved doesn't mean it's wrong.
+### 8.1. Race Dismissal: Full-Path Verification (MANDATORY)
+When dismissing a race because "the code detects the invalid state and aborts,"
+you MUST verify the ENTIRE instruction sequence between the race window and the
+recovery point. A single abort path later in the function does not make earlier
+dereferences safe.
+
+Before accepting a race dismissal, answer ALL of these:
+1. What exact instruction opens the race window?
+   - Output: function, file:line, what state becomes stale
+2. What exact instruction closes it (drain/barrier/lock)?
+   - Output: function, file:line, synchronization mechanism
+3. What is the "graceful handler" you claim makes this safe?
+   - Output: function, file:line, how it detects invalid state
+4. **List every instruction between #1 and #3 that touches the contested
+   resource. Are ALL of them safe if the resource was invalidated by the
+   racing thread?**
+   - Output: enumerate each instruction with verdict (safe/unsafe)
+
+If you cannot affirmatively answer #4 for every intermediate instruction,
+the dismissal is invalid. Report the race.
 
 ### 9. Performance Tradeoffs
 **Not a regression if**:
@@ -196,6 +246,43 @@ must still report this regression []
 - Was a git range provided in the prompt? [ y / n, range ]
 - Did you use it to search forward? [ y / n ]
 
+### 15. Subsystem guide violations (hallucination check ONLY)
+
+Issues tagged `subsystem_guide_violation: true`, or with category
+`guide-directive` or `issue_type: "potential-issue"` with a `guide_directive`
+field, are subsystem guide violations. The subsystem guide is authoritative —
+the violation itself is treated as factually correct.
+
+**STOP. For these issues, ONLY perform these three hallucination checks. Do
+NOTHING else. Do NOT apply sections 1-14. Do NOT apply TASK POSITIVE.1.**
+
+1. **Does the cited guide rule exist?** Re-read the subsystem guide and confirm
+   the quoted directive actually appears in the guide text. If the agent
+   fabricated or misquoted the rule, eliminate the issue.
+
+2. **Does the cited code exist?** Confirm the function, variable, or code
+   pattern the agent cited is real. Use `find_function` or read the file. If
+   the agent hallucinated the code (wrong function name, nonexistent variable,
+   fabricated code path), eliminate the issue.
+
+3. **Does the code actually violate the guide rule?** Read the cited code and
+   the guide rule side by side. Confirm the code does the thing the guide says
+   not to do (or fails to do the thing the guide requires). If the agent
+   mismatched rule to code — e.g., the guide prohibits pattern X but the code
+   does pattern Y, or the guide requires lock L but the code already holds
+   lock L — eliminate the issue.
+
+**If all three checks pass, PRESERVE the issue. You are done.**
+
+**Explicit prohibitions for subsystem guide violations:**
+- Do NOT analyze whether the bug is "real" or "theoretical"
+- Do NOT check if the code "handles it gracefully"
+- Do NOT evaluate locking, races, reachability, or safety
+- Do NOT apply your own reasoning about whether the pattern is dangerous
+- Do NOT check callers, callees, or context beyond confirming the code exists
+- Do NOT debate yourself about the issue
+- The ONLY reason to eliminate is hallucination: fabricated rule or fabricated code
+
 ## TASK POSITIVE.1 Verification Checklist
 
 Complete each verification step below and produce the required output.
@@ -212,11 +299,15 @@ Before reporting ANY regression, verify:
      - Output: list conditions checked and their evaluation
    - Verify not in dead code or disabled features
      - Output: enabled-by config option or "always enabled"
-2. **Is the bad behavior guaranteed?**
-   - Prove "will happen" not just "might happen"
+2. **Is the bad behavior structurally possible?**
+   - Prove the code path exists and the triggering conditions are not structurally impossible
      - Output: step-by-step execution path with function names and locations showing the failure
-   - Prove "causes failure" not just "increases risk"
+   - Prove the failure mode is concrete (crash, deadlock, corruption, leak), not just "increases risk"
      - Output: the specific failure mode and triggering condition
+   - NOTE: A deadlock, infinite wait, or crash that depends on runtime conditions
+     (timing, memory pressure, shutdown state, allocation patterns) is a real bug
+     if the code has no structural prevention (timeout, fallback wake condition,
+     bounded retry). Do not dismiss these by arguing the conditions are unlikely.
 3. **Did I check the full context?**
    - Examine calling functions (2-3 levels up)
      - Output: list each caller checked with a random line from each
@@ -233,6 +324,9 @@ Before reporting ANY regression, verify:
      - Output: "production code" or "test code - severity adjusted"
    - Confirm bug exists today, not just if code changes later
      - Output: current triggering path or "theoretical future issue only"
+     - NOTE: "theoretical" means the code path cannot be reached today.
+       A bug that depends on runtime conditions (timing, system state) is
+       not theoretical — it is a real bug with a conditional trigger.
 5. **Did I check the commit message and surrounding comments?**
    - Read the entire commit message
      - Output: quote any text explaining this behavior, or "no explanation found"
@@ -253,9 +347,19 @@ Before reporting ANY regression, verify:
      - Output: commits checked or "no git range provided"
    - If fix found later in series
      - Output: "found fix in [commit] - reporting as real bug with later fix" or "no fix found"
-9. **Debate yourself**
+9. **If dismissing based on comments or documentation, verify the implementation**
+   - Did you read the actual function implementation, not just the comment?
+     - Output: quote the implementation code that proves the comment is accurate
+   - Does the function have #ifdef/#else branches with different behavior?
+     - Output: list config options that affect behavior, state which applies
+   - Did you verify helper functions behave as their comments claim?
+     - Output: quote helper implementation or "no helper functions involved"
+   - If you cannot verify implementation matches documentation, do NOT dismiss
+     - Output: "implementation verified" or "cannot verify - reporting issue"
+
+10. **Debate yourself**
    - Do these two steps in order:
-   - 9.1 Pretend you are the author. Think extremely hard about the review and try to prove it incorrect.
+   - 10.1 Pretend you are the author. Think extremely hard about the review and try to prove it incorrect.
      - Check for hallucinations or invented information
      - **For NULL safety, ask as the author:**
        * Did reviewer search for similar code in my subsystem accessing this pointer?
@@ -275,9 +379,13 @@ Before reporting ANY regression, verify:
      - **For all issues, ask as the author:**
        * Did they check if this is intentional based on commit message or comments?
        * Did they verify the conditions for the bug are actually possible?
-       * Are they being overly defensive about theoretical issues?
+       * Are they confusing a structurally possible bug with a defensive programming suggestion?
      - Output: strongest argument against reporting this bug
-   - 9.2 Now pretend you're the reviewer. Think extremely hard about the author's arguments and decide if the review is correct.
+     - IMPORTANT: "unlikely in practice" is not a valid argument against a
+       deadlock, crash, or data corruption. Only "structurally impossible"
+       (the code literally cannot reach that state) is valid. See
+       callstack.md "Reachability Dismissals".
+   - 10.2 Now pretend you're the reviewer. Think extremely hard about the author's arguments and decide if the review is correct.
      - Address each author argument with code evidence
      - Output: code evidence refuting the author, or "cannot refute with code - likely false positive"
 
@@ -324,9 +432,14 @@ Before adding to report, think about the regression and ask:
   - Existing defensive pattern checks for the same condition also count as proof.
     - ONLY if you can prove the condition can occur
   - Existing WARN_ON()/BUG_ON() don't count as proof.
+  - For deadlocks/hangs: showing that a wait has no timeout and no alternative
+    wake condition IS proof. You do not also need to prove the system will
+    definitely enter that state.
 2. **Would an expert see this as a real issue?** [ yes / no ]
 3. **Is this worth the maintainer's time?** [ yes / no ]
-4. **Am I being overly defensive?** [ yes / no ]
+4. **Am I suggesting defensive programming, or reporting a concrete bug?** [ yes / no ]
+  - Defensive programming: "add a NULL check here for safety" → discard
+  - Concrete bug: "this wait_event has no timeout and no fallback wake" → report
 
 ### MANDATORY Final Filter validation
 
@@ -334,5 +447,6 @@ If you didn't answer yes to all 4 questions, investigate further or discard
 
 ## Remember
 - **False positives waste everyone's time**
-- **Kernel developers are experts** - respect their judgment
-- **Real bugs have real proof**
+- **Missed bugs also waste everyone's time** - a deadlock in production is worse than a false positive in review
+- **Kernel developers are experts** - but experts miss bugs too, especially subtle interactions between subsystems (workqueues, notifiers, shutdown ordering)
+- **Real bugs have real proof** - but proof means showing the code path exists and has no structural prevention, not proving the bug will definitely fire on every execution

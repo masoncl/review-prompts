@@ -64,17 +64,17 @@ class Change:
 
 
 # Maximum added lines when combining hunks from the same function
-MAX_COMBINED_ADDED_LINES = 500
+MAX_COMBINED_ADDED_LINES = 250
 
 # Maximum total lines when combining new functions in the same file
-MAX_NEW_FUNCTION_COMBINED_LINES = 500
+MAX_NEW_FUNCTION_COMBINED_LINES = 250
 
 # Maximum total lines per FILE-N before creating a new FILE-N+1
-MAX_LINES_PER_FILE = 500
+MAX_LINES_PER_FILE = 250
 
 # Maximum combined lines for merging small FILE-N groups
 # If consecutive FILE-N groups together have fewer lines than this, combine them
-MAX_COMBINED_FILE_GROUP_LINES = 500
+MAX_COMBINED_FILE_GROUP_LINES = 250
 
 # Maximum combined lines when merging FILE-N groups based on function similarity
 MAX_SIMILARITY_COMBINED_LINES = 500

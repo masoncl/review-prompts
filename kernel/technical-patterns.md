@@ -9,6 +9,13 @@
   errors or conditions a function can accept.  They indicate changes to
   what is printed to the console, and nothing else.
 - IMPORTANT: never skip any steps just because you found a bug in a previous step.
+- IMPORTANT: kernel documentation and comments are sometimes incomplete, outdated, or
+  misleading. When relying on documentation or comments to understand behavior:
+  - Always read the ACTUAL IMPLEMENTATION, not just the comment
+  - Check for #ifdef/#else branches - the same comment may be copy-pasted to multiple
+    implementations with different semantics
+  - If a function comment says "returns X" but the code shows conditional behavior
+    based on config options, verify which config applies to your analysis
 - Never report errors without checking to see if the error is impossible in the
   call path you found.
     - Some call paths might always check IS_ENABLED(feature) before
@@ -77,6 +84,7 @@
 - If you find a type mismatch (using `*foo` instead of `foo` etc), trace the type
   fully and check against the expected type to make sure you're flagging it correctly
 - global variables and static variables are zero filled automatically
+- When fields move into a sub-struct, search for all static instances of the parent struct (e.g., init_mm, init_task) and verify their initializers are updated — especially locks, which require explicit initialization macros (e.g., `__RAW_SPIN_LOCK_UNLOCKED`) rather than zero-fill
 - slab and vmalloc APIs have variants that zero fill, and __GFP_ZERO gfp mask does as well
 - kmem_cache_create() can use an init_once() function to initialize slab objects
   - this only happens on the first allocation, and protects us from garbage in the struct

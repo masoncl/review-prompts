@@ -80,3 +80,15 @@ void free_callback(struct rcu_head *rhp) {
 **REPORT as bugs**: Code that calls `call_rcu()` or `kfree_rcu()` on an object
 that is still reachable through an RCU-protected data structure, or code that
 performs the removal inside the RCU callback rather than before it.
+
+## kvfree_call_rcu() / kfree_rcu() Calling Context
+
+`kvfree_call_rcu()` (called via `kfree_rcu`/`kvfree_rcu` macros) is called
+under `raw_spinlock_t` (`pi_lock` in kernel/sched/core.c) and from hardirq
+context. Adding `spinlock_t`, `local_lock`, or `local_trylock` acquisition
+in `kvfree_call_rcu()` or its callees causes a lockdep `Invalid wait context`
+warning — `!IS_ENABLED(CONFIG_PREEMPT_RT)` guards do not prevent this because
+`CONFIG_PROVE_RAW_LOCK_NESTING` (default `y`) checks declared wait-types, not
+runtime behavior.
+
+Do NOT dismiss this because the same lock types exist elsewhere.

@@ -13,9 +13,13 @@ Note: foo->ptr dereferences foo BUT NOT ptr
 
 This callstack analysis is required for all non-trivial changes.
 
+Add each Task from this prompt (Task 1,2,3,4,5,6,7,8,9) into a TodoWrite.
+The TodoWrite must ensure that you complete every task before completing
+this prompt.
+
 ---
 
-## CRITICAL: Retraction Rule
+## CRITICAL: RETRACTION RULE
 
 If during analysis you conclude something IS a bug and later reverse that
 conclusion, you must treat the reversal with extreme skepticism. State the
@@ -24,11 +28,12 @@ and apply a higher burden of proof. "Caller should prevent this" or "normally
 handled" are not sufficient — you must prove the triggering condition is
 structurally impossible with concrete code references.
 
-## CRITICAL: Reachability Dismissals
+## CRITICAL: REACHABILITY DISMISSALS
 
 A code path that can infinite loop, deadlock, crash, or corrupt data is a bug
 even if you believe preconditions make it unlikely. Do not dismiss such bugs
 by arguing:
+
 - "The caller normally prevents this input"
 - "This only happens if [upstream function] fails"
 - "The old code had a worse bug in the same path"
@@ -153,6 +158,15 @@ complete caller analysis.
   - Changes in modified functions often have unintended side effects elsewhere in
       the call stack.  Your analysis must search for these unintended side effects.
   - Output: locks required
+- step lock.1b: Verify lock scope, not just lock presence
+  - Do not treat lock acquisition as binary (present/absent). A lock has a scope:
+    acquired at one point, released at another. Verify that EVERY access to the
+    protected resource falls within that scope.
+  - When a function acquires a lock partway through its body, load all callees
+    that execute before the acquisition — any of them may access the protected
+    resource outside the lock's scope.
+  - Output: for each concurrent function checked, state the exclusion point and
+    confirm no shared-resource access precedes it.
 - step lock.2: Ensure functions take and release locks as expected by caller
 - step lock.3: If locks are changed or dropped during the call, verify code properly revalidates state
 - step lock.4: Ensure caller provides all locks required by callees
@@ -292,25 +306,38 @@ Step init.1:
 
 ## Task 9
 
-At this point, you're going to want to mark callstack.md complete, but it's very likely
-you've skipped most of the steps.  Skipping work makes the regression analysis
-fail and means all of the time spent so far was wasted.  Fully process the
-instructions as required by the prompt.
-
 Output: a one line description of potential regressions you found and ruled out.
+For every potential regression ruled out:
 
-Think about potential regressions that you found and ruled out.  While you were
-processing those potential regressions, you skipped steps and ignored other
-potential problems.  This is a deep dive analysis, double check your work.
+```
+Ruled out regression N: Task N <one sentence description>
+```
 
-Output: elements of callstack.md that you skipped because you were focused on
-regressions that later you ruled out.
+Think about potential regressions that you found and ruled out, and consider
+them against the RETRACTION RULE and REACHABILITY DISMISSAL sections at
+the top of this prompt.  Was it wrong to exclude them?
 
-Even if you've already used a lot of tokens, go back and check the
-skipped steps now that you know these potential regressions were safe.
+### Forward search for latent issues
 
-- Did you fully analyze and complete Tasks 1-8 for every category? y/n
+For any ruled-out regression dismissed because the code path "isn't reachable
+yet" or "no callers exist yet": patch series often add infrastructure in one
+commit and wire it up later.  A bug in the infrastructure is still a bug.
+
+If a git range was provided (`current_sha..series_end_sha`), use
+`find_commit` with `symbol_patterns` or `subject_patterns` to search forward
+for commits that enable the dismissed code path.  If found, **reinstate the
+issue as confirmed**.
+
+If no git range was provided, report the issue and note that a subsequent
+commit may enable it.  Do NOT dismiss solely because the current commit
+doesn't trigger it.
+
+While you were processing these potential bugs, did you ignore other
+possible problems?  Reconsider issues that might have been hidden by
+focusing too heavily on issues you later ruled out.
+
+- Did you fully analyze and complete Tasks 1-9 for every category? y/n
 - Did you batch all semcode calls to minimize API turns? y/n
 
-If the answer to either question was no, do not complete callstack.md.  Go back and
-finish analysis as instructed.
+This is a deep analsys, and correctness matters more than speed.  Make sure
+every step was fully executed.
