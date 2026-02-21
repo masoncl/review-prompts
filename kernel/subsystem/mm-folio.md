@@ -153,6 +153,18 @@ directly without compound branching.
 `xas_for_each()` loops under `rcu_read_lock()` without prior
 `folio_try_get()` + `xas_reload()`.
 
+## folio->private Validity After Page Cache Lookup
+
+Consumers of `filemap_get_folio()` or `filemap_lock_folio()` cannot assume
+`folio->private` is valid. A race between lookup and reclaim exists in
+which `release_folio()` frees `folio->private` but a task in parallel can
+find the folio in the cache, increment its refcount, and cause
+`__remove_mapping()` to fail. Filesystems that allocate state in
+`folio->private` and free it in `release_folio()` must re-validate (and
+re-attach if needed) private data after acquiring a folio from the page
+cache. For btrfs, this means calling `set_folio_extent_mapped()` before
+accessing `folio->private`.
+
 ## Page Cache Batch Iteration: find_get_entries vs find_lock_entries
 
 `indices[i]` from both `find_get_entries()` and `find_lock_entries()` may not
