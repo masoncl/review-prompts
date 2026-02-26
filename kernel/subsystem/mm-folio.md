@@ -42,7 +42,8 @@ coupling between them).
 refcount comes from swapcache, page cache, GUP pins, LRU isolation, etc.
 (see `folio_expected_ref_count()` in `include/linux/mm.h`).
 
-- Exclusivity check: `mapcount == refcount` means no external users
+- Exclusivity check: `folio_ref_count() == folio_expected_ref_count()` means no
+  unexpected holders (lazyfree path uses simpler `ref_count == 1 + map_count`)
 - Sanity assertion: `mapcount > refcount` is the corrupted/impossible state
   to warn on, NOT `mapcount < refcount` (which is normal)
 
