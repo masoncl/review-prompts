@@ -2,22 +2,21 @@
 
 NFSD (fs/nfsd/) implements the Linux NFS server (v2/v3/v4.x). Key subsystems:
 XDR codec, stateid/delegation state machine, file handle validation, client
-lifecycle, callbacks, session slots. NFSv3 XDR is migrating to auto-generated
-code (xdrgen).
+lifecycle, callbacks, session slots. NFSv4 XDR has auto-generated code
+(xdrgen).
 
 ## File Layout
 
 | Files | Domain |
 |-------|--------|
 | nfs4xdr.c, nfs3xdr.c | XDR codec, page encoding |
-| nfs4state.c, nfs4proc.c | NFSv4 state and operations |
+| nfs4state.c, nfs4proc.c | NFSv4 state, operations, copy offload |
 | nfs3proc.c, nfsproc.c | NFSv2/v3 operations |
 | vfs.c, nfsfh.c, nfsfh.h | VFS interface, file handles, splice |
 | nfs4callback.c | Callbacks |
 | nfs4layouts.c | pNFS layouts |
 | filecache.c, nfscache.c | File cache, DRC |
 | export.c, nfsctl.c, netlink.c | Export mgmt, admin, netlink |
-| nfs4copy.c | Copy offload, server-to-server copy |
 | nfs4recover.c | Grace period, reclaim |
 | state.h, netns.h | Data structures |
 
@@ -57,7 +56,7 @@ loop bounds, or array indices.
 **Replay cache:** `so_replay` / `rp_buf` must only be populated after encode
 success. Unconditional `memcpy` to `rp_buf` after encode failure caches garbage.
 
-**Trusted sources:** xdrgen code (nfs3xdr_gen.c, nfs4xdr_gen.c) has built-in
+**Trusted sources:** xdrgen code (nfs4xdr_gen.c) has built-in
 validation. Metadata from `fh_dentry` after `fh_verify()` is trusted.
 
 ## Reference Counting
@@ -67,10 +66,11 @@ NFSD uses multiple reference count types with different semantics:
 | Counter | Prevents | Used For |
 |---------|----------|----------|
 | `sc_count` | Freeing | Stateid lifetime |
-| `cl_ref` | Freeing | Client structure lifetime |
+| `cl_nfsdfs.cl_ref` | Freeing | nfsdfs client object lifetime |
 | `cl_rpc_users` | Unhashing | Keeping client active during RPC/callback |
 
-**`cl_rpc_users` vs `cl_ref`:** `cl_ref` only prevents freeing. `cl_rpc_users`
+**`cl_rpc_users` vs `cl_nfsdfs.cl_ref`:** `cl_nfsdfs.cl_ref` only prevents freeing
+of the nfsdfs client object. `cl_rpc_users`
 prevents unhashing - required for async operations (callbacks, copy workers)
 that need the client to remain active past the compound's lifetime.
 
@@ -84,7 +84,7 @@ completes. Use temp variables until validation passes. Pattern from
 - `exp_get` / `exp_put`
 - `fh_put` (copy semantics)
 - `nfsd_net_try_get` / `nfsd_net_put`
-- Async copy: `refcount` / `nfsd4_put_copy`, `cl_rpc_users` / `put_client_renew`
+- Async copy: `cl_rpc_users` / `put_client_renew`
 
 Transfer semantics (function "steals" a reference) are acceptable when documented.
 
@@ -112,10 +112,10 @@ COMPOUND framework manages cstate handle lifecycle.
 Stateids track open files, locks, delegations, and layouts. Each type has
 specific locking requirements.
 
-**Stateid types and their locks:**
-- Open/lock stateids: `st_mutex` or `cl_lock`
+**Stateid types and their locks (for `sc_status`):**
+- Open/lock stateids: `cl_lock` (also `st_mutex` for open stateids)
 - Delegations: `state_lock`
-- Layouts: `ls_mutex`
+- Layouts: `ls_lock`
 
 **SC_STATUS_CLOSED:** State-modifying operations must check `sc_status` under
 the appropriate lock before proceeding. Check-and-modify must be atomic.
@@ -189,7 +189,7 @@ hierarchy but mutually exclusive with `s2s_cp_lock` - never hold both.
 
 **Lock scope:**
 - Per-namespace (`nn->client_lock`): `cl_time`, `cl_lru`, `cl_idhash`, `grace_ended`
-- Per-client (`clp->cl_lock`): `cl_openowners`, `cl_sessions`, `cl_revoked`, `cl_reclaim_complete`
+- Per-client (`clp->cl_lock`): `cl_openowners`, `cl_sessions`, `cl_revoked`, `cl_flags` (including `NFSD4_CLIENT_RECLAIM_COMPLETE`)
 
 **TOCTOU in stateid lookup:** Gap between `find_stateid_locked()` under
 `cl_lock` and `mutex_lock(&stp->st_mutex)` requires subsequent
@@ -201,17 +201,17 @@ deadlock. Use `refcount_dec()` when refcount cannot reach zero.
 
 ## Client State Machine
 
-Client states: INIT → CONFIRMED → ACTIVE → COURTESY → EXPIRED
+Client states (`cl_state` enum): NFSD4_ACTIVE → NFSD4_COURTESY → NFSD4_EXPIRABLE.
+Client confirmation is tracked separately via `NFSD4_CLIENT_CONFIRMED` bit in `cl_flags`.
 
 **Valid transitions:**
-- INIT → CONFIRMED (SETCLIENTID_CONFIRM)
-- CONFIRMED → ACTIVE (first state-creating operation)
-- ACTIVE → COURTESY (lease expired, no state conflicts)
-- COURTESY → ACTIVE (client reconnects)
-- COURTESY → EXPIRED (timeout or conflict)
-- Any → EXPIRED (admin action)
+- NFSD4_ACTIVE → NFSD4_COURTESY (lease expired, no state conflicts; `nfs4_get_client_reaplist`)
+- NFSD4_COURTESY → NFSD4_ACTIVE (client reconnects)
+- NFSD4_COURTESY → NFSD4_EXPIRABLE (conflict; `try_to_expire_client` via `cmpxchg`)
+- NFSD4_EXPIRABLE → destroyed (laundromat reaps)
 
-EXPIRED cannot return to ACTIVE. Only COURTESY may return to ACTIVE on reconnect.
+NFSD4_EXPIRABLE cannot return to NFSD4_ACTIVE. Only NFSD4_COURTESY may return to
+NFSD4_ACTIVE on reconnect.
 
 **COURTESY clients:** Transition to COURTESY requires laundromat integration.
 `cl_time` must be set and laundromat must check and expire after timeout.
@@ -234,7 +234,7 @@ Grace period allows clients to reclaim state after server restart.
   `nfserr_grace` if they would create new state
 - Reclaim uses CLAIM_PREVIOUS, CLAIM_DELEGATE_PREV for opens, `lk_reclaim=true`
   for locks
-- Reference: RFC 8881 section 9.6
+- Reference: RFC 8881 section 8.4
 
 **Lease timing:**
 - Use `nn->nfsd4_lease` and `nn->nfsd4_grace` for durations, not hardcoded values
@@ -280,17 +280,17 @@ Callbacks are asynchronous RPCs from server to client.
 NFSv4 Stateid Lifecycle). Release handlers must drop all acquired references.
 
 **Connection state:** Check `cl_cb_state == NFSD4_CB_UP` under `cl_lock`
-before callback dispatch. Access `cb_client` only under the same lock hold.
+before callback dispatch. Access `cl_cb_client` only under the same lock hold.
 
-**Sequence numbers:** `cl_cb_seq_nr` modification requires `cl_lock`. Concurrent
-increment without locking causes duplicate sequence numbers and BAD_SEQUENCE
-rejection.
+**Sequence numbers:** `se_cb_seq_nr` (on `nfsd4_session`) modification requires
+appropriate locking. Concurrent increment without locking causes duplicate
+sequence numbers and BAD_SEQUENCE rejection.
 
 **Client destruction:** `destroy_client()` must call `nfsd4_shutdown_callback()`
 to drain in-flight callbacks before freeing.
 
-**NFSv4.0 compatibility:** `cl_session` is NULL for NFSv4.0 clients. Check
-`cl_minorversion > 0` before `cl_session` access.
+**NFSv4.0 compatibility:** `cl_cb_session` is NULL for NFSv4.0 clients. Check
+`cl_minorversion > 0` before `cl_cb_session` access.
 
 Deferred release via RPC completion handler is acceptable.
 
@@ -298,9 +298,9 @@ Deferred release via RPC completion handler is acceptable.
 
 Sessions (NFSv4.1+) use slots for request ordering and replay detection.
 
-**Slot index validation:** `se_slots[slotid]` access requires prior check
-`slotid < se_fchannel.maxreqs`. Client-supplied slotid without bounds check
-causes array overrun.
+**Slot index validation:** `xa_load(&session->se_slots, slotid)` access requires
+prior check `slotid < se_fchannel.maxreqs`. Client-supplied slotid without
+bounds check causes access to non-existent slots.
 
 **Seqid validation order:** Compare request seqid with `sl_seqid` before
 modification. Original value distinguishes: replay (match), new request (+1),
@@ -309,14 +309,15 @@ misordered (other).
 **Replay security:** Replay path must check `same_creds()` before returning
 cached reply. Without this, attackers can replay another client's response.
 
-**Slot exclusivity:** Set `sl_inuse` before compound execution, clear after.
-All exit paths (error, deferral) must clear `sl_inuse`.
+**Slot exclusivity:** Set `NFSD4_SLOT_INUSE` in `sl_flags` before compound
+execution, clear after. All exit paths (error, deferral) must clear the flag.
 
 **Session teardown:** Remove session from hash table and drain active compounds
 before freeing slots.
 
-**Cached reply lifetime:** Clear `slot->sl_reply` pointer after `kfree()`.
-Replay of freed memory causes use-after-free.
+**Cached reply lifetime:** Cached reply data lives in `sl_data[]` (flexible
+array) with length `sl_datalen`. Ensure cached data is invalidated properly
+on session teardown to prevent use-after-free on replay.
 
 ## Page Array Management
 
@@ -396,7 +397,8 @@ COMPOUND framework pre-validates cstate handles don't need re-verification.
 
 ## Netlink Interface
 
-NFSD uses genetlink for configuration (nfsd_netlink.h).
+NFSD uses genetlink for configuration (include/uapi/linux/nfsd_netlink.h,
+fs/nfsd/netlink.h).
 
 **Policy requirements:**
 - Every `NFSD_A_*` enum needs a corresponding `nla_policy` entry
@@ -413,7 +415,7 @@ or `ns_capable()` before any side effects.
 `&init_net` or global pointers. Use `ns_capable()` for namespace-relative
 privilege checks.
 
-**State synchronization:** `nfsd_running()` or similar state checks must be
+**State synchronization:** Checks on `nn->nfsd_serv` or NFSD running state must be
 protected by `nfsd_mutex` through the subsequent modification to prevent races.
 
 ## NFS Re-export
@@ -436,7 +438,7 @@ superblock is NFS before crossing mounts. Re-export requires different handle
 encoding and credential handling.
 
 **Dual grace periods:** Upstream grace (`-EAGAIN` from NFS client) and local
-grace (`nfsd4_grace_period()`) are independent. Handle both.
+NFSD grace period are independent. Handle both.
 
 **Credential double-mapping:** Re-export applies squash/security transforms
 twice. `no_root_squash` on re-export with `root_squash` upstream causes issues.
@@ -449,10 +451,10 @@ Local filesystem exports (`s_magic != NFS_SUPER_MAGIC`) don't need re-export han
 ## Resource Limits
 
 **Per-client limits required for:**
-- `nfs4_alloc_stid()`, `alloc_init_deleg()`, `alloc_lock_stateid()`
+- `nfs4_alloc_stid()`, `alloc_init_deleg()`
 - `create_session()`
 - Async copy queue depth
-- Work queue items (`nfsd4_callback_wq`, `nfsd_copy_wq`, `laundry_wq`)
+- Work queue items (`cl_callback_wq` per-client, `laundry_wq`)
 
 **Limit check ordering:** Verify limits before allocation, not after. Allocate
 → check → free under heavy load causes transient OOM.
@@ -461,7 +463,7 @@ Local filesystem exports (`s_magic != NFS_SUPER_MAGIC`) don't need re-export han
 `nfserr_resource` when exceeded.
 
 **Counter leak:** `atomic_inc()` on resource counters (`num_delegations`,
-`num_opens`, etc.) before allocation needs matching `atomic_dec()` on all
+etc.) before allocation needs matching `atomic_dec()` on all
 error paths.
 
 **Expensive operations:** Cap READDIR/GETATTR `maxcount`. Limit per-entry
@@ -475,7 +477,7 @@ allocations bounded by fixed protocol maximums don't need additional checks.
 - Reverse-christmas tree variable ordering
 - `nfs_ok`/`nfserr_*` error convention
 - `cpu_to_be32`/`be32_to_cpu` for byte order
-- New NFSv3 XDR code should use nfs3xdr_gen.c (xdrgen)
+- New NFSv4 XDR code should use nfs4xdr_gen.c (xdrgen)
 
 ## Expert Review Triggers
 
@@ -498,5 +500,5 @@ or allocation patterns; re-export or cross-mount handling; changes exceeding
 - Lock acquisition violating hierarchy → deadlock
 - `sc_status` check/modify not atomic under lock → race condition
 - State change before encode success confirmed → corruption on retry
-- Session slot index unchecked against `maxreqs` → array overrun
+- Session slot index unchecked against `maxreqs` → invalid slot access
 - Async copy IDR removal after final put → stale state queries
