@@ -22,6 +22,7 @@ regexes
 | VFS | inode, dentry, vfs_, fs/*.c | vfs.md |
 | Locking | spin_lock*, mutex_*, rwsem*, seqlock*, *seqcount* | locking.md |
 | Scheduler | kernel/sched/, sched_, schedule, *wakeup* | scheduler.md |
+| Timers | timer_list, timer_setup, mod_timer, del_timer, hrtimer, delayed_work | timers.md |
 | BPF | kernel/bpf/, bpf, verifier | bpf.md |
 | RCU | rcu*, call_rcu, synchronize_rcu, kfree_rcu, kvfree_call_rcu | rcu.md |
 | Encryption | crypto, fscrypt_ | fscrypt.md |
