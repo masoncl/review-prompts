@@ -172,9 +172,6 @@ The SNMP stat macros in `include/net/snmp.h` handle this:
   `local_bh_disable()` wrapper and must only be called from BH-disabled
   or process context that cannot be preempted by BH
 
-Driver-specific statistics should follow the guidelines in
-`Documentation/networking/statistics.rst`.
-
 ## Packet Type Constants
 
 Misinterpreting `skb->pkt_type` causes packets to be delivered to the
@@ -317,6 +314,40 @@ Inconsistent family sources within a single file or subsystem suggest bugs.
 Be particularly suspicious of `x->props.family` when accessing inner packet
 properties in tunnel mode.
 
+## Ethtool Driver Statistics vs Standard Stats
+
+Adding statistics to `ethtool -S` that duplicate counters for which a
+standard kernel uAPI already exists creates confusion, leads to huge
+ethtool -S lists, and adds maintenance burden. Reviewers routinely
+reject such patches.
+
+- **Stats that have a standard uAPI must not be duplicated in `ethtool -S`.**
+  The `ethtool -S` interface (`get_ethtool_stats()` / `get_sset_count()` /
+  `get_strings()`) is for driver-private statistics only — counters that are
+  specific to the hardware or driver and have no standard representation.
+- Standard uAPIs exist for common SW-maintained and standards-defined HW
+  counters. Categories with standard interfaces include:
+  - Network device stats (`struct rtnl_link_stats64` via `ip -s link show`)
+  - Per-queue statistics (via netlink)
+  - Page pool statistics (via netlink, accessible through `ynl` tooling)
+  - Ethtool statistics (for which there is a dedicated callback in
+    `struct ethtool_ops`)
+  - Other counters exposed through standardized netlink attributes
+- A stat does not need to be currently reported by the driver to count as
+  a duplicate — if a standard uAPI exists for that category of counter,
+  the driver must use the standard interface, not `ethtool -S`.
+- When a driver wants to expose a statistic that fits an existing standard
+  category, it should implement the appropriate standard interface (e.g.,
+  `ndo_get_stats64`) rather than adding a private ethtool string.
+- `Documentation/networking/statistics.rst` documents the statistics
+  hierarchy and which interfaces to use.
+
+**REPORT as bugs**: Driver patches that add **new** counters to `ethtool -S`
+for values that have a standard uAPI — whether or not the driver currently
+reports them through that standard interface. Pre-existing `ethtool -S` stats
+that predate the standard uAPI are not bugs in new patches (migrating them is
+a separate cleanup).
+
 ## Quick Checks
 
 - Validate packet lengths before `skb_put()` / `skb_push()` / `skb_pull()`
@@ -327,3 +358,4 @@ properties in tunnel mode.
 - Use BH-safe stat update macros for per-CPU network counters
 - Do not access an SKB after handing it to another subsystem
 - Do not store destructor-needed data in `skb->cb`
+- **Ethtool -S stat duplication**: check whether any new `ethtool -S` counters cover values for which a standard uAPI exists (rtnl_link_stats64, page pool stats, per-queue stats via netlink), regardless of whether the driver currently uses that standard interface
