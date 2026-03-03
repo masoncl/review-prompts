@@ -114,7 +114,7 @@ specific locking requirements.
 
 **Stateid types and their locks (for `sc_status`):**
 - Open/lock stateids: `cl_lock` (also `st_mutex` for open stateids)
-- Delegations: `state_lock`
+- Delegations: `deleg_lock`
 - Layouts: `ls_lock`
 
 **SC_STATUS_CLOSED:** State-modifying operations must check `sc_status` under
@@ -181,7 +181,7 @@ signals that retry is needed at a higher level.
 
 **Lock hierarchy (outer to inner):**
 ```
-nn->client_lock → state_lock → nn->s2s_cp_lock → fp->fi_lock → clp->cl_lock → stp->st_mutex
+nn->client_lock → nn->deleg_lock → nn->s2s_cp_lock → fp->fi_lock → clp->cl_lock → stp->st_mutex
 ```
 
 All except `st_mutex` are spinlocks. `nn->nfsd_ssc_lock` is outside the main
