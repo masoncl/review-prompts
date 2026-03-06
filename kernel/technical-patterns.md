@@ -159,3 +159,31 @@ Misunderstanding what constitutes a dereference causes false positives.
 3. **NULL checks protect the pointer being checked**
    - `if (foo)` protects dereferencing `foo`
    - `if (foo && foo->bar)` protects dereferencing both `foo` and `foo->bar`
+
+## Cross-Module Link Dependencies (Kconfig/Makefile)
+
+When a patch adds a new function call to a function defined in a different
+compilation unit (different .c file, especially across directories), verify
+that every emitted reference has a reachable definition for all valid config
+combinations. A missing direct Kconfig dependency alone does not prove a bug.
+
+This is a common source of link-time failures that only manifest with specific
+config combinations (e.g., `CONFIG_X=y CONFIG_Y=n` or `CONFIG_X=y CONFIG_Y=m`).
+
+**When to check**: Any patch that introduces a new cross-file function call,
+moves code between files, or adds a new function that calls external symbols.
+
+**How to check**:
+1. Trace both files' Kconfig and Makefile conditions, including parent-directory
+  gates and composite objects, to determine their built-in or module placement.
+2. Check call-site guards and header stubs before concluding that an external
+  reference exists. `IS_ENABLED()` is not equivalent to `IS_REACHABLE()` for
+  a built-in caller and a module provider.
+3. Check valid `n`/`m`/`y` combinations: built-in callers cannot call module
+  providers, and calls across module boundaries require appropriate exports.
+  Separate modules need not be linked together.
+4. Report only a valid configuration where the patch leaves an unresolved
+  reference after accounting for guards, stubs, and alternative definitions.
+
+When this check applies, load `subsystem/kconfig.md` "Cross-Module Link
+Dependencies" for detailed patterns and examples, even for C-only patches.
