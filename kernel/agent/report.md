@@ -244,8 +244,6 @@ Create `<output_dir>/review-metadata.json` with the following exact format:
   "author": "<commit author from commit-message.json>",
   "sha": "<commit sha from commit-message.json>",
   "subject": "<commit subject from commit-message.json>",
-  "AI-authorship-score": "<low|medium|high>",
-  "AI-authorship-explanation": "<one sentence explanation>",
   "issues-found": <number>,
   "guide-flagged-issues": <number>,
   "issue-severity-score": "<none|low|medium|high|urgent>",
@@ -260,19 +258,10 @@ Create `<output_dir>/review-metadata.json` with the following exact format:
 | `author` | From commit-message.json |
 | `sha` | From commit-message.json |
 | `subject` | From commit-message.json |
-| `AI-authorship-score` | Evaluate commit message and code style |
-| `AI-authorship-explanation` | Brief reason for the score |
 | `issues-found` | Total count of all issues (regressions + guide-flagged) across all result files |
 | `guide-flagged-issues` | Count of potential issues (issue_type = "potential-issue"). Confirmed regressions = issues-found minus guide-flagged-issues |
 | `issue-severity-score` | Highest severity from all issues, or "none" |
 | `issue-severity-explanation` | Summary of the most severe issue(s) |
-
-**AI Authorship Evaluation**:
-
-Consider these signals:
-- `low`: Natural commit message, idiomatic kernel code style
-- `medium`: Some unusual phrasing, overly verbose comments
-- `high`: Generic descriptions, excessive documentation, unnatural patterns
 
 **Severity Score**:
 - Use the highest severity from any issue

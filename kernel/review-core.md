@@ -267,14 +267,7 @@ Always conclude with:
 - Output: `FINAL TOKENS USED: <total tokens used in the entire session>`
 - Output: Any false positives eliminated
 
-### Task 5 estimate AI authorship
-
-- Evaluate the commit message and the code for likelyhood that it was written
-by AI.
-- Create a score on a scale of <low,medium,high>
-- Create a one sentence explanation of the score
-
-### Task 6 Review metadata output
+### Task 5 Review metadata output
 
 Create a json file in the current directory named ./review-metadata.json
 
@@ -301,11 +294,9 @@ THESE EXACT FIELDS IN THIS EXACT FORMAT.  DEVIATION IS NOT ALLOWED.
 author: <string commit author>
 sha: <string sha of the commit>
 subject: <string commit subject>
-AI-authorship-score: <low/medium/high>
-AI-authorship-explanation: <string, result of Task 5>
 issues-found: <number>
 issue-severity-score: <low/medium/high>
-issue-severity-explanation: <string, result of Task 6 analysis>
+issue-severity-explanation: <string, result of Task 5 analysis>
 ```
 
 - Ensure ./review-metadata.json exists and has the correct format
