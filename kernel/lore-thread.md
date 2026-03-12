@@ -82,7 +82,10 @@ For each review comment found:
 For comments marked as "will fix" or "Ack" by author:
 
 - Add each comment to TodoWrite
-- Check if the fix actually appears in the current HEAD commit
+- Check if the fix actually appears in the current HEAD commit.
+  If not found there, check other patches in the series — authors sometimes
+  address feedback by modifying a different patch than the one the comment
+  was on.
 - Strictly verify the fix is correct, try to disagree with any comments
   or commit messages as though you are the reviewer.  Loosen the false-positive-guide.md
   rules around trusting the author and bias toward reporting incomplete, incorrect, or
