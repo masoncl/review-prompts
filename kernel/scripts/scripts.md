@@ -254,11 +254,16 @@ python claude-json.py -d < input.json
 |--------|-------------|
 | `-i, --input` | Input file (default: stdin) |
 | `-o, --output` | Output file (default: stdout) |
+| `-a, --agents` | Write agent mapping JSON to this file |
 | `-d, --debug` | Enable debug output to stderr |
 
 ### Why it exists
 
 When using `claude -p` (non-interactive mode), normal output is disabled. The only way to capture output is with `--output-format=stream-json` and `--verbose`. This script parses that JSON stream back into readable markdown.
+
+### Agent mapping (`-a`)
+
+When `-a agents.json` is specified, the script extracts sub-agent information from `toolUseResult` fields on user messages, writing a JSON array of agent records. Each record may include: `agentId`, `description`, `prompt`, `outputFile`, and `status`. The `agentId` can be used to locate the sub-agent's own session log for recursive extraction.
 
 ---
 
