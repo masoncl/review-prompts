@@ -25,7 +25,8 @@ This installs:
 - **Kernel skill** (`~/.claude/skills/kernel/SKILL.md`) - Automatically loads
   kernel-specific context when working in kernel trees
 - **Slash commands** (`~/.claude/commands/`) - Quick access to common operations:
-  - `/kreview` - Review commits for regressions
+  - `/kreview` - Review a single commit for regressions
+  - `/kseries` - Review an entire patch series (git range) commit-by-commit
   - `/kdebug` - Debug kernel crashes and warnings
   - `/kverify` - Verify findings against false positive patterns
 
