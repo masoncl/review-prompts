@@ -62,6 +62,9 @@ def parse_stream(stream, debug=False):
                     if text:
                         parsed_count += 1
                         text_parts.append(text)
+                        # The output always needs a trailing newline
+                        # Otherwise we risk breaking markdown formatting
+                        text_parts.append('\n')
                         if debug:
                             print(f"Extracted text {parsed_count}: {len(text)} chars",
                                   file=sys.stderr)
