@@ -101,6 +101,48 @@ def parse_stream(stream, debug=False):
     return ''.join(text_parts), agents
 
 
+def collect_agent_text(agents, debug=False):
+    """Parse each agent's outputFile and return concatenated text with headers."""
+    parts = []
+    for agent in agents:
+        description = agent.get('description', 'unknown')
+        output_file = agent.get('outputFile')
+        if not output_file:
+            if debug:
+                print(f"Agent '{description}' has no outputFile, skipping",
+                      file=sys.stderr)
+            continue
+
+        try:
+            with open(output_file, 'r') as f:
+                agent_text, sub_agents = parse_stream(f, debug=debug)
+        except FileNotFoundError:
+            if debug:
+                print(f"Agent output file not found: {output_file}",
+                      file=sys.stderr)
+            continue
+
+        if not agent_text.strip():
+            continue
+
+        header = f'Agent: {description}'
+        separator = '=' * len(header)
+        parts.append('\n\n')
+        parts.append(separator + '\n')
+        parts.append(header + '\n')
+        parts.append(separator + '\n')
+        parts.append('\n')
+        parts.append(agent_text)
+
+        # Recurse into sub-agents
+        if sub_agents:
+            sub_text = collect_agent_text(sub_agents, debug=debug)
+            if sub_text:
+                parts.append(sub_text)
+
+    return ''.join(parts)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Parse Claude stream-json output and convert to plain text',
@@ -116,6 +158,8 @@ def main():
                         help='Write agent mapping JSON to this file')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='Enable debug output to stderr')
+    parser.add_argument('--no-agents', action='store_true',
+                        help='Do not append subagent outputs')
 
     args = parser.parse_args()
 
@@ -143,18 +187,28 @@ def main():
             print(f"Error writing agents file: {e}", file=sys.stderr)
             return 1
 
+    # Collect agent outputs unless suppressed
+    agent_text = ''
+    if agents and not args.no_agents:
+        agent_text = collect_agent_text(agents, debug=args.debug)
+
     # Handle output
     print("\n")
     if args.output:
         try:
             with open(args.output, 'w') as f:
                 f.write(text)
+                if agent_text:
+                    f.write(agent_text)
                 f.write('\n')
         except Exception as e:
             print(f"Error writing output file: {e}", file=sys.stderr)
             return 1
     else:
-        print(text, end='\n')
+        print(text, end='')
+        if agent_text:
+            print(agent_text, end='')
+        print()
 
     print("\n\n=================\n")
     return 0
