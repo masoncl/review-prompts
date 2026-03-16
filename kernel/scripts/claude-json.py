@@ -193,7 +193,6 @@ def main():
         agent_text = collect_agent_text(agents, debug=args.debug)
 
     # Handle output
-    print("\n")
     if args.output:
         try:
             with open(args.output, 'w') as f:
@@ -205,12 +204,11 @@ def main():
             print(f"Error writing output file: {e}", file=sys.stderr)
             return 1
     else:
+        print("\n")
         print(text, end='')
         if agent_text:
             print(agent_text, end='')
-        print()
-
-    print("\n\n=================\n")
+        print("\n\n=================\n")
     return 0
 
 
