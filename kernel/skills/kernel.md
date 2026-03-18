@@ -32,6 +32,13 @@ When asked to debug a kernel crash, oops, warning, or stack trace:
 2. Follow the complete debugging protocol defined there
 3. Use crash information as entry points into the code analysis
 
+### Coccinelle (Automatic)
+When asked to make a code change that is a repeatable pattern across multiple
+files (renames, API changes, parameter additions, boilerplate removal, etc.):
+1. Load `{{KERNEL_REVIEW_PROMPTS_DIR}}/coccinelle.md`
+2. Generate a `.cocci` semantic patch instead of editing files individually
+3. Provide the `make coccicheck` command to apply it
+
 ### Subsystem Context
 When working on kernel code in specific subsystems, load the appropriate
 context files from `{{KERNEL_REVIEW_PROMPTS_DIR}}/`:
