@@ -65,6 +65,7 @@ regexes
 | Input | drivers/input/, edt-ft5x06, touchscreen@, report-rate-hz | input.md |
 | Objtool | tools/objtool/, INSN_BUG, INSN_TRAP, decode.c | objtool.md |
 | KHO (Kexec Handover) | lib/test_kho.c, kho_, kho_is_enabled, kho_retrieve_subtree, kho_preserve_folio, kho_add_subtree, register_kho_notifier | kho.md |
+| Rust | any Rust code | rust.md |
 
 ## Optional Patterns
 
