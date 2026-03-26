@@ -287,6 +287,12 @@ calls must be guarded by the same condition.
   until `free_area_init()`. Use `memblock_end_of_DRAM()` instead of
   `__pa(high_memory)` in `__init` code. Guard `high_memory` with
   `IS_ENABLED(CONFIG_HIGHMEM)`. See `mm/cma.c`
+- **Early boot memory allocation failures**: functions executed only early in the boot
+  process (e.g., marked with `__init`) usually do not need to handle memory
+  allocation failures gracefully. At this stage, physical memory should be
+  available, and an allocation failure typically means the system cannot boot
+  anyway. Complex error handling, cleanup logic, or returning `-ENOMEM` in
+  these functions is often unnecessary dead code.
 - **NOWAIT error code translation**: NOWAIT callers expect `-EAGAIN` (retry
   in blocking context), not `-ENOMEM` (fatal). When downgrading GFP to
   NOWAIT, translate allocation failure to `-EAGAIN`. See
