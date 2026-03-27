@@ -39,7 +39,7 @@ echo "  $SKILL_FILE"
 
 # --- Install Slash Commands ---
 
-COMMANDS_DIR="$HOME/.agents"
+COMMANDS_DIR="$HOME/.codex/prompts"
 SLASH_COMMANDS_SRC="$PROMPTS_DIR/slash-commands"
 
 if [ ! -d "$SLASH_COMMANDS_SRC" ]; then
