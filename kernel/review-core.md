@@ -265,6 +265,7 @@ guidelines.
 Always conclude with:
 - Output: `FINAL REGRESSIONS FOUND: <number>`
 - Output: `FINAL TOKENS USED: <total tokens used in the entire session>`
+ - Output: `Assisted-by: <LLM agent name>:<LLM model version>`
 - Output: Any false positives eliminated
 
 ### Task 5 Review metadata output
