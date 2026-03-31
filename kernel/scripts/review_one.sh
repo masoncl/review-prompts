@@ -106,6 +106,14 @@ if [ ! -d "$BASE_LINUX" ]; then
     exit 1
 fi
 
+# check $SHA, resolve if shortcut
+if [ "$SHA" == "HEAD" ];
+then
+	SHA=$(cd $BASE_LINUX && git rev-parse --short HEAD)
+fi
+
+echo $SHA
+
 # Use command line args first, then environment variables, then defaults
 if [ -n "$ARG_WORKING_DIR" ]; then
     WORKING_DIR="$ARG_WORKING_DIR"
