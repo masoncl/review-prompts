@@ -291,13 +291,15 @@ If the file already exists, it should be completely replaced.
 CRITICAL: DO NOT INVENT OTHER FIELDS FOR ./review-metadata.json.  IT MUST HAVE
 THESE EXACT FIELDS IN THIS EXACT FORMAT.  DEVIATION IS NOT ALLOWED.
 
-```
-author: <string commit author>
-sha: <string sha of the commit>
-subject: <string commit subject>
-issues-found: <number>
-issue-severity-score: <low/medium/high>
-issue-severity-explanation: <string, result of Task 5 analysis>
+```json
+{
+  "author": "<string commit author>",
+  "sha": "<string sha of the commit>",
+  "subject": "<string commit subject>",
+  "issues-found": <number>,
+  "issue-severity-score": "<none/low/medium/high/urgent>",
+  "issue-severity-explanation": "<string, result of Task 5 analysis>"
+}
 ```
 
 - Ensure ./review-metadata.json exists and has the correct format
