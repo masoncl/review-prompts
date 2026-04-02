@@ -103,7 +103,7 @@ IMMEDIATELY.
      find it unless you search the parent commit.
 
 2. **Without semcode (fallback)**:
-   - Use git diff to identify changes
+   - Use `git show <sha>` to identify changes. Do not use `git diff` against HEAD: `review_one.sh` checks out a worktree with the commit applied, so `git diff` will be empty.
    - Manually find function definitions and relationships with grep and other tools
    - Document any missing context that affects research quality
 
