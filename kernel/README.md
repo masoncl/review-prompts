@@ -27,8 +27,16 @@ This installs:
 - **Slash commands** (`~/.claude/commands/`) - Quick access to common operations:
   - `/kreview` - Review a single commit for regressions
   - `/kseries` - Review an entire patch series (git range) commit-by-commit
+  - `/korcreview` - Deep-dive regression analysis using the ORC orchestrator
   - `/kdebug` - Debug kernel crashes and warnings
   - `/kverify` - Verify findings against false positive patterns
+  - `/kmail_review` - LKML-style team review of a branch/range/patches.
+    Spawns an agent team that impersonates the real subsystem maintainers,
+    the patch author, and an optional tester, and produces a thread of
+    plain-text "replies" under `./kmail-review/`. Linus is only involved
+    when maintainers disagree or core/ABI code is touched. The review
+    is fully local: lore is consulted read-only, and no mail is ever
+    sent (no `git send-email`, no `b4 send`, no SMTP/IMAP).
 
 The skill and commands reference the prompts directory where you cloned this
 repository, so don't move it after installation.
