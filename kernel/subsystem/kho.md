@@ -96,6 +96,16 @@ allocations, potentially making the next kexec unbootable.
   CMA-backed contiguous areas scaled by `kho_scratch=` boot parameter
   (default 200% of memblock-reserved kernel memory)
 
+## FDT Endianness
+
+KHO uses a custom FDT format where all values are stored in **native host
+endianness**, not the big-endian format mandated by the standard devicetree
+specification (dtspec). This is intentional because KHO FDTs are only
+consumed by the same architecture that produced them (the successor kernel
+on the same machine), so byte-swapping is unnecessary overhead. Do not
+flag native-endian reads or writes to KHO FDT properties as bugs -- they
+are correct by design.
+
 ## Quick Checks
 
 - Verify every code path calling KHO serialization APIs
