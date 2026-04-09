@@ -120,6 +120,31 @@ without proper bounds checking (including negative value check for signed types)
 - Tail calls limited to 33 levels
 - Stack usage limited to 512 bytes
 
+## BPF Comment Style
+
+The BPF subsystem follows the modern kernel multi-line comment style.
+Multi-line comments MUST have the opening `/*` on its own line,
+with the comment text starting on the next line:
+
+```c
+/* WRONG - text on the same line as opening */
+/* This is not the preferred
+ * kernel comment style.
+ */
+
+/*
+ * CORRECT - This is the preferred
+ * kernel comment style.
+ */
+```
+
+Single-line comments that fit on one line are fine as-is: `/* This is fine. */`
+
+This applies to files under `kernel/bpf/`, `net/core/filter.c`,
+`include/linux/bpf*.h`, `tools/lib/bpf/`, `tools/testing/selftests/bpf/`,
+and other BPF-related paths, even if surrounding code in the same file
+uses the old style.
+
 ## BPF Skeleton API (Selftests)
 
 ### Generated Skeleton Functions
