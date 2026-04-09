@@ -303,6 +303,10 @@ Step init.1:
   - don't flag capitalization unless it changes the meaning of the sentence.
   - only flag spelling or grammar mistakes that make sentences difficult to
     understand.
+8. If a subsystem guide is loaded, check added or modified code against any
+   coding-style rules defined in that guide (e.g., comment style, macro
+   conventions, API preferences). Only flag new or modified lines, not
+   pre-existing code.
 
 ## Task 9
 
