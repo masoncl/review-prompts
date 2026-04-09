@@ -411,6 +411,10 @@ operation appears to guard a section of code rather than express state —
 i.e., where the flag is set on entry and cleared on exit of a code region
 to prevent concurrent access, instead of using a proper lock or RCU.
 
+## Code Style
+
+- Reverse-christmas tree variable ordering
+
 ## Quick Checks
 
 - Validate packet lengths before `skb_put()` / `skb_push()` / `skb_pull()`
