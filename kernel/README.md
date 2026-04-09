@@ -30,11 +30,11 @@ This installs:
   - `/korcreview` - Deep-dive regression analysis using the ORC orchestrator
   - `/kdebug` - Debug kernel crashes and warnings
   - `/kverify` - Verify findings against false positive patterns
-  - `/kmail_review` - LKML-style team review of a branch/range/patches.
-    Spawns an agent team that impersonates the real subsystem maintainers,
+  - `/kreview_iteration` - LKML-style team review of a branch/range/patches.
+    Spawns an agent team of subsystem maintainer reviewers,
     the patch author, and an optional tester, and produces a thread of
-    plain-text "replies" under `./kmail-review/`. Linus is only involved
-    when maintainers disagree or core/ABI code is touched. The review
+    plain-text "replies" under `./kreview-iteration/`. A core reviewer is
+    only involved when maintainers disagree or core/ABI code is touched. The review
     is fully local: lore is consulted read-only, and no mail is ever
     sent (no `git send-email`, no `b4 send`, no SMTP/IMAP).
 

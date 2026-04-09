@@ -1,18 +1,18 @@
-Read the prompt REVIEW_DIR/mail-review/orchestrator.md
+Read the prompt REVIEW_DIR/kreview-iteration/orchestrator.md
 
 The kernel review prompt directory (referred to as `<prompt_dir>` inside the
-mail-review prompts) is: REVIEW_DIR
+kreview-iteration prompts) is: REVIEW_DIR
 
 The argument is either:
 - a git branch name (review the branch's commits vs its merge-base with master/upstream)
 - a git range (e.g. `abc123..def456`) or set of commit SHAs
 - one or more patch file paths
 
-Execute the mail-review orchestrator protocol against the provided target. The
+Execute the kreview-iteration orchestrator protocol against the provided target. The
 orchestrator spawns an agent team (using agent teams, not subagents) where
-teammates impersonate real subsystem maintainers, the patch author, and an
-optional tester. Linus is only involved when maintainers disagree, core/ABI
-code is touched, or escalation is needed. The review is performed in kernel
+teammates act as unbiased subsystem maintainers, the patch author, and an
+optional tester. A core reviewer is only involved when maintainers disagree,
+core/ABI code is touched, or escalation is needed. The review is performed in kernel
 mailing list style: maintainers cross-review each other, the author applies
 sensible feedback (with user approval), and maintainers re-review the
 revised series.
@@ -48,7 +48,7 @@ server. Specifically:
    prep --submit`, or any other tool that publishes patches.
 3. **No drafts in user mailboxes.** Do not write to `~/Mail`, `~/.mbox`,
    Maildir directories, or any local mail spool. All teammate "replies"
-   live as plain text files under `./kmail-review/thread/` only.
+   live as plain text files under `./kreview-iteration/thread/` only.
 4. **No outbound network at all** for the purpose of "sending" the
    review. Network is allowed for *fetching* lore, MAINTAINERS lookups,
    and semcode queries — that's it.
@@ -57,5 +57,5 @@ server. Specifically:
    force-push, or otherwise publish the revised series.
 
 If a teammate (or you) is tempted to "send" a reply, stop. The output is
-the files under `./kmail-review/thread/` and `./kmail-review/summary.md`,
+the files under `./kreview-iteration/thread/` and `./kreview-iteration/summary.md`,
 which the user reads themselves. Nothing leaves this machine.
