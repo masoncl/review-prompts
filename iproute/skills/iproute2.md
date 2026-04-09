@@ -32,6 +32,6 @@ iproute2 is userspace code. Key differences:
 
 ## Available Commands
 
-- `/ireview` - Deep patch regression analysis
-- `/idebug` - Debug iproute2 issues
-- `/iverify` - Verify patch correctness
+- `/iproute-review` - Deep patch regression analysis
+- `/iproute-debug` - Debug iproute2 issues
+- `/iproute-verify` - Verify patch correctness
