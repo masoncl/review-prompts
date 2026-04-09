@@ -175,3 +175,28 @@ Validation errors must be conditional: `if (!map && !parse_state->fake_pmu)`.
   verify all consuming tools handle both old and new event types.
 - **Mmap path opens**: When opening files derived from mmap events or `/proc`
   paths, verify `O_NONBLOCK` is used to prevent hangs on special files.
+
+## perf.data Header Validation
+
+Header processing functions in `perf.data` populate fields in
+`struct perf_env` and may depend on fields that were populated by
+earlier headers. When a header processing function accesses
+`perf_env` fields that are populated by a different header, it
+must verify those fields have been initialized. Headers can
+appear out of order in `perf.data` files, and older files may
+omit headers entirely.
+
+- `process_cpu_domain_info()` depends on CPU count data
+  populated by `process_nr_cpus()`, so `HEADER_NRCPUS` must be
+  processed before `HEADER_CPU_DOMAIN_INFO`.
+- If a prerequisite header was not present in the file, the
+  dependent fields in `perf_env` remain zero-initialized or
+  NULL.
+- Functions that skip validation of prerequisite fields will
+  dereference NULL pointers or operate on zero-length arrays
+  when processing files that lack the prerequisite header or
+  present headers out of order.
+
+Any header processing function that accesses `perf_env` fields
+populated by a different header without first verifying those
+fields are initialized is a bug.
