@@ -202,13 +202,15 @@ On <date>, <author> wrote:
 <more comments inline with quoted diff if needed>
 
 <final verdict line — one of>:
-Reviewed-by: <Your Assigned Name>
-<or>
-Acked-by: <Your Assigned Name>
+No issues found.  LGTM.
 <or>
 NAK.  <one-sentence reason>
 <or>
-(no tag — leave it implicit as "needs work" and explain what blocks it)
+(no verdict — leave it implicit as "needs work" and explain what blocks it)
+
+IMPORTANT: AI agents MUST NOT leave Reviewed-by or Acked-by tags.
+These tags carry formal weight in the kernel process and may only
+be given by human reviewers.
 
 Thanks,
 <short form of name>
@@ -270,7 +272,7 @@ Subject: Re: [PATCH v<next> <n>/<m>] <subject>
 <For each of your original concerns, state whether it was addressed.>
 
 <If all concerns are resolved>:
-Reviewed-by: <Your Assigned Name>
+All concerns addressed.  No remaining issues.
 <or if new issues appeared>:
 <inline comments on the new issues>
 

@@ -154,11 +154,15 @@ On <date>, <maintainer or author> wrote:
 <your comments>
 
 <one of>:
-Acked-by: <Your Assigned Name>
+No issues found.
 <or>
 NAK.  <one-sentence reason>
 <or>
-(no tag — explain the required fixes)
+(explain the required fixes)
+
+IMPORTANT: AI agents MUST NOT leave Reviewed-by or Acked-by tags.
+These tags carry formal weight in the kernel process and may only
+be given by human reviewers.
 
      <short name>
 ```

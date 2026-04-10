@@ -678,7 +678,7 @@ After all initial maintainer reviews (`review-subsystem-*`) are complete:
    PHASE 3 — CROSS-REVIEW COMPLETE
    ════════════════════════════════════════════════════════════════
    Initial reviews:
-     maint-<slug1>: <verdict (Reviewed-by | NAK | needs-work)>
+     maint-<slug1>: <verdict (LGTM | NAK | needs-work)>
      maint-<slug2>: <verdict>
    Cross-reviews:  <n written, n skipped>
    Maintainer consensus: <agree | disagree — <detail>>
