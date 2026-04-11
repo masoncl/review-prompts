@@ -1,4 +1,4 @@
-Read the prompt REVIEW_DIR/agent/orc.md
+Read the prompt {{REVIEW_DIR}}/agent/orc.md
 
 If a git range is provided, it's meant for the false-positive-guide.md section
 

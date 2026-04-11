@@ -3,10 +3,10 @@ name: systemd-debug
 description: Debug systemd crashes and issues
 ---
 
-Using the prompt REVIEW_DIR/debugging.md, analyze the provided crash
+Using the prompt {{REVIEW_DIR}}/debugging.md, analyze the provided crash
 information, logs, or stack trace.
 
-Load REVIEW_DIR/technical-patterns.md first, then follow the complete
+Load {{REVIEW_DIR}}/technical-patterns.md first, then follow the complete
 debugging protocol in debugging.md.
 
 Expected input:

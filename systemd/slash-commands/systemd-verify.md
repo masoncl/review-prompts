@@ -3,7 +3,7 @@ name: systemd-verify
 description: Verify findings against false positive patterns
 ---
 
-Using the prompt REVIEW_DIR/false-positive-guide.md, verify that a
+Using the prompt {{REVIEW_DIR}}/false-positive-guide.md, verify that a
 reported issue is not a false positive.
 
 This command helps validate potential bugs found during review or debugging.

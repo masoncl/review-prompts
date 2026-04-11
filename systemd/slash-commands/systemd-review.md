@@ -3,12 +3,12 @@ name: systemd-review
 description: Review systemd commits for regressions
 ---
 
-Using the prompt REVIEW_DIR/review-core.md, run a deep dive regression
+Using the prompt {{REVIEW_DIR}}/review-core.md, run a deep dive regression
 analysis of the specified commit or range.
 
 If no commit is specified, analyze the top commit (HEAD).
 
-Load REVIEW_DIR/technical-patterns.md first, then follow the complete
+Load {{REVIEW_DIR}}/technical-patterns.md first, then follow the complete
 review protocol in review-core.md.
 
 For the commit being analyzed:
