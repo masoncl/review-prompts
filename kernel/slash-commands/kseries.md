@@ -1,4 +1,4 @@
-Read the prompt REVIEW_DIR/review-core.md
+Read the prompt {{REVIEW_DIR}}/review-core.md
 
 This performs deep dive regression analysis of an entire patch series (git range).
 

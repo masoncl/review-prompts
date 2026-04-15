@@ -1,18 +1,22 @@
-# systemd Review Prompts for Claude Code
+# systemd Review Prompts for AI-Assisted Code Review
 
 AI-assisted code review prompts optimized for the systemd codebase.
 
 ## Installation
 
-Run the setup script to install the skill and slash commands:
+Run the setup script from the root of this repository to install the skill and slash commands:
 
 ```bash
-./scripts/claude-setup.sh
+./setup.sh <agent> <project>
 ```
 
+Where `<agent>` is one of available agents and `<project>` is one of available
+projects that are explicitly stated in the usage message when the script is
+executed with `-h|--help` option.
+
 This will install:
-- The `systemd` skill to `~/.claude/skills/systemd/SKILL.md`
-- Slash commands to `~/.claude/commands/`
+- The `systemd` skill to the agent's specific skill directory
+- Slash commands to the agent's command directory
 
 ## Usage
 
@@ -44,7 +48,6 @@ review-prompts/
 ├── dbus.md                   # D-Bus patterns
 ├── patterns/                 # Detailed pattern explanations
 ├── skills/                   # Skill template
-├── scripts/                  # Setup script
 ├── slash-commands/           # Slash command definitions
 ├── false-positive-guide.md   # False positive checklist
 └── inline-template.md        # Report template
@@ -52,12 +55,7 @@ review-prompts/
 
 ## Integration with Kernel Review-Prompts
 
-This setup is designed to coexist with the kernel review-prompts.
-Both can be installed simultaneously - each installs to a separate
-skill directory (`~/.claude/skills/kernel/` vs `~/.claude/skills/systemd/`).
-
-To install both:
-1. Run `./scripts/claude-setup.sh` from the systemd review-prompts directory
-2. Run `./scripts/claude-setup.sh` from the kernel review-prompts directory
+This setup is designed to coexist with the kernel and iproute review-prompts.
+The `./setup.sh <agent> <project>` command will install the prompts for a specific project.
 
 Each skill auto-loads based on the working directory context.

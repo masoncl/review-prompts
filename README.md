@@ -5,34 +5,15 @@ Works with Claude Code and other AI tools.
 
 ## Quick Start
 
-### Install Kernel Prompts Only
+### Install Prompts
 
 ```bash
-cd kernel/scripts
-./claude-setup.sh
+./setup.sh <agent> <project>
 ```
 
-### Install systemd Prompts Only
-
-```bash
-cd systemd/scripts
-./claude-setup.sh
-```
-
-### Install iproute Prompts Only
-
-```bash
-cd iproute/scripts
-./claude-setup.sh
-```
-
-### Install All
-
-```bash
-cd kernel/scripts && ./claude-setup.sh
-cd ../../systemd/scripts && ./claude-setup.sh
-cd ../../iproute/scripts && ./claude-setup.sh
-```
+Where `<agent>` is one of available agents and `<project>` is one of available
+projects that are explicitly stated in the usage message when the script is
+executed with `-h|--help` option.
 
 ## Available Commands
 
