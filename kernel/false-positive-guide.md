@@ -198,6 +198,9 @@ verification checklist.
 - passing uninitialized variables to a function is fine if that function writes
 to them before reading them
 - only report reading from uninitialized variables, not writing to them.
+- `kzalloc`/`kcalloc` zero all bytes. Do not flag missing explicit
+  initialization for fields whose zero value is correct (NULL pointers,
+  zero counts, empty list heads where `*_INIT` is `{NULL}` or `{0}`).
 
 ### 13. Implicit Guard Conditions
 

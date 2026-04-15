@@ -141,6 +141,15 @@ This deep dive analysis will take a long time, don't skip steps.
 
 ### Task 2: Analyze the changes for regressions
 
+0. **Reachability gate** (mandatory, before all other Task 2 work):
+   Verify that the changed code paths are reachable by the workloads
+   or consumers described in the commit message.  Check config
+   dependencies, feature flags, and protocol constraints that might
+   prevent execution.  If the code path cannot execute for the stated
+   use case, report this immediately — it is a show-stopper that
+   supersedes detailed regression analysis.
+   - Output: `REACHABILITY: confirmed` or `REACHABILITY: blocked — <reason>`
+
 1. If the patch is non-trivial: read and fully analyze callstack.md
   - **MANDATORY VALIDATION**: Have you read and callstack.md for non-trivial changes? [ y / n ]
   - verify every comment matches actual behavior
