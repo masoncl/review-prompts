@@ -5,13 +5,22 @@
 # Installs skills and slash commands for the specified agent on their respective
 # locations.
 #
-# Usage: ./setup.sh [OPTIONS] <agent>
+# Usage: ./setup.sh [OPTIONS] <agent> <project>
+#
+# Each project directory must contain a skill file at:
+#   <project>/skills/<project>.md
+#
+# The skill filename is derived from the directory name (e.g. the "iproute"
+# project uses iproute/skills/iproute.md).  Inside that file, use the
+# placeholder {{<PROJECT>_REVIEW_PROMPTS_DIR}} (uppercased project name)
+# for paths that should resolve to the project directory at install time.
+#
+# Slash commands live in <project>/slash-commands/*.md and may use
+# {{REVIEW_DIR}} as a placeholder for the project directory path.
 
 set -e
 
-AGENT="$1"
-PROJECT="$2"
-SCRIPT_DIR="$(cd $(dirname ${BASH_SOURCE[0]}) && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
     echo "Usage: $0 [OPTIONS] <agent> <project>"
@@ -35,10 +44,6 @@ install_project() {
     local src_skill_fn="${project}.md"
     local project_dir="$SCRIPT_DIR/$project"
     local prompts_dir_var="${project^^}_REVIEW_PROMPTS_DIR"
-
-    if [ ! -d "$project_dir" ]; then
-        return
-    fi
 
     echo "--- Installing $project prompts ---"
 
@@ -94,10 +99,19 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
+AGENT="$1"
+PROJECT="$2"
+
 AGENT_SCRIPT="$SCRIPT_DIR/agents/${AGENT}.sh"
 
 if [ ! -f "$AGENT_SCRIPT" ]; then
     echo "Error: Setup script for agent '$AGENT' not found at $AGENT_SCRIPT"
+    exit 1
+fi
+
+PROJECT_DIR="$SCRIPT_DIR/$PROJECT"
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Error: Project '$PROJECT' not found at $PROJECT_DIR"
     exit 1
 fi
 
