@@ -76,6 +76,7 @@ regexes
 | Rust | any Rust code | rust.md |
 | KVM | virt/kvm/, include/linux/kvm*, kvm_ | kvm.md |
 | ARM64 | arch/arm64/, sysreg | arm64.md |
+| ARM64 KVM (EL1/Host) | arch/arm64/kvm/ | kvm-arm64.md |
 
 ## Optional Patterns
 
