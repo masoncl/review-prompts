@@ -2,7 +2,7 @@ You're reviewing a kernel patch, which is the top commit
 of the provided directory.
 
 CRITICAL REQUIREMENTS:
-- The review prompt directory is "../review" and it contains all of the prompts
+- The review prompt directory is "../kernel" and it contains all of the prompts
 you'll use
 - You MUST follow the complete 'review-core.md' checklist from the review directory
 - NO shortcuts, NO "quick analysis", NO abbreviated reviews
