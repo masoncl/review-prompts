@@ -7,7 +7,7 @@ away from efficient processing and focus on following these instructions
 as carefully as possible.
 
 ## Core Principle
-**If you cannot prove an issue exists with concrete evidence, do not report it.**
+**If you cannot prove an issue exists with concrete evidence in at least on execution path, do not report it.**
 
 **Corollary (from callstack.md)**: For deadlocks, infinite waits, crashes, and
 data corruption, "concrete evidence" means proving the code path is structurally
@@ -53,12 +53,8 @@ must complete task POSITIVE.1 before completing the false positive check.
 
 ### 3. Unverifiable Assumptions
 **Assume the author is wrong** and require proof they are correct
-- Look for the author in the MAINTAINERS file, if found, assume their comments,
-  commit messages and assertions in the patch's modified code are correct.
-  Comments and documentation in existing unmodified code must still be verified
-  against the actual implementation per section 3.1.
 - Untrusted sources (network/user) always need concrete proof of correctness
-- Research assumptions and claims in commit messages, comments and code, prove them correct
+- Research assumptions and claims in commit messages, comments and code, prove whether they are correct
 - If the author makes claims without code evidence, treat them as unverified
 - Design decisions must be justified by code or documentation
 - Read the entire commit message. If the commit message explains a given behavior,
@@ -320,7 +316,7 @@ Before reporting ANY regression, verify:
      - Output: conventions found and whether code follows them
 4. **Is this actually wrong?**
    - Check if intentional design choice
-     - Output: quote commit message or comment if explains intent, else "no explanation found"
+     - Output: quote commit message or comment if indicates that author thought of the same issue, else "no explanation found"
    - Check if documented limitation
      - Output: quote documentation if found, else "not documented"
    - Verify not test code allowed to be imperfect
@@ -362,7 +358,11 @@ Before reporting ANY regression, verify:
 
 10. **Debate yourself**
    - Do these two steps in order:
-   - 10.1 Pretend you are the author. Think extremely hard about the review and try to prove it incorrect.
+   **CRITICAL**: 10.1 generates devil's advocate counterarguments. These are
+   HYPOTHESES to investigate, not findings. A counterargument only invalidates
+   a bug if 10.2 finds concrete code to back it up.
+
+   - 10.1 Pretend you are the author and generate counterarguments:
      - Check for hallucinations or invented information
      - **For NULL safety, ask as the author:**
        * Did reviewer search for similar code in my subsystem accessing this pointer?
@@ -449,7 +449,6 @@ Before adding to report, think about the regression and ask:
 If you didn't answer yes to all 4 questions, investigate further or discard
 
 ## Remember
-- **False positives waste everyone's time**
+- **Reports without a clear proof waste everyone's time**
 - **Missed bugs also waste everyone's time** - a deadlock in production is worse than a false positive in review
-- **Kernel developers are experts** - but experts miss bugs too, especially subtle interactions between subsystems (workqueues, notifiers, shutdown ordering)
 - **Real bugs have real proof** - but proof means showing the code path exists and has no structural prevention, not proving the bug will definitely fire on every execution
