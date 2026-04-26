@@ -178,7 +178,22 @@ the change for regressions.
   - When the regression report mentions unaddressed review comments, provide
     a lore link to the thread in review-inline.txt
 
-### TASK 2.1 Commit tag verification
+### TASK 2.1 Commit tag and subject verification
+
+0. **Subject prefix convention check**
+  - If the patch changes files in multiple directories, run the check
+    separately for each distinct directory since conventions vary by path.
+  - For each directory, run `git log --oneline --no-merges -20 -- <directory>`
+    to see existing commit subject prefixes.
+  - Verify the patch's subject prefix ordering matches the dominant convention
+    in that area.  For example, some subsystems prefer `spi: dt-bindings:` while
+    others use `dt-bindings: spi:`.
+  - If the prefix ordering doesn't match the established pattern, flag it.
+  - If different directories suggest conflicting subject prefixes, flag it
+    for the reviewer's decision.
+  - Output: `SUBJECT PREFIX CHECK: ok` or `SUBJECT PREFIX CHECK: mismatch
+    (used "X: Y:" but convention is "Y: X:")` or `SUBJECT PREFIX CHECK:
+    conflicting conventions across changed paths, needs reviewer decision`
 
 1. Consider all of the CHANGE CATEGORIES identified in review-core.md, determine
   if this is a major bug fix.  Major bug fixes address:
