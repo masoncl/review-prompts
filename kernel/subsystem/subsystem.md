@@ -10,6 +10,12 @@ regexes
 
 ## Subsystem Guides
 
+> **Path resolution:** every filename in the "File" column below — and in the
+> "Optional Patterns" section — is relative to **this file's directory**:
+> `review-prompts/kernel/subsystem/`. For example,
+> `networking.md` resolves to
+> `review-prompts/kernel/subsystem/networking.md`.
+
 | Subsystem | Triggers | File |
 |-----------|----------|------|
 | Networking | net/, drivers/net/, skb_, sockets | networking.md |
