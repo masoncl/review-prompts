@@ -3,8 +3,8 @@
 # Codex setup for Linux kernel development
 #
 # Installs:
-#   - Kernel skill to ~/.codex/.agents/skills/kernel/SKILL.md
-#   - Slash commands to ~/.codex/.agents/
+#   - Kernel skill to ~/.codex/skills/kernel/SKILL.md
+#   - Slash commands to ~/.codex/prompts/
 #
 # The prompts directory is determined from this script's location.
 
@@ -21,8 +21,8 @@ echo ""
 
 # --- Install Skill ---
 
-SKILL_DIR="$HOME/.codex/.agents/skills/kernel"
-SKILL_FILE="$SKILL_DIR/AGENTS.md"
+SKILL_DIR="$HOME/.codex/skills/kernel"
+SKILL_FILE="$SKILL_DIR/SKILL.md"
 SOURCE_SKILL="$PROMPTS_DIR/skills/kernel.md"
 
 if [ ! -f "$SOURCE_SKILL" ]; then
@@ -53,7 +53,7 @@ else
     for cmd_file in "$SLASH_COMMANDS_SRC"/*.md; do
         if [ -f "$cmd_file" ]; then
             cmd_name=$(basename "$cmd_file")
-            sed "s|REVIEW_DIR|$PROMPTS_DIR|g" "$cmd_file" > "$COMMANDS_DIR/$cmd_name"
+            sed "s|{{REVIEW_DIR}}|$PROMPTS_DIR|g" "$cmd_file" > "$COMMANDS_DIR/$cmd_name"
             echo "  /$cmd_name"
         fi
     done
