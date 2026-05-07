@@ -31,6 +31,23 @@
 **Notes**:
 - If code checks for a condition via WARN_ON() or BUG_ON() assume that condition will never happen, unless you can provide concrete evidence of that condition existing via code snippets and call traces
 
+**Nested `dev_err_probe()`**: not allowed:
+When a callee calls `dev_err_probe()` on its error path, wrapping the
+return value in another `dev_err_probe()` at the call site replaces the
+callee's message.
+
+```c
+// WRONG: overwrites callee's dev_err_probe() message
+ret = parse_dt(dev);
+if (ret)
+	return dev_err_probe(dev, ret, "Parsing dt failed\n");
+
+// CORRECT: preserves callee's dev_err_probe() message
+ret = parse_dt(dev);
+if (ret)
+	return ret;
+```
+
 ### Bounds & Validation
 
 **Important**: Never suggest defensive bounds checks unless you can prove the source is untrusted.
