@@ -225,10 +225,11 @@ Fixes tag check for <subsystem>
 
 ### TASK 2.2 Kconfig dependency verification
 
-1. Check if the patch modifies Kconfig files or introduces new `CONFIG_*` usages in source files.
-2. If Kconfig files are modified:
+1. Check if the patch modifies Kconfig files, defconfigs, or introduces new `CONFIG_*` usages in source files.
+2. If Kconfig files or defconfigs are modified:
   - Verify that any new or modified `depends on` or `select` statements do not create circular dependencies.
   - Ensure that `select` is used safely (it does not select symbols with unmet dependencies). Prefer `depends on` over `select` for visible symbols.
+  - Check for "silent disable" issues: Ensure that when a config is enabled (e.g., via default values, selected, or in defconfigs), all of its upstream `depends on` requirements are satisfiable. Otherwise, it may appear enabled but fail to actually enable due to missing dependencies.
   - Check that new configs have appropriate help text and default values.
 3. If new `CONFIG_*` macros are used in source code:
   - Verify that the corresponding Kconfig symbol actually exists in the tree or is added in this patch/series.
