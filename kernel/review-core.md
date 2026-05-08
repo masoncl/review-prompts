@@ -223,6 +223,17 @@ Fixes tag check for <subsystem>
     the commit being reviewed.
   - Output: Fixes: tag missing yes/no
 
+### TASK 2.2 Kconfig dependency verification
+
+1. Check if the patch modifies Kconfig files or introduces new `CONFIG_*` usages in source files.
+2. If Kconfig files are modified:
+  - Verify that any new or modified `depends on` or `select` statements do not create circular dependencies.
+  - Ensure that `select` is used safely (it does not select symbols with unmet dependencies). Prefer `depends on` over `select` for visible symbols.
+  - Check that new configs have appropriate help text and default values.
+3. If new `CONFIG_*` macros are used in source code:
+  - Verify that the corresponding Kconfig symbol actually exists in the tree or is added in this patch/series.
+4. Output: Kconfig check result (no Kconfig changes / Kconfig changes verified / Kconfig issues found)
+
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives, and confirm regressions
 
