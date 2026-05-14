@@ -23,37 +23,6 @@ is silently ignored, leaving structures like `machine->vmlinux_map` as NULL.
 Any subcommand that registers `.mmap` but not `.mmap2` (or vice versa) when
 both event types may be generated is a bug.
 
-## File I/O Safety on Untrusted Paths
-
-Opening files from mmap events or `/proc/*/maps` without `O_NONBLOCK` can
-hang indefinitely when the path refers to a FIFO, device, or network mount.
-This blocks the entire `perf record` session.
-
-- Users can mmap FIFOs, character devices, or files on network mounts.
-- `perf_record_mmap2__read_build_id()` in
-  `tools/perf/util/synthetic-events.c` calls `filename__read_build_id()` to
-  extract build IDs from paths supplied in mmap events.
-- `filename__read_build_id()` (in both `tools/perf/util/symbol-elf.c` and
-  `tools/perf/util/symbol-minimal.c`) checks `is_regular_file()` before
-  opening, but this has TOCTOU races (symlinks, file type changes between
-  the check and the `open()`).
-- The underlying `open(filename, O_RDONLY)` call (in `read_build_id()` in
-  `symbol-elf.c` and directly in the `symbol-minimal.c` variant) does not
-  use `O_NONBLOCK`, so a race that makes a FIFO appear as a regular file
-  causes an indefinite hang.
-
-```c
-// WRONG: Can hang on FIFO
-fd = open(filename, O_RDONLY);
-
-// CORRECT: Non-blocking open
-fd = open(filename, O_RDONLY | O_NONBLOCK);
-```
-
-Any `open()` call in mmap event processing or build-ID extraction paths that
-lacks `O_NONBLOCK` when the path originates from user-controlled sources is
-a bug.
-
 ## Build System Feature Detection
 
 Incomplete refactoring of feature detection causes build failures when
@@ -150,8 +119,6 @@ Validation errors must be conditional: `if (!map && !parse_state->fake_pmu)`.
   and verify cleanup ordering.
 - **Event handler completeness**: When modifying which events are generated,
   verify all consuming tools handle both old and new event types.
-- **Mmap path opens**: When opening files derived from mmap events or `/proc`
-  paths, verify `O_NONBLOCK` is used to prevent hangs on special files.
 
 ## perf.data Header Validation
 
