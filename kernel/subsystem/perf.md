@@ -1,28 +1,5 @@
 # Perf Tools Subsystem Details
 
-## File Descriptor and Directory Stream Management
-
-Leaking file descriptors or directory streams in perf tools causes resource
-exhaustion when scanning `/proc` or `/sys` hierarchies, which may contain
-thousands of entries. Functions that iterate over process file descriptors
-or device nodes commonly acquire multiple resources that must all be released
-on every exit path.
-
-- `fdopendir(fd)` takes ownership of `fd`. After a successful `fdopendir()`,
-  call only `closedir(dir)` to release both the directory stream and the
-  underlying file descriptor. Do not call `close(fd)` separately.
-- `openat()` returns a new file descriptor that must be closed independently
-  of any parent directory file descriptor used to open it.
-- When a function acquires multiple resources (e.g., `fd_dir_fd` via
-  `openat()`, then `fd_dir` via `fdopendir(fd_dir_fd)`, then
-  `fdinfo_dir_fd` via another `openat()`), use goto-based cleanup to ensure
-  all resources are released on every exit path, including early returns from
-  callback errors. See `for_each_drm_fdinfo_in_dir()` in
-  `tools/perf/util/drm_pmu.c` for the canonical pattern.
-
-Any `return` statement after resource acquisition that does not pass through
-a cleanup path releasing all acquired resources is a bug.
-
 ## Event Format Changes and Cross-Tool Impact
 
 Changing default event formats (e.g., MMAP to MMAP2) causes NULL pointer
