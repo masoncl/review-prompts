@@ -36,6 +36,7 @@ correct - otherwise report them as regressions.
 
 ### Core Files (ALWAYS LOAD FIRST)
 1. `technical-patterns.md` - Consolidated guide to kernel topics
+2. `subsystem/build.md` - Baseline build system and toolchain expectations
 
 ### Subsystem Guides MUST be loaded
 
