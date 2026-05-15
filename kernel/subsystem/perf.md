@@ -58,6 +58,23 @@ or reporting on a `perf.data` file recorded on ARM or RISC-V.
   ELF machine constant (`e_machine`) dynamically available via `struct
   perf_env`, session, machine, thread, or evsel structures
 
+## Reference Count Checking and Pointer Handles
+
+Failing to balance reference counts in perf tools causes memory leaks or
+use-after-free defects. When built with `REFCNT_CHECKING` (enabled by
+ASAN/LSAN), perf wraps reference-counted structs (e.g., `thread`, `maps`, `dso`)
+into intermediary pointer handles (`DECLARE_RC_STRUCT`). Accessing a handle
+after calling `_put()` triggers immediate ASAN heap-use-after-free traps, while
+missing `_put()` calls trigger LSAN leaks at the exact `_get()` call site.
+
+- Every reference handle acquired via `_get()` (e.g., `thread__get()`,
+  `maps__get()`) or allocated via `_new()` must be strictly paired with a
+  matching `_put()` (e.g., `thread__put()`)
+- When a struct is passed to `_put()`, its pointer handle is invalidated and
+  freed; never access struct fields after calling `_put()`
+- Avoid raw pointer assignment for reference-counted structs; use explicit
+  `_get()` and `_put()` lifecycle helpers
+
 ## Quick Checks
 
 - **Callback error paths**: When a function takes a callback and iterates
@@ -70,3 +87,4 @@ or reporting on a `perf.data` file recorded on ARM or RISC-V.
 - **Feature detection guards**: Verify optional feature logic is correctly guarded with `HAVE_*_SUPPORT` or `CONFIG_*` defines and accompanied by header fallback stubs.
 - **`perf_env` validation**: Verify `perf_env` fields are checked for initialization before access.
 - **Cross-platform analysis**: Verify architecture-specific logic queries `e_machine` dynamically rather than relying on hardcoded `tools/perf/arch/` host binaries.
+- **Reference count balancing**: Verify every `_new` and `_get` pointer handle is paired with a matching `_put` before pointer scope ends.
