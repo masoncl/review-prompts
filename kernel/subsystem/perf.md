@@ -57,6 +57,19 @@ consistent:
 - `tools/build/feature/Makefile` -- feature build rules and `BUILD_ALL`
 - `tools/perf/Makefile.config` -- feature flags and library assignments
 
+## perf.data Header Validation
+
+A `perf.data` file may be a regular file or come from a pipe. When accessing
+events in pipe mode, the stream doesn't support seek. A regular file contains
+sections for attributes and for features; in pipe mode, these must be handled as
+synthesized events.  New features will be unknown and unsupported by old perf
+tools, whilst `perf.data` files from old perf tools won't contain the new
+features. The loaded features are put in `struct perf_env`, which is typically
+populated by `perf_session__new()`, but in pipe mode, events need processing to
+fill in the `perf_env`. In live mode (like `perf top`), the host `perf_env` is
+explicitly created. Accessing `perf_env` fields without first verifying those
+fields are initialized is a bug.
+
 ## Quick Checks
 
 - **Callback error paths**: When a function takes a callback and iterates
@@ -67,28 +80,4 @@ consistent:
   and verify cleanup ordering.
 - **Event handler completeness**: When modifying which events are generated,
   verify all consuming tools handle both old and new event types.
-
-## perf.data Header Validation
-
-Header processing functions in `perf.data` populate fields in
-`struct perf_env` and may depend on fields that were populated by
-earlier headers. When a header processing function accesses
-`perf_env` fields that are populated by a different header, it
-must verify those fields have been initialized. Headers can
-appear out of order in `perf.data` files, and older files may
-omit headers entirely.
-
-- `process_cpu_domain_info()` depends on CPU count data
-  populated by `process_nr_cpus()`, so `HEADER_NRCPUS` must be
-  processed before `HEADER_CPU_DOMAIN_INFO`.
-- If a prerequisite header was not present in the file, the
-  dependent fields in `perf_env` remain zero-initialized or
-  NULL.
-- Functions that skip validation of prerequisite fields will
-  dereference NULL pointers or operate on zero-length arrays
-  when processing files that lack the prerequisite header or
-  present headers out of order.
-
-Any header processing function that accesses `perf_env` fields
-populated by a different header without first verifying those
-fields are initialized is a bug.
+- **`perf_env` validation**: Verify `perf_env` fields are checked for initialization before access.
