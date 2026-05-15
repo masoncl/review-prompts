@@ -43,6 +43,21 @@ fill in the `perf_env`. In live mode (like `perf top`), the host `perf_env` is
 explicitly created. Accessing `perf_env` fields without first verifying those
 fields are initialized is a bug.
 
+## Architecture-Specific Code and Cross-Platform Analysis
+
+Placing analysis or decoding logic in `tools/perf/arch/` restricts that
+functionality to host binaries compiled for that specific architecture. This
+breaks cross-platform analysis, preventing a perf binary on x86 from inspecting
+or reporting on a `perf.data` file recorded on ARM or RISC-V.
+
+- The `tools/perf/arch/` directory must only contain code strictly tied to host
+  execution (such as native PMU probing or hardware registers)
+- Discourage adding new logic to `tools/perf/arch/`; prefer cross-platform
+  implementations
+- To handle architectural variations during recording or analysis, inspect the
+  ELF machine constant (`e_machine`) dynamically available via `struct
+  perf_env`, session, machine, thread, or evsel structures
+
 ## Quick Checks
 
 - **Callback error paths**: When a function takes a callback and iterates
@@ -54,3 +69,4 @@ fields are initialized is a bug.
 - **Tool API callbacks**: Verify subcommands register complete event callbacks (pairing `.mmap`/`.mmap2` and handling `.attr` in pipe mode).
 - **Feature detection guards**: Verify optional feature logic is correctly guarded with `HAVE_*_SUPPORT` or `CONFIG_*` defines and accompanied by header fallback stubs.
 - **`perf_env` validation**: Verify `perf_env` fields are checked for initialization before access.
+- **Cross-platform analysis**: Verify architecture-specific logic queries `e_machine` dynamically rather than relying on hardcoded `tools/perf/arch/` host binaries.
