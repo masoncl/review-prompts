@@ -1,27 +1,15 @@
 # Perf Tools Subsystem Details
 
-## Event Format Changes and Cross-Tool Impact
+## Tool API Callbacks
 
-Changing default event formats (e.g., MMAP to MMAP2) causes NULL pointer
-dereferences or missing data in subcommands that only register handlers for
-the old format. When an event type arrives without a registered callback, it
-is silently ignored, leaving structures like `machine->vmlinux_map` as NULL.
+Omitting event callbacks in `struct perf_tool` causes incoming events to be
+silently dropped. In pipe mode, dropping `perf_event_header_attr` events
+prevents the creation of evlists/evsels, breaking event processing entirely.
 
-- Each perf subcommand (`tools/perf/builtin-*.c`) populates a
-  `struct perf_tool` (defined in `tools/perf/util/tool.h`) with callbacks for
-  each event type it processes (`.mmap`, `.mmap2`, `.sample`, `.comm`,
-  `.fork`, etc.).
-- If a callback is not set for an event type, that event is dropped.
-- `perf_event__process_mmap()` and `perf_event__process_mmap2()` in
-  `tools/perf/util/event.c` are separate callbacks; registering one does not
-  automatically handle the other.
-- To find all callback registration sites, search for `\.(mmap|mmap2)\s*=`
-  across `tools/perf/builtin-*.c`. Different tools use different variable
-  names for their `struct perf_tool` instance (`trace->tool`, `eops`,
-  `pdiff.tool`, `sched->tool`, `perf_kmem`, etc.).
-
-Any subcommand that registers `.mmap` but not `.mmap2` (or vice versa) when
-both event types may be generated is a bug.
+- Unregistered event types are silently ignored
+- Any tool registering `.mmap` must also register `.mmap2` (and vice versa)
+- In pipe mode, verify tools correctly register attribute and feature callbacks
+  to populate evsels and `struct perf_env`
 
 ## Build System Feature Detection
 
@@ -78,6 +66,5 @@ fields are initialized is a bug.
 - **Nested `openat`/`fdopendir`**: When iterating nested directories (e.g.,
   `/proc/pid/fd` then `/proc/pid/fdinfo`), track each resource separately
   and verify cleanup ordering.
-- **Event handler completeness**: When modifying which events are generated,
-  verify all consuming tools handle both old and new event types.
+- **Tool API callbacks**: Verify subcommands register complete event callbacks (pairing `.mmap`/`.mmap2` and handling `.attr` in pipe mode).
 - **`perf_env` validation**: Verify `perf_env` fields are checked for initialization before access.
