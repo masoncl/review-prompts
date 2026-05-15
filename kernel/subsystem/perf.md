@@ -11,39 +11,24 @@ prevents the creation of evlists/evsels, breaking event processing entirely.
 - In pipe mode, verify tools correctly register attribute and feature callbacks
   to populate evsels and `struct perf_env`
 
-## Build System Feature Detection
+## Build Feature Detection and Conditional Compilation
 
-Incomplete refactoring of feature detection causes build failures when
-optional libraries are not installed. The fast-path `test-all.bin` target
-links against all default feature libraries at once; if any library is
-missing, the fast path fails and falls back to slow individual feature tests.
-When making a feature opt-in, leftover library references in unconditional
-scope break builds on systems without those libraries.
+Inconsistent feature detection flags cause build failures or missing
+functionality when optional libraries are omitted. When a feature test succeeds,
+`Makefile.config` defines `-DHAVE_*_SUPPORT` flags; omitting these defines or
+failing to provide header fallback stubs breaks compilation on systems lacking
+the library.
 
-- `tools/build/feature/test-all.c` includes and calls all default feature
-  test functions. This file is compiled into `test-all.bin` to check if all
-  default features can compile and link together.
-- `tools/build/feature/Makefile` defines `BUILD_ALL` with the combined
-  linker flags needed for `test-all.bin`. Individual feature test recipes
-  specify their own flags inline (e.g., `$(BUILD) -lpthread`), with the
-  exception of `BUILD_BFD`.
-- `tools/perf/Makefile.config` defines `FEATURE_CHECK_LDFLAGS-<feature>`
-  variables for each optional feature's linker flags.
-
-When removing a feature test from `test-all.c` (e.g., making it conditional
-on `BUILD_NONDISTRO`), the following must also move to the same conditional
-scope:
-
-1. `FEATURE_CHECK_LDFLAGS-<feature>` assignments in `Makefile.config`
-2. Library references (`-l<name>`) in `BUILD_ALL` in
-   `tools/build/feature/Makefile`
-3. Any fallback link attempts in the `test-all.bin` recipe
-
-Build system changes typically affect multiple files that must stay
-consistent:
-- `tools/build/feature/test-all.c` -- feature test code
-- `tools/build/feature/Makefile` -- feature build rules and `BUILD_ALL`
-- `tools/perf/Makefile.config` -- feature flags and library assignments
+- Feature checks (`tools/build/feature/test-*.c`) verify optional library
+  availability during build
+- `tools/perf/Makefile.config` evaluates feature test results and sets compiler
+  flags (e.g., `CFLAGS += -DHAVE_LIBELF_SUPPORT` or `CONFIG_*` defines)
+- C code must guard feature-dependent logic with `#ifdef HAVE_*_SUPPORT` or
+  using `CONFIG_*` values in the Build or Makefile
+- Header files must provide compatible dummy inline stubs (e.g., returning
+  `-ENOTSUPP` or `NULL`) when the feature define is absent
+- When adding or modifying a feature, ensure `Makefile.config`, feature
+  makefiles, and header guards remain strictly synchronized
 
 ## perf.data Header Validation
 
@@ -67,4 +52,5 @@ fields are initialized is a bug.
   `/proc/pid/fd` then `/proc/pid/fdinfo`), track each resource separately
   and verify cleanup ordering.
 - **Tool API callbacks**: Verify subcommands register complete event callbacks (pairing `.mmap`/`.mmap2` and handling `.attr` in pipe mode).
+- **Feature detection guards**: Verify optional feature logic is correctly guarded with `HAVE_*_SUPPORT` or `CONFIG_*` defines and accompanied by header fallback stubs.
 - **`perf_env` validation**: Verify `perf_env` fields are checked for initialization before access.
