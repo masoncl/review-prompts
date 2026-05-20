@@ -78,6 +78,12 @@ IMMEDIATELY.
      - Unless you're running out of context space, try to load all required context once and only once
 2. You may need to load additional context in order to properly analyze the research patterns.
 
+### TASK 0.5: Patch Size Analysis
+1. Load `{{KERNEL_REVIEW_PROMPTS_DIR}}/patch-size.md`
+2. Follow the Patch Size Analysis protocol to categorize the patch size and evaluate its conceptual integrity.
+3. Output the patch size category (XS, S, M, L, XL) and your determination of whether the patch is appropriately sized or should be broken apart.
+4. **MANDATORY**: If decomposition is recommended, you MUST add the detailed breakdown (series description, commit messages, code change summaries) to your **TodoWrite** to ensure it is preserved for the final report.
+
 ## RESEARCH TASKS
 
 ### TASK 1: Context Gathering []
@@ -131,6 +137,7 @@ This deep dive analysis will take a long time, don't skip steps.
   - resource management: allocations, frees
   - resource management: object initialization
   - locking
+- **Patch Decomposition**: If TASK 0.5 recommended decomposition, add a category **STRUCTURAL-REVIEW** to TodoWrite with the full detailed breakdown (commit messages, code changes).
 - Add each category and the modified, new, or deleted functions into TodoWrite
 - These categories will be referenced by the pattern prompts.  Call them
   CHANGE-1, CHANGE-2, etc.  The prompts will call them CHANGE CATEGORIES
@@ -263,9 +270,10 @@ as defined in inline-template.md.  If you fail to follow those instructions,
 the review is completely useless.
 
 **If regressions found**:
-0. Clear any context not related to the regressions themselves
+0. DO NOT clear context related to the patch decomposition recommendation.
 1. Load `inline-template.md`
   - you must use inline-template.md for all analysis feedback
+  - **MANDATORY**: Include the Patch Decomposition Recommendation from TASK 0.5 in the report if decomposition was recommended.
 2. Create `review-inline.txt` in current directory, never use the prompt directory
 3. Follow the instructions in the template carefully
   - NEVER WRITE `REGRESSION:` INTO ./review-inline.txt THIS
