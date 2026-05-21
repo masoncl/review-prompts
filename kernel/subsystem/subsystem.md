@@ -70,7 +70,7 @@ regexes
 | DPLL | drivers/dpll/, dpll_, zl3073x_, ZL_REG_, ZL_INFO_ | dpll.md |
 | Kconfig | Kconfig, `config `, `select `, `depends on `, `tristate `, `bool ` | kconfig.md |
 | I3C | drivers/i3c/, i3c_master_, i3c_device_, i2c_adapter, svc-i3c-master | i3c.md |
-| Input | drivers/input/, edt-ft5x06, touchscreen@, report-rate-hz | input.md |
+| Input | drivers/input/, include/linux/input.h, include/linux/input/, input_dev, input_handler, input_register_, input_report_  | input.md |
 | Objtool | tools/objtool/, INSN_BUG, INSN_TRAP, decode.c | objtool.md |
 | KHO (Kexec Handover) | lib/test_kho.c, kho_, kho_is_enabled, kho_retrieve_subtree, kho_preserve_folio, kho_add_subtree, register_kho_notifier | kho.md |
 | Rust | any Rust code | rust.md |
