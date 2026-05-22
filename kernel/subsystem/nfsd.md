@@ -85,8 +85,25 @@ completes. Use temp variables until validation passes. Pattern from
 - `fh_put` (copy semantics)
 - `nfsd_net_try_get` / `nfsd_net_put`
 - Async copy: `cl_rpc_users` / `put_client_renew`
+- `nfs4_get_stateowner` / `nfs4_put_stateowner`
 
 Transfer semantics (function "steals" a reference) are acceptable when documented.
+
+**Stateowner refcounting (`so_count`):** Hash/list membership on `cl_ownerstr_hashtbl`
+and `cl_openowners` is NOT a counted reference — `hash_openowner()` does no
+`atomic_inc`. The `so_count=1` set by `alloc_stateowner()` is the creation
+reference transferred to the caller. Stateids take additional counted refs via
+`init_open_stateid()` → `nfs4_get_stateowner()` (stored in `stp->st_stateowner`).
+Lookups via `find_openstateowner_str()` / `find_lockowner_str_locked()` bump
+`so_count` for the caller.
+
+`release_openowner()` consumes exactly one caller-provided reference: it unhashes,
+drains stateids (each `nfs4_free_ol_stateid` drops its owner ref via
+`nfs4_put_stateowner`), then issues one final `nfs4_put_stateowner` which reaches
+`so_count=0` and frees the owner. Both callers (`find_or_alloc_open_stateowner` and
+`__destroy_client`) hold a pin (`find_openstateowner_str` ref or explicit
+`nfs4_get_stateowner`) that `release_openowner` consumes — do NOT add an extra
+`nfs4_put_stateowner` after `release_openowner` returns.
 
 ## File Handle Lifecycle
 
