@@ -29,8 +29,6 @@ page boundaries:
 
 - `free_tail_page_prepare()` in `mm/page_alloc.c` -- skips `TAIL_MAPPING`
   check per metadata-carrying tail page
-- `NR_RESET_STRUCT_PAGE` in `mm/hugetlb_vmemmap.c` -- HVO vmemmap restore
-  count
 - `__dump_folio()` in `mm/debug.c` -- debug printing
 
 Common failure: updating one consumer but missing the others (no compile-time
