@@ -141,8 +141,8 @@ invalidations to ensure it does not install a stale mapping.
 **REPORT as bugs:**
 - Installing a mapping based only on the result of an unsafe retry check,
   without re-checking under `kvm->mmu_lock`.
-- Resolving the PFN *after* capturing the sequence or *after* acquiring the
-  lock (violates resolution-to-installation atomicity).
+- Resolving the PFN *before* capturing the sequence or *after* acquiring the
+  lock (violates sequence-to-resolution-to-installation ordering).
 - Dropping `kvm->mmu_lock` between the retry check and the installation of the
   page table entry.
 
