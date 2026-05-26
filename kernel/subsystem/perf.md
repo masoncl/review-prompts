@@ -1,167 +1,79 @@
 # Perf Tools Subsystem Details
 
-## File Descriptor and Directory Stream Management
+## Tool API Callbacks
 
-Leaking file descriptors or directory streams in perf tools causes resource
-exhaustion when scanning `/proc` or `/sys` hierarchies, which may contain
-thousands of entries. Functions that iterate over process file descriptors
-or device nodes commonly acquire multiple resources that must all be released
-on every exit path.
+Omitting event callbacks in `struct perf_tool` causes incoming events to be
+silently dropped. In pipe mode, dropping `perf_event_header_attr` events
+prevents the creation of evlists/evsels, breaking event processing entirely.
 
-- `fdopendir(fd)` takes ownership of `fd`. After a successful `fdopendir()`,
-  call only `closedir(dir)` to release both the directory stream and the
-  underlying file descriptor. Do not call `close(fd)` separately.
-- `openat()` returns a new file descriptor that must be closed independently
-  of any parent directory file descriptor used to open it.
-- When a function acquires multiple resources (e.g., `fd_dir_fd` via
-  `openat()`, then `fd_dir` via `fdopendir(fd_dir_fd)`, then
-  `fdinfo_dir_fd` via another `openat()`), use goto-based cleanup to ensure
-  all resources are released on every exit path, including early returns from
-  callback errors. See `for_each_drm_fdinfo_in_dir()` in
-  `tools/perf/util/drm_pmu.c` for the canonical pattern.
+- Unregistered event types are silently ignored
+- Any tool registering `.mmap` must also register `.mmap2` (and vice versa)
+- In pipe mode, verify tools correctly register attribute and feature callbacks
+  to populate evsels and `struct perf_env`
 
-Any `return` statement after resource acquisition that does not pass through
-a cleanup path releasing all acquired resources is a bug.
+## Build Feature Detection and Conditional Compilation
 
-## Event Format Changes and Cross-Tool Impact
+Inconsistent feature detection flags cause build failures or missing
+functionality when optional libraries are omitted. When a feature test succeeds,
+`Makefile.config` defines `-DHAVE_*_SUPPORT` flags; omitting these defines or
+failing to provide header fallback stubs breaks compilation on systems lacking
+the library.
 
-Changing default event formats (e.g., MMAP to MMAP2) causes NULL pointer
-dereferences or missing data in subcommands that only register handlers for
-the old format. When an event type arrives without a registered callback, it
-is silently ignored, leaving structures like `machine->vmlinux_map` as NULL.
+- Feature checks (`tools/build/feature/test-*.c`) verify optional library
+  availability during build
+- `tools/perf/Makefile.config` evaluates feature test results and sets compiler
+  flags (e.g., `CFLAGS += -DHAVE_LIBELF_SUPPORT` or `CONFIG_*` defines)
+- C code must guard feature-dependent logic with `#ifdef HAVE_*_SUPPORT` or
+  using `CONFIG_*` values in the Build or Makefile
+- Header files must provide compatible dummy inline stubs (e.g., returning
+  `-ENOTSUPP` or `NULL`) when the feature define is absent
+- When adding or modifying a feature, ensure `Makefile.config`, feature
+  makefiles, and header guards remain strictly synchronized
 
-- Each perf subcommand (`tools/perf/builtin-*.c`) populates a
-  `struct perf_tool` (defined in `tools/perf/util/tool.h`) with callbacks for
-  each event type it processes (`.mmap`, `.mmap2`, `.sample`, `.comm`,
-  `.fork`, etc.).
-- If a callback is not set for an event type, that event is dropped.
-- `perf_event__process_mmap()` and `perf_event__process_mmap2()` in
-  `tools/perf/util/event.c` are separate callbacks; registering one does not
-  automatically handle the other.
-- To find all callback registration sites, search for `\.(mmap|mmap2)\s*=`
-  across `tools/perf/builtin-*.c`. Different tools use different variable
-  names for their `struct perf_tool` instance (`trace->tool`, `eops`,
-  `pdiff.tool`, `sched->tool`, `perf_kmem`, etc.).
+## perf.data Header Validation
 
-Any subcommand that registers `.mmap` but not `.mmap2` (or vice versa) when
-both event types may be generated is a bug.
+A `perf.data` file may be a regular file or come from a pipe. When accessing
+events in pipe mode, the stream doesn't support seek. A regular file contains
+sections for attributes and for features; in pipe mode, these must be handled as
+synthesized events.  New features will be unknown and unsupported by old perf
+tools, whilst `perf.data` files from old perf tools won't contain the new
+features. The loaded features are put in `struct perf_env`, which is typically
+populated by `perf_session__new()`, but in pipe mode, events need processing to
+fill in the `perf_env`. In live mode (like `perf top`), the host `perf_env` is
+explicitly created. Accessing `perf_env` fields without first verifying those
+fields are initialized is a bug.
 
-## File I/O Safety on Untrusted Paths
+## Architecture-Specific Code and Cross-Platform Analysis
 
-Opening files from mmap events or `/proc/*/maps` without `O_NONBLOCK` can
-hang indefinitely when the path refers to a FIFO, device, or network mount.
-This blocks the entire `perf record` session.
+Placing analysis or decoding logic in `tools/perf/arch/` restricts that
+functionality to host binaries compiled for that specific architecture. This
+breaks cross-platform analysis, preventing a perf binary on x86 from inspecting
+or reporting on a `perf.data` file recorded on ARM or RISC-V.
 
-- Users can mmap FIFOs, character devices, or files on network mounts.
-- `perf_record_mmap2__read_build_id()` in
-  `tools/perf/util/synthetic-events.c` calls `filename__read_build_id()` to
-  extract build IDs from paths supplied in mmap events.
-- `filename__read_build_id()` (in both `tools/perf/util/symbol-elf.c` and
-  `tools/perf/util/symbol-minimal.c`) checks `is_regular_file()` before
-  opening, but this has TOCTOU races (symlinks, file type changes between
-  the check and the `open()`).
-- The underlying `open(filename, O_RDONLY)` call (in `read_build_id()` in
-  `symbol-elf.c` and directly in the `symbol-minimal.c` variant) does not
-  use `O_NONBLOCK`, so a race that makes a FIFO appear as a regular file
-  causes an indefinite hang.
+- The `tools/perf/arch/` directory must only contain code strictly tied to host
+  execution (such as native PMU probing or hardware registers)
+- Discourage adding new logic to `tools/perf/arch/`; prefer cross-platform
+  implementations
+- To handle architectural variations during recording or analysis, inspect the
+  ELF machine constant (`e_machine`) dynamically available via `struct
+  perf_env`, session, machine, thread, or evsel structures
 
-```c
-// WRONG: Can hang on FIFO
-fd = open(filename, O_RDONLY);
+## Reference Count Checking and Pointer Handles
 
-// CORRECT: Non-blocking open
-fd = open(filename, O_RDONLY | O_NONBLOCK);
-```
+Failing to balance reference counts in perf tools causes memory leaks or
+use-after-free defects. When built with `REFCNT_CHECKING` (enabled by
+ASAN/LSAN), perf wraps reference-counted structs (e.g., `thread`, `maps`, `dso`)
+into intermediary pointer handles (`DECLARE_RC_STRUCT`). Accessing a handle
+after calling `_put()` triggers immediate ASAN heap-use-after-free traps, while
+missing `_put()` calls trigger LSAN leaks at the exact `_get()` call site.
 
-Any `open()` call in mmap event processing or build-ID extraction paths that
-lacks `O_NONBLOCK` when the path originates from user-controlled sources is
-a bug.
-
-## Build System Feature Detection
-
-Incomplete refactoring of feature detection causes build failures when
-optional libraries are not installed. The fast-path `test-all.bin` target
-links against all default feature libraries at once; if any library is
-missing, the fast path fails and falls back to slow individual feature tests.
-When making a feature opt-in, leftover library references in unconditional
-scope break builds on systems without those libraries.
-
-- `tools/build/feature/test-all.c` includes and calls all default feature
-  test functions. This file is compiled into `test-all.bin` to check if all
-  default features can compile and link together.
-- `tools/build/feature/Makefile` defines `BUILD_ALL` with the combined
-  linker flags needed for `test-all.bin`. Individual feature test recipes
-  specify their own flags inline (e.g., `$(BUILD) -lpthread`), with the
-  exception of `BUILD_BFD`.
-- `tools/perf/Makefile.config` defines `FEATURE_CHECK_LDFLAGS-<feature>`
-  variables for each optional feature's linker flags.
-
-When removing a feature test from `test-all.c` (e.g., making it conditional
-on `BUILD_NONDISTRO`), the following must also move to the same conditional
-scope:
-
-1. `FEATURE_CHECK_LDFLAGS-<feature>` assignments in `Makefile.config`
-2. Library references (`-l<name>`) in `BUILD_ALL` in
-   `tools/build/feature/Makefile`
-3. Any fallback link attempts in the `test-all.bin` recipe
-
-Build system changes typically affect multiple files that must stay
-consistent:
-- `tools/build/feature/test-all.c` -- feature test code
-- `tools/build/feature/Makefile` -- feature build rules and `BUILD_ALL`
-- `tools/perf/Makefile.config` -- feature flags and library assignments
-
-## Testing Infrastructure and `fake_pmu`
-
-Failing to handle the `fake_pmu` flag causes test failures when validating
-metrics from architectures or PMUs not present on the test machine. Tests
-using fake PMUs exercise the metric parser across all architectures without
-requiring the actual hardware.
-
-- `struct parse_events_state` (defined in `tools/perf/util/parse-events.h`)
-  has a `fake_pmu` boolean field. It is set by metric validation tests
-  (see `tools/perf/tests/pmu-events.c`) to parse events and metrics without
-  requiring the referenced PMUs to exist.
-- When `fake_pmu` is true, the parser accepts PMU names that would otherwise
-  fail lookup and uses reasonable fallback values.
-- `__parse_events()` in `tools/perf/util/parse-events.c` accepts a
-  `bool fake_pmu` parameter and stores it in `parse_events_state`.
-
-Any code that performs PMU lookups by name must provide fallback behavior
-when `fake_pmu` is enabled:
-
-- `perf_pmus__find()` returns NULL when the PMU does not exist on the
-  current system.
-- `perf_cpu_map__new()` returns NULL when the CPU string is unrecognized.
-- When both return NULL but `fake_pmu` is true, use a sensible default.
-  `get_config_cpu()` in `tools/perf/util/parse-events.c` demonstrates the
-  correct pattern: it falls back to `cpu_map__online()`.
-
-```c
-// WRONG: Fails in fake_pmu tests
-pmu = perf_pmus__find(term->val.str);
-if (!pmu) {
-    map = perf_cpu_map__new(term->val.str);
-    if (!map)
-        return -EINVAL;  // Test fails here for cross-arch metrics
-}
-
-// CORRECT: Handle fake_pmu case (mirrors get_config_cpu logic)
-pmu = perf_pmus__find(term->val.str);
-if (pmu) {
-    map = perf_cpu_map__get(pmu->cpus);
-} else {
-    map = perf_cpu_map__new(term->val.str);
-    if (!map && fake_pmu)
-        map = cpu_map__online();  // Fallback for fake PMU tests
-}
-```
-
-The `config_term_common()`, `config_term_pmu()`, and `config_attr()` functions
-already accept a `struct parse_events_state *parse_state` parameter that
-carries `fake_pmu`. Any new parsing or config helper must similarly accept
-`parse_state` (not just the error pointer) so `fake_pmu` remains accessible.
-Validation errors must be conditional: `if (!map && !parse_state->fake_pmu)`.
+- Every reference handle acquired via `_get()` (e.g., `thread__get()`,
+  `maps__get()`) or allocated via `_new()` must be strictly paired with a
+  matching `_put()` (e.g., `thread__put()`)
+- When a struct is passed to `_put()`, its pointer handle is invalidated and
+  freed; never access struct fields after calling `_put()`
+- Avoid raw pointer assignment for reference-counted structs; use explicit
+  `_get()` and `_put()` lifecycle helpers
 
 ## Quick Checks
 
@@ -171,32 +83,8 @@ Validation errors must be conditional: `if (!map && !parse_state->fake_pmu)`.
 - **Nested `openat`/`fdopendir`**: When iterating nested directories (e.g.,
   `/proc/pid/fd` then `/proc/pid/fdinfo`), track each resource separately
   and verify cleanup ordering.
-- **Event handler completeness**: When modifying which events are generated,
-  verify all consuming tools handle both old and new event types.
-- **Mmap path opens**: When opening files derived from mmap events or `/proc`
-  paths, verify `O_NONBLOCK` is used to prevent hangs on special files.
-
-## perf.data Header Validation
-
-Header processing functions in `perf.data` populate fields in
-`struct perf_env` and may depend on fields that were populated by
-earlier headers. When a header processing function accesses
-`perf_env` fields that are populated by a different header, it
-must verify those fields have been initialized. Headers can
-appear out of order in `perf.data` files, and older files may
-omit headers entirely.
-
-- `process_cpu_domain_info()` depends on CPU count data
-  populated by `process_nr_cpus()`, so `HEADER_NRCPUS` must be
-  processed before `HEADER_CPU_DOMAIN_INFO`.
-- If a prerequisite header was not present in the file, the
-  dependent fields in `perf_env` remain zero-initialized or
-  NULL.
-- Functions that skip validation of prerequisite fields will
-  dereference NULL pointers or operate on zero-length arrays
-  when processing files that lack the prerequisite header or
-  present headers out of order.
-
-Any header processing function that accesses `perf_env` fields
-populated by a different header without first verifying those
-fields are initialized is a bug.
+- **Tool API callbacks**: Verify subcommands register complete event callbacks (pairing `.mmap`/`.mmap2` and handling `.attr` in pipe mode).
+- **Feature detection guards**: Verify optional feature logic is correctly guarded with `HAVE_*_SUPPORT` or `CONFIG_*` defines and accompanied by header fallback stubs.
+- **`perf_env` validation**: Verify `perf_env` fields are checked for initialization before access.
+- **Cross-platform analysis**: Verify architecture-specific logic queries `e_machine` dynamically rather than relying on hardcoded `tools/perf/arch/` host binaries.
+- **Reference count balancing**: Verify every `_new` and `_get` pointer handle is paired with a matching `_put` before pointer scope ends.
