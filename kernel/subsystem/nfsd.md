@@ -67,12 +67,17 @@ NFSD uses multiple reference count types with different semantics:
 |---------|----------|----------|
 | `sc_count` | Freeing | Stateid lifetime |
 | `cl_nfsdfs.cl_ref` | Freeing | nfsdfs client object lifetime |
-| `cl_rpc_users` | Unhashing | Keeping client active during RPC/callback |
+| `cl_rpc_users` | Unhashing | Keeping client active during incoming RPC compounds |
+| `cl_cb_inflight` | Client destruction | Tracking in-flight outgoing callbacks |
 
-**`cl_rpc_users` vs `cl_nfsdfs.cl_ref`:** `cl_nfsdfs.cl_ref` only prevents freeing
-of the nfsdfs client object. `cl_rpc_users`
-prevents unhashing - required for async operations (callbacks, copy workers)
-that need the client to remain active past the compound's lifetime.
+**`cl_rpc_users` vs `cl_nfsdfs.cl_ref` vs `cl_cb_inflight`:**
+`cl_nfsdfs.cl_ref` only prevents freeing of the nfsdfs client object.
+`cl_rpc_users` prevents unhashing — used for incoming RPC compounds and async
+operations like copy workers that need the client to remain active past the
+compound's lifetime. `cl_cb_inflight` tracks outgoing callbacks;
+`nfsd4_run_cb()` increments it internally, and `destroy_client()` waits for
+it to drain via `nfsd4_shutdown_callback()`. Do not confuse `cl_rpc_users`
+with `cl_cb_inflight` — they protect different directions of communication.
 
 **Assignment timing:** Assign resources to struct fields only after validation
 completes. Use temp variables until validation passes. Pattern from
@@ -140,10 +145,13 @@ the appropriate lock before proceeding. Check-and-modify must be atomic.
 **Generation numbers:** Use `nfs4_inc_and_copy_stateid()` instead of manual
 `si_generation` increment. State-modifying operations must bump generation.
 
-**Delegation callbacks:** Delegation callbacks require two references before
-`nfsd4_run_cb()`: `refcount_inc(&dp->dl_stid.sc_count)` to keep the delegation
-alive, and `cl_rpc_users` increment to keep the client from being destroyed.
-Without both, concurrent DELEGRETURN or client destruction causes use-after-free.
+**Delegation callbacks:** Delegation callbacks require
+`refcount_inc(&dp->dl_stid.sc_count)` before `nfsd4_run_cb()` to keep the
+delegation alive. Client lifetime during callbacks is protected by
+`cl_cb_inflight` (incremented inside `nfsd4_run_cb()` itself), NOT by
+`cl_rpc_users`. `cl_rpc_users` tracks active incoming NFS compound operations
+and is unrelated to outgoing callback dispatch. `destroy_client()` calls
+`nfsd4_shutdown_callback()` which waits on `cl_cb_inflight` to drain.
 
 **Stateid file verification:** Stateids must be validated against file handles:
 - CLAIM_DELEG_CUR must verify filehandle via `fh_match()` against `sc_file->fi_fhandle`
@@ -292,9 +300,12 @@ idmap path handles namespace conversion internally.
 
 Callbacks are asynchronous RPCs from server to client.
 
-**Reference requirements:** All callbacks need `cl_rpc_users` increment before
-`nfsd4_run_cb()`. Delegation callbacks also need `sc_count` increment (see
-NFSv4 Stateid Lifecycle). Release handlers must drop all acquired references.
+**Reference requirements:** Client lifetime during callbacks is managed by
+`cl_cb_inflight`, which `nfsd4_run_cb()` increments internally — callers do
+NOT need to increment `cl_rpc_users` for callback dispatch. Delegation
+callbacks need `sc_count` increment before `nfsd4_run_cb()` to keep the
+delegation stid alive (see NFSv4 Stateid Lifecycle). Release handlers must
+drop all acquired references.
 
 **Connection state:** Check `cl_cb_state == NFSD4_CB_UP` under `cl_lock`
 before callback dispatch. Access `cl_cb_client` only under the same lock hold.
