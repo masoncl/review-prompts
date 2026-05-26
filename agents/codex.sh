@@ -6,6 +6,6 @@
 # installed. Exports the install paths and skill filename expected by the
 # agent; additional per-agent setup steps (if any) can be added here.
 
-export SKILL_BASE_DIR="$HOME/.codex/.agents/skills"
+export SKILL_BASE_DIR="$HOME/.codex/skills"
 export COMMANDS_DIR="$HOME/.codex/prompts"
-export SKILL_FILE_NAME="AGENTS.md"
+export SKILL_FILE_NAME="SKILL.md"
