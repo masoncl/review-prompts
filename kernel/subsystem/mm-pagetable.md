@@ -406,11 +406,21 @@ NULL; call `folio_get()` before releasing PTL if returning a folio reference.
   copy. Both are `pte_t *` so the compiler won't warn. On `CONFIG_HIGHPTE`,
   passing a stack address to `pte_unmap()` unmaps the wrong mapping. Common
   mistake: `pte_t orig = ptep_get(pte)` then `pte_unmap(&orig)`
-- **Memory hotplug lock for kernel page table walks**: walking `init_mm`
-  page tables needs `get_online_mems()` / `put_online_mems()`, not just
-  `mmap_lock`. Hot-remove frees intermediate PUDs/PMDs for direct-map and
-  vmemmap ranges, causing use-after-free in concurrent walkers. Acquire
-  hotplug lock before `mmap_lock` for ordering
+- **Memory hotplug lock for unprotected kernel page table walks**:
+  walking `init_mm` kernel page tables over arbitrary or hotplug-removable
+  direct-map/vmemmap ranges generally requires memory-hotplug exclusion via
+  `get_online_mems()` / `put_online_mems()` in addition to `mmap_lock`.
+  Memory hot-remove can free intermediate page-table pages for direct-map and
+  vmemmap mappings, so a walker that is not otherwise protected can race with
+  hot-remove and use freed page-table pages. Acquire the hotplug read lock
+  before `mmap_lock` to preserve lock ordering. Do not apply this
+  mechanically: first check whether the walked range is otherwise guaranteed
+  to remain present, for example because it is tied to an object whose
+  lifetime prevents the associated memory from being offlined/removed, or
+  because the caller already holds the memory hotplug lock. In such cases,
+  adding `get_online_mems()` inside the walker can be unnecessary or even
+  wrong, especially if the function is callable from memory-hotplug paths
+  already holding the write side of the lock
 - **Bit-based locking barrier pairing**: when a bit flag is used for mutual
   exclusion (trylock pattern), the unlock must use `clear_bit_unlock()` (release
   semantics), not `clear_bit()` (relaxed, no barrier). The lock side must use
