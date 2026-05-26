@@ -52,6 +52,12 @@ page whose flags word can be concurrently modified by another code path,
 unless the caller holds exclusive access to the entire page (e.g., during
 allocation before the page is visible, or during final freeing).
 
+## Compound Page PFN Natural Alignment
+
+An order-`n` compound page starts at a PFN naturally aligned to `1 << n`.
+Any subpage PFN in that compound page rounds down to the same head PFN with
+`pfn & ~((1UL << order) - 1)` or `ALIGN_DOWN(pfn, 1UL << order)`.
+
 ## Page Cache Reference Counting for Large Folios
 
 `__filemap_add_folio()` in `mm/filemap.c` adds `folio_nr_pages(folio)` extra
