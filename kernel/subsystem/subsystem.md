@@ -1,12 +1,17 @@
 # Subsystem Guide Index
 
-Load subsystem guides from the prompt directory based on what the code touches.
-Each guide contains subsystem-specific invariants, API contracts, and common
-bug patterns. Each subsystem guide may reference additional pattern files to
-load conditionally.
+Load subsystem guides from the prompt directory based on what the code
+touches. Each guide contains subsystem-specific invariants, API
+contracts, and common bug patterns. Each subsystem guide may reference
+additional pattern files to load conditionally.
 
-The triggers column below includes both path names, function calls, and symbols
-regexes
+A change can match multiple rows. Load **every** matching guide, not
+just the deepest or most specific. For example, code touching
+`arch/arm64/kvm/hyp/` matches the ARM64, KVM, ARM64 KVM (EL1/Host),
+and ARM64 Hyp (EL2) rows — all four guides apply.
+
+The triggers column below includes both path names, function calls,
+and symbols regexes.
 
 ## Subsystem Guides
 
@@ -74,6 +79,10 @@ regexes
 | Objtool | tools/objtool/, INSN_BUG, INSN_TRAP, decode.c | objtool.md |
 | KHO (Kexec Handover) | lib/test_kho.c, kho_, kho_is_enabled, kho_retrieve_subtree, kho_preserve_folio, kho_add_subtree, register_kho_notifier | kho.md |
 | Rust | any Rust code | rust.md |
+| KVM | virt/kvm/, include/linux/kvm*, kvm_ | kvm.md |
+| ARM64 | arch/arm64/, sysreg | arm64.md |
+| ARM64 KVM (EL1/Host) | arch/arm64/kvm/ | kvm-arm64.md |
+| ARM64 Hyp (EL2) | arch/arm64/kvm/hyp/, __hyp_, arch/arm64/include/asm/kvm.*\.h, drivers/iommu/arm/arm-smmu-v3/pkvm/ | hyp-arm64.md |
 
 ## Optional Patterns
 
