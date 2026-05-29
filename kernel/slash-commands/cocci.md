@@ -1,4 +1,4 @@
-Read the prompt `{{KERNEL_REVIEW_PROMPTS_DIR}}/kernel/coccinelle.md`
+Read the prompt `{{REVIEW_DIR}}/coccinelle.md`
 
 Generate a Coccinelle semantic patch (.cocci file) for the requested code transformation.
 
