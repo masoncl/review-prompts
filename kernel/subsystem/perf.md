@@ -84,6 +84,16 @@ The perf tool is compiled with both glibc and musl. While glibc suffers from nam
 - Prefer forward declarations (e.g., `struct evlist;`) in header files instead of full header inclusions when only structure pointer handles are referenced. Do not manually forward declare standard libc functions or types; these must always be included via appropriate POSIX standard headers.
 - Verify that all required system and POSIX standard header files are explicitly placed at the top of the file.
 
+## Error Handling and `ERR_PTR` Avoidance
+
+Using `ERR_PTR` in user-space `perf` tools is highly discouraged. While `ERR_PTR` is common in kernel space, its use in user-space `perf` code frequently leads to bugs where `ERR_PTR` values are incorrectly compared to `NULL` instead of being checked with `IS_ERR()`.
+
+- **Avoid `ERR_PTR` in New Code**: Prefer standard user-space paradigms. Functions returning pointers should return `NULL` on failure.
+- **Propagating Error Codes**: If a specific error code must be communicated to the caller:
+  - Return an `int` (negative POSIX errno, e.g., `-ENOMEM`) and pass the allocated object back via a double pointer argument (e.g., `struct foo **out`).
+  - Alternatively, set `errno` and return `NULL`.
+- **Audit Existing `ERR_PTR` Usage**: If `ERR_PTR` must be used (e.g., when interfacing with legacy APIs that return them), verify that all callers use `IS_ERR()` and `PTR_ERR()` rather than `NULL` checks.
+
 ## Quick Checks
 
 - **Callback error paths**: When a function takes a callback and iterates
@@ -98,3 +108,4 @@ The perf tool is compiled with both glibc and musl. While glibc suffers from nam
 - **Cross-platform analysis**: Verify architecture-specific logic queries `e_machine` dynamically rather than relying on hardcoded `tools/perf/arch/` host binaries.
 - **Reference count balancing**: Verify every `_new` and `_get` pointer handle is paired with a matching `_put` before pointer scope ends.
 - **musl Compatibility**: Verify all POSIX libc functions, constants, and variables have explicit, direct header inclusions (e.g. `<unistd.h>`, `<string.h>`) to prevent musl compilation failures. Encourage forward declarations of internal structures in header files where possible to avoid heavy header inclusions.
+- **`ERR_PTR` usage**: Verify that `ERR_PTR` is not used in new code. For existing usage, ensure returned pointers are checked with `IS_ERR()` rather than `NULL` comparisons.
