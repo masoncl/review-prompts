@@ -65,6 +65,37 @@ safety semantics or causing unexpected traps.
       `GICR_ICENABLER0`, `GICR_CTLR.EnableLPIs` (1→0), and DPG writes.
       Priority, routing, and enable-set writes are NOT tracked by either RWP
       bit.
+- **Self-Synchronizing Registers and Fields (no ISB needed):** The blanket
+  rule above has architecturally-defined exceptions: some System register
+  effects are guaranteed visible to subsequent instructions in program order
+  *without* a CSE. The architecture grants this in more than one way, so
+  recognize both forms:
+    - **SVE/SME effective vector-length fields** (`ZCR_ELx.LEN`, and likewise
+      `SMCR_ELx.LEN`): a write takes effect for the following SVE/SME
+      instructions in program order with no intervening `isb()`. The ARM ARM
+      flags this in the field description with wording of the form "an indirect
+      read of `<REG>.<FIELD>` appears to occur in program order relative to a
+      direct write of the same register, without the need for explicit
+      synchronization." Recognize this class by that wording — do not assume
+      every sysreg either always needs an `isb()` or never does.
+    - **`ICC_PMR_EL1`** (GIC priority mask, noted above): self-synchronizing by
+      a separate guarantee in the GIC architecture, *not* by the sysreg wording
+      above. After the write is architecturally executed, no interrupt below the
+      new priority is taken, without requiring an `isb()` or exception boundary. Same
+      no-`isb()` outcome, different mechanism — so do not expect to find the
+      "indirect read ... in program order" wording on it. This no-`isb()`
+      guarantee is the *masking* direction (writing `ICC_PMR_EL1` to block
+      lower-priority interrupts, as on `local_irq_disable()`). The *unmasking*
+      direction (relaxing the mask to admit them again, as on
+      `local_irq_enable()`) does need a barrier — `pmr_sync()`, a `dsb` gated on
+      `ICC_CTLR_EL1.PMHE` (boot-time-patched to a nop when `PMHE == 0`, and
+      compiled out entirely without `CONFIG_ARM64_PSEUDO_NMI`), never an `isb()`.
+      So
+      do not read this as "`ICC_PMR_EL1` writes never need synchronization": flag
+      a missing `pmr_sync()` on an unmask path, though still never a missing
+      `isb()`.
+  Flagging a missing `isb()` after a write to a self-synchronizing field (e.g.
+  `ZCR_ELx.LEN`) is a false positive.
 
 **REPORT as bugs:**
 - Writing to a control system register without an `isb()` as the very next
@@ -84,6 +115,59 @@ safety semantics or causing unexpected traps.
   `isb()`.
 - Writing to tracked memory-mapped GIC registers without polling the
   appropriate `GICD_CTLR.RWP` or `GICR_CTLR.RWP`.
+
+## Auto-Generated Definitions and Semantic Drift
+
+Hardware definitions are increasingly moved from hand-rolled C macros to
+auto-generated infrastructure (e.g. the `.sysreg` files consumed by
+`gen-sysreg.awk`). The generator's contract is to reflect *global architectural
+truth*, not whatever software context the old C macros had baked in. A
+declarative change can therefore silently mutate the *value* of an
+auto-generated aggregate mask while leaving its *name* unchanged: the compiler
+stays silent, and standard CI stays silent because the build holds only the new
+snapshot, not the old one. Catching this is by design a code-review
+responsibility, not a tooling one.
+
+**Worked example.** `<REG>_RES1` is generated *only* from literal `Res1 N`
+lines in that register's `.sysreg` block (`gen-sysreg.awk`); it has no concept
+of features and defaults to `UL(0)` when the block declares no `Res1` bit. So a
+`.sysreg` edit that reclassifies a bit between `Res1 N` and `Field N` (or
+`Res0`) — adding a newly architected RES1 bit, or turning an existing RES1 bit
+into a writable field — silently changes the *value* of `<REG>_RES1` while its
+*name* stays put. `SCTLR_EL2_RES1` is a live consumer: today it expands to
+`UL(0)` and is OR'd into the EL2 SCTLR init values `INIT_SCTLR_EL2_MMU_ON` /
+`INIT_SCTLR_EL2_MMU_OFF` (`arch/arm64/include/asm/sysreg.h`). If a future
+`.sysreg` change added or dropped a `Res1` line in the `SCTLR_EL2` block, those
+init values would change with no edit at the consuming macro and no compiler or
+CI signal.
+
+Do not look to the generated mask for feature conditionality — it is not there.
+"RES1 only when a feature is absent" (e.g. `SCTLR_ELx.{EIS, EOS}` are RES1 when
+`FEAT_ExS` is unimplemented) lives in KVM's runtime feature map, tagged
+`AS_RES1` ("RES1 when not supported") in `arch/arm64/kvm/config.c`, not in
+`<REG>_RES1`. In `INIT_SCTLR_EL2_MMU_ON` above, `EIS`/`EOS` are forced to `1` by
+their own field macros (`SCTLR_ELx_EIS | SCTLR_ELx_EOS`), never by
+`SCTLR_EL2_RES1`.
+
+- **Trigger.** A patch touches a `.sysreg` file so as to allocate bits or
+  change a field's RES0 / RES1 classification, regenerating an aggregate
+  mask (`<REG>_RES0`, `<REG>_RES1`, and similar).
+- **Check.** Identify the auto-generated aggregate macros whose value the
+  change alters, then enumerate the C call-sites that consume those macros and
+  inspect each.
+- **Action.** Raise an Open Question / Tension asking the author to confirm the
+  consuming C does not rely on the *previous* semantic value of the mask — in
+  particular, code that ORs `<REG>_RES1` into an initial register value
+  expecting specific bits to be set.
+
+This generalizes beyond `.sysreg` to any auto-generated hardware-definition
+infrastructure where a declarative update silently changes
+the value of a consumed macro.
+
+**REPORT as a tension (Open Question):**
+- A `.sysreg` / declarative change that regenerates an aggregate mask consumed
+  by C initialization, without confirmation that the consumer is robust to the
+  mask's value changing.
 
 ## TLB Invalidation and Break-Before-Make (BBM)
 
