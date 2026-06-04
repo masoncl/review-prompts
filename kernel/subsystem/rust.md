@@ -19,6 +19,8 @@ All helpers should be annotated with the `__rust_helper` attribute. **REPORT as 
 Constants defined in `rust/bindings/bindings_helper.h` re-define complex macro constants using `const` so that bindgen can convert them.
 They're all prefixed with `RUST_CONST_HELPER_` and the constants defined there will be exposed in `bindings` with the prefix stripped.
 
+If you have a concern about how a C API is used (i.e. a `bindings::*` call), read the corresponding C source to confirm its actual requirements rather than relying on your recollection of the API.
+
 ## FFI types
 
 In the kernel, `unsigned long` is always identical to `uintptr_t` and `size_t`.
