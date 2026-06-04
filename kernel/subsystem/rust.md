@@ -2,6 +2,14 @@
 
 Read the general coding guidelines in `Documentation/rust/coding-guidelines.rst`.
 
+## Building
+
+  - Assume Rust code compiles successfully and is lint-clean (including Clippy lints) -- we have other bots and CI systems that ensure this.
+
+    However, CI builds only a limited set of kernel configurations, so still **REPORT as bugs**: conditional compilation issues, such as compilation errors or dead code, that arise under valid Kconfig symbol combinations (i.e. `CONFIG_*`).
+
+  - Assume Rust unstable features are available (the kernel uses `RUSTC_BOOTSTRAP=1`).
+
 ## Bindings and helpers
 
 Files under `rust/helpers/` are functions that export inline functions or function macros for Rust code to link to.
