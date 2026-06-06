@@ -78,6 +78,13 @@ safety semantics or causing unexpected traps.
       direct write of the same register, without the need for explicit
       synchronization." Recognize this class by that wording — do not assume
       every sysreg either always needs an `isb()` or never does.
+    - **`FPMR`** (FP8 mode register, `SYS_FPMR`): self-synchronizing at *register*
+      granularity — "a direct or indirect read of this register occurs in program
+      order relative to a direct write of this register without explicit
+      synchronization" (Arm ARM C5.2.9, Configuration). No `isb()` is needed
+      between an `FPMR` write and a following FP8 instruction. Its wording omits
+      the "appears"/"need for" phrasing of `ZCR/SMCR.LEN`, so match `FPMR` by name,
+      not by that exact pattern.
     - **`ICC_PMR_EL1`** (GIC priority mask, noted above): self-synchronizing by
       a separate guarantee in the GIC architecture, *not* by the sysreg wording
       above. After the write is architecturally executed, no interrupt below the
@@ -95,7 +102,7 @@ safety semantics or causing unexpected traps.
       a missing `pmr_sync()` on an unmask path, though still never a missing
       `isb()`.
   Flagging a missing `isb()` after a write to a self-synchronizing field (e.g.
-  `ZCR_ELx.LEN`) is a false positive.
+  `ZCR_ELx.LEN`) or register (e.g. `FPMR`) is a false positive.
 
 **REPORT as bugs:**
 - Writing to a control system register without an `isb()` as the very next
