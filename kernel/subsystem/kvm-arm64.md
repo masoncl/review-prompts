@@ -147,6 +147,18 @@ access patterns.
     guest misconfiguration. Every new field exposure must be paired with the
     correct `kvm_id_reg_rw_mask` or RESx-handling entry and a corresponding
     trap/enablement in `HCR_EL2`, `CPTR_EL2`, or `MDCR_EL2`.
+*   **`vcpu_sysreg` numbering is sparse — never range-check it:** `enum
+    vcpu_sysreg` (`arch/arm64/include/asm/kvm_host.h`) indexes
+    `vcpu->arch.ctxt.sys_regs[]`, but VNCR-mapped entries are numbered by their
+    VNCR-page byte offset (`VNCR(r)` = `__VNCR_START__ + VNCR_r / 8`), not in
+    declaration order. Selecting or skipping registers by a numeric value range
+    over the enum covers unintended registers: a loop meaning "skip the timer
+    block" written as `if (i >= CNTVOFF_EL2 && i <= CNTP_CTL_EL0) continue;` also
+    skips `SCTLR_EL1` / `TCR_EL1` / `MAIR_EL1` / … whose offsets fall in that byte
+    span, silently dropping guest state (a guest that reprograms its own EL1 regs
+    still boots, but the host's `GET/SET_ONE_REG` view desyncs). Flag any numeric
+    range or `<` / `>` comparison over `enum vcpu_sysreg` values; require an
+    explicit per-register allowlist.
 
 ## VGIC LPI and vLPI Invariants
 
