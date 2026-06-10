@@ -167,6 +167,12 @@ the change for regressions.
   - Load `lore-thread.md` for detailed instructions on processing lore threads
   - Search lore for threads with the same subject as this patch, assume
     the patch you're reviewing is the latest version.
+  - Automated reviews and bot mail are not review evidence. Never treat
+    Sashiko, prior BPF CI/Claude reviews, CI bots, test robots, or any
+    other bot feedback as unaddressed review comments.
+  - If a possible regression overlaps earlier bot feedback in the thread,
+    suppress the regression entirely. Do not quote the bot, cite the bot, or
+    restate the issue as though it were independently reviewable.
   - Consider any unaddressed comments as potential regressions
     - Add each unaddressed comment to TodoWrite
     - Verify each unaddressed comment as a valid complaint before reporting
@@ -271,8 +277,13 @@ the review is completely useless.
   - NEVER WRITE `REGRESSION:` INTO ./review-inline.txt THIS
     AND ANY OTHER ALL CAPS ANALYSIS IS INCOMPATIBLE WITH LINUX KERNEL STANDARDS
 4. Never include bugs that you identified as false positives in the report
-5. Verify the ./review-inline.txt file exists if regressions are found
-6. Verify the ./review-inline.txt file follows inline-template.md's guidelines
+5. Never include issues that quote, cite, summarize, or repeat automated review
+   feedback. Search case-insensitively for forbidden bot evidence (`sashiko`, `bot+bpf-ci`,
+   `kernel-patches-review-bot`, `Claude`, `AI review found`,
+   `AI reviewed your patch`, `CI run summary`, `sashiko.dev`) and remove the
+   entire affected issue.
+6. Verify the ./review-inline.txt file exists if regressions are found
+7. Verify the ./review-inline.txt file follows inline-template.md's guidelines
 
 ### MANDATORY COMPLETION VERIFICATION
 

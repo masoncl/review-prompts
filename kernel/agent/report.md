@@ -32,7 +32,8 @@ Add each of the following to TodoWrite:
 
 - `./review-context/index.json` - list of files and changes analyzed
 - `./review-context/commit-message.json` - commit metadata (author, subject, SHA)
-- `./review-context/LORE-result.json` - lore issues (may not exist if agent was skipped)
+- `./review-context/LORE-result.json` - lore issues and ignored bot comments
+  (may not exist if agent was skipped)
 - `./review-context/SYZKALLER-result.json` - syzkaller claim verification (may not exist if not a syzkaller commit)
 - `./review-context/FIXES-result.json` - fixes tag issue (may not exist if agent was skipped)
 - `<prompt_dir>/inline-template.md` - formatting template
@@ -74,6 +75,8 @@ From the files already loaded in Step 1:
 1. If `LORE-result.json` was loaded, collect issues from the `issues` array
 2. Each lore issue has id like "LORE-1", "LORE-2", etc.
 3. If file was NOT found: lore checking was skipped or found no issues
+4. Also collect `ignored_bot_comments`. These are quarantined automated review
+   comments and must be used only for suppression, never as report evidence.
 
 **Syzkaller verification** (from SYZKALLER-result.json):
 1. If `SYZKALLER-result.json` was loaded, extract the verification summary
@@ -90,13 +93,51 @@ From the files already loaded in Step 1:
 - Syzkaller issues: id pattern "SYZKALLER-1", etc
 - Fixes issues: id pattern "FIXES-1", etc
 
+### Automated Review Suppression
+
+Before counting or rendering issues, filter the combined issue list against
+automated review evidence.
+
+Forbidden bot evidence includes these case-insensitive strings and patterns:
+- `sashiko`, `sashiko-bot`, `sashiko.dev`
+- `bot+bpf-ci`, `bpf-ci`, `kernel-patches-review-bot`, `kernel-patches CI`
+- `claude`, `AI review found`, `AI reviewed your patch`
+- `CI run summary`, `netdev-ai.bots.linux.dev`
+- any reviewer/sender field containing `bot` or `robot`
+
+Drop an issue completely if any issue field, lore reference, description,
+context, guide text, source, recommendation, or rendered draft text cites or
+quotes forbidden bot evidence. Never rewrite these citations into neutral
+language; the issue must be omitted.
+
+Also drop an issue if it materially overlaps any `ignored_bot_comments` entry
+from `LORE-result.json`. Treat overlap as present if any of these match:
+- same file path or basename plus same function or symbol
+- same quoted code line, helper name, struct field, enum value, map name, test
+  name, or commit-message phrase
+- same technical topic in the bot summary, even if wording differs
+- same issue category and same affected subsystem when the bot summary is
+  specific enough to identify the concern
+
+Bias toward suppression. If it is plausible that the issue repeats earlier bot
+feedback, drop it. This applies to `FILE-*`, `LORE-*`, `FIXES-*`, and any
+other issue source. Remaining issues must be supported by source-code,
+commit-message, or human-review evidence without mentioning the bot feedback.
+
+Do not count dropped issues in:
+- total issues
+- guide-flagged issues
+- highest severity
+- `review-inline.txt`
+- `review-metadata.json`
+
 **Issue types**: Each issue may have an `issue_type` field:
 - `"regression"` (default if field is absent): confirmed bug with proof
 - `"potential-issue"`: guide-directive flagged pattern where the agent is
   uncertain. These have additional `guide_directive` and `agent_analysis` fields
   documenting both perspectives.
 
-Track totals:
+Track totals after Automated Review Suppression:
    - Total issues found (regressions + guide-flagged), including lore and syzkaller
    - Guide-flagged issues count (issue_type = "potential-issue")
    - Highest severity level
@@ -152,6 +193,26 @@ be sent when inline-template.md is run later.
   }
 }
 ```
+
+**Ignored bot comment format** (from LORE-result.json):
+
+```json
+{
+  "message-id": "<id>",
+  "sender": "<name or email>",
+  "bot-name": "<sashiko|bpf-ci|claude|other>",
+  "subject": "<subject>",
+  "date": "<date>",
+  "url": "https://lore.kernel.org/...",
+  "affected_files": ["path/to/file.c"],
+  "affected_functions": ["function_name"],
+  "affected_symbols": ["symbol_name"],
+  "summary": "<brief technical summary of quarantined bot feedback>"
+}
+```
+
+These entries are only suppression fingerprints. Do not quote them, summarize
+them, or cite them in `review-inline.txt`.
 
 **Syzkaller verification format** (from SYZKALLER-result.json):
 
@@ -230,8 +291,9 @@ phrasing like "A subsystem pattern flags this as potentially concerning:" rather
 than asserting a definite bug.
 
 **Note**: you must send EVERY issue described in the FOO-result.json files.
-The decisions about filtering issues happened in other prompts, your one and
-only job is to format those issues.
+Except for the Automated Review Suppression above, the decisions about
+filtering issues happened in other prompts, and your job is to format the
+remaining issues.
 
 **Commit-message issues**: Treat any issue with `file_name: "COMMIT_MESSAGE"`
 or an issue source that points at the commit message as a commit-message issue,
@@ -279,6 +341,8 @@ Create `<output_dir>/review-metadata.json` with the following exact format:
    - Contains no ALL CAPS headers
    - Uses proper quoting with > prefix
    - Has professional tone
+   - Does not mention or cite forbidden bot evidence from Automated Review
+     Suppression. If it does, remove the entire issue and regenerate the file.
 
 2. Verify `<output_dir>/review-metadata.json` exists and:
    - Has all required fields
@@ -304,6 +368,7 @@ Lore context (from LORE-result.json):
 - Threads found: <count or "not checked">
 - Versions found: <list or "n/a">
 - Unaddressed comments: <count>
+- Ignored automated comments: <count>
 
 Syzkaller verification (from SYZKALLER-result.json):
 - Total claims verified: <count or "not a syzkaller commit">

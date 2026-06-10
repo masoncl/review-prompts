@@ -14,6 +14,25 @@ The output of this patch review will be used by maintainers when deciding if a
 given patch is ready to include.  It's important that we make sure
 all email comments on the patches are addressed, especially those from maintainers.
 
+## Automated Review Quarantine
+
+Automated reviews and bot mail are not review comments for this prompt. Never
+quote, cite, summarize, or report issues from Sashiko, prior BPF CI/Claude
+reviews, CI bots, test robots, or any sender that appears automated.
+
+Quarantine a message if the sender, subject, body, link, or signature includes
+signals such as `bot`, `robot`, `sashiko`, `claude`, `bpf-ci`,
+`AI review found`, `AI reviewed your patch`, `CI run summary`, `sashiko.dev`,
+or `netdev-ai.bots.linux.dev`.
+
+Also quarantine human replies that only forward, quote, or ask about automated
+review feedback without adding independent human technical analysis. If a
+human reply contains both bot-quoted text and independent human analysis,
+ignore the bot-quoted portion and process only the independent human analysis.
+
+If a potential issue overlaps quarantined bot feedback, suppress the issue
+entirely. Do not rewrite bot evidence into neutral wording.
+
 ## Step 1: Find All Versions
 
 Use `dig` to find emails related to the commit:
@@ -23,8 +42,10 @@ dig(commit="HEAD", show_all=true)
 
 From the results, identify:
 - Patch submissions from the author (different versions: v1, v2, v3, etc.)
-- Review replies from maintainers/reviewers
+- Human review replies from maintainers/reviewers
 - Author responses to reviews
+- Quarantined automated review comments, tracked only so overlapping issues can
+  be suppressed
 
 ## Step 2: Process Large Threads Efficiently
 
@@ -32,8 +53,9 @@ Lore threads can be very large. Do NOT fetch entire threads with `show_thread=tr
 
 ### Correct approach:
 
-1. **List reviewer reply Message-IDs** from the dig results
+1. **List human reviewer reply Message-IDs** from the dig results
    - Look for "Re:" emails from people other than the patch author
+   - Exclude all quarantined automated review comments
    - Note the Message-ID for each reviewer comment
 
 2. **Fetch individual review emails** without thread context:
@@ -66,6 +88,10 @@ Review comments typically appear as:
 - Quoted patch code (lines starting with `> +` or `> -` or `>  `)
 - Followed by reviewer text (not starting with `>`)
 - Keywords: "nit:", "please", "should", "instead", "why", "consider", "missing"
+
+Before classifying anything as a review comment, apply the Automated Review
+Quarantine. Bot comments are not review comments, even when they contain
+specific technical concerns.
 
 ## Step 4: Track Comment Resolution
 
@@ -123,4 +149,6 @@ https://lore.kernel.org/bpf/<message-id>/
 ```
 
 - Did you output analysis of each prior review comment as required? [ y / n]
+- Did you exclude bot and automated review comments, and suppress any issue
+  overlapping them? [ y / n]
 - If there are any unaddressed TodoWrite entries, YOU MUST GO BACK AND CHECK THEM
