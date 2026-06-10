@@ -15,7 +15,7 @@ about a kernel patch and identifies unaddressed review comments.
 **IMPORTANT**: This agent searches ONLY for discussion related to THIS SPECIFIC
 PATCH. We are looking for:
 - Prior versions of this exact patch (v1, v2, v3, etc.)
-- Review comments on those prior versions
+- Human review comments on those prior versions
 - Author responses to review feedback
 
 We are NOT looking for:
@@ -31,6 +31,37 @@ We are NOT looking for:
 Only use `lore_search` with `subject_patterns` for exact subject matching.
 
 The goal is to find unaddressed review comments from prior versions of this patch.
+
+## Automated Review Quarantine
+
+Automated reviews and bot mail are NOT review evidence. They must never become
+`LORE-*` issues, and they must never be quoted or cited in review output.
+
+Treat a reply as quarantined bot feedback if the sender, subject, body, links,
+or signature indicates automation. This includes:
+- senders or names containing `bot`, `robot`, `kbuild`, `kernel test`,
+  `syzbot`, `sashiko`, `claude`, `bpf-ci`, or obvious CI
+  automation names
+- addresses such as `sashiko-bot@kernel.org`, `bot+bpf-ci@kernel.org`, or
+  `kernel-patches-review-bot`
+- phrases such as `AI review found`, `AI reviewed your patch`,
+  `Sashiko AI review`, `BPF CI`, `CI run summary`, or `This concern was
+  raised by`
+- links to automated review systems such as `sashiko.dev`,
+  `netdev-ai.bots.linux.dev`, GitHub Actions runs, or kernel-patches CI output
+
+Also quarantine human replies that only quote, forward, summarize, or ask about
+automated review feedback without adding an independent human technical
+analysis. If a human reply contains both bot-quoted text and independent human
+analysis, ignore the bot-quoted portion and use only the independent human
+analysis.
+
+For each quarantined automated comment, add a compact entry to
+`ignored_bot_comments` in `LORE-result.json`. Include enough matching data for
+the report agent to suppress duplicated findings later: message ID, sender,
+bot name if identifiable, subject, date, affected files/functions/symbols if
+mentioned, and a short technical summary. Do not add quarantined comments to
+`issues` or `all-comments`.
 
 ## Input
 
@@ -86,16 +117,20 @@ For each message ID found in Step 2.1, use `lore_search` with:
 ### Step 2.3: Read replies for review comments
 
 For each reply from Step 2.2:
-1. Identify if it's a review comment (vs. test robot, ACK, or author response)
-2. Extract technical concerns, bugs, design issues
-3. Check if author responded to the concern
-4. Note if concern was addressed in later versions
+1. Apply the Automated Review Quarantine first.
+2. If quarantined, add it to `ignored_bot_comments` and do not process it as a
+   review comment.
+3. Otherwise, identify if it's a human review comment (vs. ACK or author
+   response).
+4. Extract technical concerns, bugs, design issues.
+5. Check if author responded to the concern.
+6. Note if concern was addressed in later versions.
 
 ---
 
 ## Step 3: Categorize Review Comments
 
-For each review comment found in Step 2.3, categorize as:
+For each non-quarantined human review comment found in Step 2.3, categorize as:
 - **Technical concerns**: Bugs, race conditions, resource leaks, crashes
 - **Design feedback**: Architectural suggestions, alternative approaches
 - **Style/nits**: Formatting, naming, minor improvements
@@ -103,6 +138,8 @@ For each review comment found in Step 2.3, categorize as:
 - **Acks/Reviews**: Positive acknowledgments (Reviewed-by, Acked-by)
 
 Focus on **technical concerns** - these are most likely to be unaddressed issues.
+Do not categorize quarantined automated feedback as technical concerns,
+questions, or review comments.
 
 ---
 
@@ -146,7 +183,8 @@ Only flag comments that:
 **ALWAYS** write `./review-context/LORE-result.json`, even when no issues were
 found.  The orchestrator requires this file to confirm the agent completed
 successfully.  When no issues exist, use `"issues": []` and
-`"unaddressed-count": 0`.
+`"unaddressed-count": 0`. Always include `ignored_bot_comments`, using an empty
+array when no automated comments were found.
 
 ```json
 {
@@ -155,6 +193,20 @@ successfully.  When no issues exist, use `"issues": []` and
   "versions-found": ["v1", "v2", "v3"],
   "total-comments-reviewed": M,
   "unaddressed-count": K,
+  "ignored_bot_comments": [
+    {
+      "message-id": "<id>",
+      "sender": "<name or email>",
+      "bot-name": "<sashiko|bpf-ci|claude|other>",
+      "subject": "<subject>",
+      "date": "<date>",
+      "url": "https://lore.kernel.org/...",
+      "affected_files": ["path/to/file.c"],
+      "affected_functions": ["function_name"],
+      "affected_symbols": ["symbol_name"],
+      "summary": "<brief technical summary of quarantined bot feedback>"
+    }
+  ],
   "issues": [
     {
       "id": "LORE-1",
@@ -203,10 +255,13 @@ successfully.  When no issues exist, use `"issues": []` and
 | `issue_context` | 3 lines from current code at the issue location (empty array if unknown) |
 | `issue_description` | Summary including reviewer name, version, and concern |
 | `lore_reference` | Lore-specific metadata for linking to original discussion |
+| `total-comments-reviewed` | Count only non-quarantined human comments |
+| `ignored_bot_comments` | Quarantined automated feedback, never review issues |
 
 **DO NOT**:
 - Read or modify FILE-N-review-result.json files
 - Create lore-summary.json (replaced by LORE-result.json)
+- Emit quarantined automated feedback as `LORE-*` issues
 
 ---
 
@@ -219,6 +274,7 @@ Threads searched: <count>
 Versions found: <list>
 Comments reviewed: <count>
 Unaddressed comments: <count>
+Ignored automated comments: <count>
 
 Output file: ./review-context/LORE-result.json
 ```
