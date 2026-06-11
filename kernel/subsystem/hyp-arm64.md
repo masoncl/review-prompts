@@ -123,8 +123,14 @@ excluded below).
 *   `is_protected_kvm_enabled()` (`arch/arm64/include/asm/virt.h`) is the
     canonical predicate for "pKVM mode is configured." It becomes true very
     early via cpufeature detection (before any initcall runs) and is
-    independent of de-privilege state. The privileged window is characterized
-    by `is_protected_kvm_enabled() && !is_kvm_arm_initialised()`.
+    independent of de-privilege state — so on its own it does *not* tell you
+    whether the privileged window is still open. The discriminator the
+    hypervisor actually uses is the `kvm_protected_mode_initialized` static key
+    (read host-side via `is_pkvm_initialized()`), enabled during pKVM
+    finalisation (`arch/arm64/kvm/pkvm.c`): while it is off the early
+    "privileged" hypercalls are reachable, and `handle_host_hcall`
+    (`arch/arm64/kvm/hyp/nvhe/hyp-main.c`) selects the init-only / always-on /
+    finalised-only hcall bands off exactly that branch.
 *   **Hypercall ID band** decides a new hypercall's availability phase. A new
     `enum __kvm_host_smccc_func` entry before `__KVM_HOST_SMCCC_FUNC_MIN_PKVM`
     is init-only (gone once pKVM finalises); between `MIN_PKVM` and
