@@ -52,6 +52,35 @@ This test composes with the §`WARN_ON` Semantics correctness test, but does
 not replace it. Correctness ("is this assertion the right kind of check?") and
 severity ("if it triggers, is it a bug?") are independent axes.
 
+## EL2 Execution Context (nVHE/pKVM)
+
+At EL2 in nVHE/pKVM, a hypercall (or other trap) handler runs as a single
+**atomic, non-preemptible unit on the trapping CPU**, with physical interrupts
+masked, returning to EL1 via `eret` when done. The EL2 hyp is not the kernel:
+there is **no scheduler, no preemption, and none of the kernel-context
+deferred-work machinery** — no `sleep`/`schedule`, workqueues, softirqs, RCU
+callbacks, kthreads, `copy_{from,to}_user`, or `printk`/`pr_*`, and no mutexes
+or `irqsave` locks (interrupts are already masked; EL2 locking is
+`hyp_spin_lock`). A handler cannot be preempted part-way through and cannot hand
+work to a later context: whatever it does, it does synchronously before the
+`eret`.
+
+**Worked false-positive.** A finding of the form "this `READ_ONCE()` and the
+later `cmpxchg()` can race because the store becomes visible only after a
+*delayed* write" presumes the handler can be preempted, or its tail deferred,
+between the two. At EL2 nVHE there is no such local gap — the sequence runs to
+completion atomically on the trapping CPU.
+
+**Still in scope — cross-CPU concurrency.** This rule removes only the
+*local* preemption / deferral assumption. Genuine concurrency between two
+physical CPUs each running a handler against shared EL2 state is real and must
+still be reasoned about under the LKMM (memory ordering, cmpxchg visibility
+across CPUs). Do not let "EL2 is atomic" collapse into "EL2 is single-threaded."
+
+**Do NOT flag:**
+- Races or reorderings that require a single EL2 nVHE handler to be preempted,
+  or its work deferred to a later context, on the *same* CPU.
+
 ## Host De-Privilege Boundary (pKVM Lifecycle)
 
 In nVHE/pKVM, the host kernel boots at EL2 and *de-privileges itself* to EL1
@@ -67,7 +96,7 @@ install hyp text/data, populate per-CPU state, and finalize trap
 configuration; memory shared with future-EL2 is writable in place. After it
 (`pkvm_drop_host_privileges()` having run), the host is at EL1 and can only
 invoke EL2 via hypercalls; EL2-private memory becomes inaccessible (kmemleak
-excluded above).
+excluded below).
 
 **Markers a reviewer can grep for:**
 
@@ -94,8 +123,20 @@ excluded above).
 *   `is_protected_kvm_enabled()` (`arch/arm64/include/asm/virt.h`) is the
     canonical predicate for "pKVM mode is configured." It becomes true very
     early via cpufeature detection (before any initcall runs) and is
-    independent of de-privilege state. The privileged window is characterized
-    by `is_protected_kvm_enabled() && !is_kvm_arm_initialised()`.
+    independent of de-privilege state — so on its own it does *not* tell you
+    whether the privileged window is still open. The discriminator the
+    hypervisor actually uses is the `kvm_protected_mode_initialized` static key
+    (read host-side via `is_pkvm_initialized()`), enabled during pKVM
+    finalisation (`arch/arm64/kvm/pkvm.c`): while it is off the early
+    "privileged" hypercalls are reachable, and `handle_host_hcall`
+    (`arch/arm64/kvm/hyp/nvhe/hyp-main.c`) selects the init-only / always-on /
+    finalised-only hcall bands off exactly that branch.
+*   **Hypercall ID band** decides a new hypercall's availability phase. A new
+    `enum __kvm_host_smccc_func` entry before `__KVM_HOST_SMCCC_FUNC_MIN_PKVM`
+    is init-only (gone once pKVM finalises); between `MIN_PKVM` and
+    `__KVM_HOST_SMCCC_FUNC_PKVM_ONLY` it is always-on; after `PKVM_ONLY` it is
+    pKVM-finalised-only. A new ID in the wrong band is reachable in the wrong
+    phase.
 
 **REPORT as bugs:**
 
@@ -141,6 +182,11 @@ from any host-controlled source.
 *   **Double-Fetch Risk:** Never dereference a host-provided pointer multiple
     times (double-fetch). Copy the necessary fields to EL2 private memory
     once.
+*   **Allocation Sources:** EL2 MUST NOT draw allocations from a free list or
+    memcache whose head pointer lives in host memory — the host can redirect
+    the allocation to an attacker-chosen physical address (TOCTOU). A
+    host-resident cache such as `stage2_teardown_mc` is a sink for host-bound
+    reclaim pages, never an allocation source.
 *   **VA Translation (`AT`):** To perform stage 1+2 translation of a Host VA,
     EL2 must use `AT S12E1R`. If translation fails, hardware reports the error
     in `PAR_EL1` (bit `.F = 1`).
@@ -239,6 +285,65 @@ are visible to EL2 leads to **State Desynchronization**.
     to EL2-private hyp structures (e.g., `pkvm_hyp_vcpu`) to remain visible
     across guest entries.
 
+## `kern_hyp_va` Idempotence and Pointer Provenance
+
+Misjudging when `kern_hyp_va()` transforms a pointer drives findings in both
+directions: a false "double `kern_hyp_va()` corrupts the pointer / faults" on a
+pointer it actually leaves unchanged, and a missed "defensive `kern_hyp_va()` on
+an already-hyp pointer" that genuinely mangles it. The discriminator is the
+pointer's provenance, and it is **not** whether the address is below
+`PAGE_OFFSET`.
+
+`kern_hyp_va()` converts a host kernel-linear (TTBR1) pointer to the EL2
+hyp-linear VA used to dereference host memory at EL2. It is a **mask-and-tag**
+operation (`__kern_hyp_va` in `arch/arm64/include/asm/kvm_mmu.h`; mask and tag
+computed in `arch/arm64/kvm/va_layout.c`): clear the high VA bits, then insert a
+single constant hyp tag. It has **no offset accumulation**, so it is idempotent
+on any pointer that *already carries the hyp tag*. Two classes do, and both are
+**below `PAGE_OFFSET`** yet still idempotent:
+
+- The hyp-linear image `kern_hyp_va()` itself produces — so a second application
+  is a no-op.
+- Every EL2 **linear-map** pointer: the hyp page allocator's output
+  (`hyp_phys_to_virt` / `hyp_page_to_virt`, `nvhe/memory.h`) and anything
+  reachable by `hyp_virt_to_phys` / `hyp_virt_to_page`. This covers the large
+  EL2-private objects — `pkvm_hyp_vm`, `pkvm_hyp_vcpu`, and the embedded
+  `hyp_vm->kvm` (see §State Divergence & Initialization Boundaries, "Hyp vs. Host
+  Back-Pointer").
+
+So the real split is **linear-map** (carries the tag → `kern_hyp_va` is a no-op)
+vs **private-VA-range** (no tag → mangled), not above/below `PAGE_OFFSET`.
+
+Idempotence does NOT extend to an EL2 **private-VA-range** pointer — the output
+of `pkvm_alloc_private_va_range` (`nvhe/mm.c`): `hyp_vmemmap`, the fixmap,
+ioremap/MMIO mappings, hyp stacks. These live outside the linear map and do not
+carry the hyp tag, so the mask relocates them and the *first* application
+corrupts the pointer.
+
+Severity of a genuinely mis-applied `kern_hyp_va()` depends on the target tree's
+`__kern_hyp_va()`. Upstream masks unconditionally, so a private-range input is
+corrupted. Android adds `if (!is_ttbr1_addr(v)) return v;` (a `>= PAGE_OFFSET`
+test), so there every already-hyp pointer short-circuits to a harmless no-op and
+only a genuine TTBR1 pointer is transformed. Check which form the tree carries
+before assigning severity.
+
+**Worked false-positive.** A pointer initialized as a hyp VA and later passed
+through `kern_hyp_va()` again is the recurring trap. `hyp_vcpu->vcpu.arch.sve_state`
+is set to a hyp VA in `pkvm_vcpu_init_sve()`, and `unpin_host_sve_state()` used
+to call `kern_hyp_va()` on it again; because that conversion is idempotent the
+call was redundant, not a bug, and upstream `02471a78a052b` removed it ("Since
+`kern_hyp_va()` is idempotent, it's not a bug"). The same holds for `kern_hyp_va(&hyp_vm->kvm)` or
+`kern_hyp_va(vcpu->kvm)` when `vcpu` is the hyp vCPU (`vcpu->kvm == &hyp_vm->kvm`,
+a linear-map object). Do not escalate any of these to memory corruption or a data
+abort; at most note the redundant call.
+
+**Do NOT flag:**
+- A redundant or double `kern_hyp_va()` on a linear-map pointer — a host
+  kernel-linear pointer, its hyp image, or any EL2 object reachable by
+  `hyp_virt_to_phys` / `hyp_virt_to_page` (e.g. `&hyp_vm->kvm`) — as corruption,
+  a fault, or any severity bug. It is a no-op; at most a cleanup note, since a
+  redundant `kern_hyp_va()` obscures the host→EL2 boundary each call site marks.
+
 ## EL2 Buddy Allocator (`hyp_pool`)
 
 EL2 uses a private buddy allocator (`struct hyp_pool` in
@@ -287,6 +392,22 @@ allocator):
     `-ENOMEM` is a normal runtime outcome.
 *   Allocating from one pool and freeing into another.
 
+## EL2 Transient Mappings (`hyp_fixmap`)
+
+To touch a host page outside the linear hyp map, EL2 uses `hyp_fixmap_map(phys)`
+/ `hyp_fixmap_unmap()` (`nvhe/mm.c`). The slot is **per-CPU**, the calls **must
+be paired**, and mappings **must not nest**: a path that fails to unmap on every
+exit holds the slot and corrupts the next user on that CPU, and a nested map
+clobbers the live slot. The unmap is also what performs the slot's TLB
+invalidation (the map does not), so a missed unmap leaves a stale valid TLB
+entry and the next map's freshly written PTE is bypassed: the new user reads or
+writes the previous mapping's physical page.
+
+**REPORT as bugs:**
+- A `hyp_fixmap_map()` whose error or early-exit paths do not all reach the
+  matching `hyp_fixmap_unmap()`.
+- A second `hyp_fixmap_map()` on a CPU before the first is unmapped.
+
 ## pKVM Page-Ownership Transitions
 
 pKVM tracks physical page ownership across three actors (host, hypervisor,
@@ -304,6 +425,11 @@ host.
 - **Atomicity of State Updates:** Ownership metadata and page-table entries
   for the affected range MUST be updated atomically from EL2's perspective.
   Partial updates observable to other CPUs create TOCTOU windows.
+- **Rollback Before Propagating Errors:** When EL2 mutates ownership metadata
+  (`hyp_vmemmap`, page state, refcounts) *before* calling a fallible primitive
+  (`kvm_pgtable_stage2_map`, `pkvm_create_mappings_locked`, …), the error path
+  MUST undo the mutation before returning. A bare `return err` after a partial
+  mutation leaves EL2 metadata inconsistent.
 - **Reclaim Path Discipline:** The reclaim path for a dying guest MUST
   enumerate pages by their recorded ownership state, not by the page-table
   walk. Pages already donated but whose metadata was not updated are otherwise
@@ -369,6 +495,140 @@ attack surface with a recurring pattern of missing range/offset checks.
   than EL2-private hyp state.
 - VCPU-load paths that do not refresh the hyp-side FGT register copy from the
   host VCPU.
+
+## Host-Owned vs Hyp-Owned `HCR_EL2` Bits (Protected vCPUs)
+
+For a protected vCPU, `HCR_EL2` is computed by the hyp at vCPU init from
+architectural and feature state (`pkvm_vcpu_reset_hcr()` seeds `HCR_GUEST_FLAGS`
+plus feature bits; `pvm_init_traps_hcr()` layers on the guest's trap
+configuration), *not* from the host. The host's `hcr_el2` value must never be
+allowed to define a protected guest's regime. But a small set of `HCR_EL2` bits
+are *host-owned runtime signals*, and those MUST flow from the host vCPU copy
+into the hyp vCPU on each load/entry (`handle___pkvm_vcpu_load`,
+`flush_hyp_vcpu`) and back on exit (`sync_hyp_vcpu`). The per-entry set is
+therefore an **allowlist**, and a reviewer must classify each `HCR_EL2` bit the
+code touches into one of two categories:
+
+- **Hyp-owned regime / configuration bits** define the guest's translation,
+  execution, and trap environment: e.g. `VM` (stage-2 enable), `RW`
+  (AArch64/AArch32 execution state), `TGE`, `IMO`/`FMO`/`AMO` (interrupt
+  routing), `TSC` (SMC trapping), `E2H`, and the `TID*`/`TACR` feature-trap
+  bits. These are fixed at hyp vCPU init. The host must never be able to set or
+  clear them for a protected guest.
+- **Host-owned runtime signals** are set/cleared dynamically by the host to
+  apply a benign policy or inject an event, and are meaningless unless they
+  reach the hyp vCPU that runs: `TWI`/`TWE` (WFI/WFE trapping policy) and `VSE`
+  (a pending *virtual SError* to deliver to the guest; under FEAT_RAS the host
+  also writes `VSESR_EL2` for the syndrome, then sets `VSE` to make it pending).
+  The virtual IRQ/FIQ pending bits (`VI`/`VF`) are architecturally the same
+  class of injection signal, but are not part of this allowlist: KVM delivers
+  guest interrupts through the vGIC, not via these `HCR_EL2` bits.
+
+Because the per-entry set is an allowlist, **both directions are bugs**:
+
+- **Over-inclusion (security):** sourcing a regime/configuration bit from the
+  host into a protected hyp vCPU lets the host reconfigure the guest's
+  trap/execution environment.
+- **Under-inclusion (function):** dropping a host-owned signal from the
+  allowlist means the host can no longer reach the guest with it. Canonical
+  case: `flush_hyp_vcpu()` masked the host's `hcr_el2` down to
+  `HCR_TWI | HCR_TWE`, which silently dropped `HCR_VSE`, so a host-injected (and
+  deferred/masked) virtual SError was never delivered to a pKVM guest. The
+  confinement that caused this was introduced by `b56680de9c648` ("KVM: arm64:
+  Initialize trap register values in hyp in pKVM"); the fix restores `HCR_VSE`
+  to the flowed set. A new per-entry mask that omits a legitimate host-owned
+  signal is this bug.
+
+**REPORT as bugs:**
+- A protected-vCPU load/entry path that sources any `HCR_EL2` bit *other than* a
+  host-owned signal (i.e. a regime/configuration bit) from the host.
+- A per-entry `HCR_EL2` allowlist that omits a host-owned injection signal the
+  host relies on (e.g. `HCR_VSE` for virtual SError delivery), so the event
+  never reaches the guest.
+
+**Do NOT flag:**
+- The per-entry path flowing only the allowlisted host-owned bits
+  (`HCR_TWI`/`HCR_TWE`/`HCR_VSE`) while leaving every other `HCR_EL2` bit at its
+  hyp-init value. That confinement is correct, not a "partial HCR sync."
+
+## FPSIMD / SVE Save Regime (pKVM Mode vs Standard nVHE)
+
+EL2 switches FPSIMD/SVE/SME state lazily: the first guest access to FP/SIMD/SVE
+traps to `kvm_hyp_handle_fpsimd()` (`hyp/switch.h`), which deactivates the
+relevant CPTR traps, saves the live host context, and restores the guest
+context. How the *host's* state is preserved diverges by **KVM mode** — whether
+pKVM is enabled (`is_protected_kvm_enabled()`), NOT by whether the individual
+guest is a protected pVM — and under pKVM that divergence is a confidentiality
+invariant, not a performance tweak:
+
+- **pKVM enabled (`is_protected_kvm_enabled()`):** the trap handler eagerly
+  saves the host's FP/SVE state *in the hyp*, gated on
+  `is_protected_kvm_enabled() && host_owns_fp_regs()`
+  (`kvm_hyp_save_fpsimd_host()`). The gate is the global mode, so this applies
+  to **every** guest the hyp runs — protected pVMs and non-protected guests
+  alike (all of which take the `is_protected_kvm_enabled()` branch of
+  `handle___kvm_vcpu_run`, i.e. `flush_hyp_vcpu` / `sync_hyp_vcpu`). The hyp
+  owns host-state save/restore here "as not to reveal that fpsimd was used by a
+  guest nor leak upper sve bits": the host must not be able to infer a guest
+  touched FP, and stale host SVE register bits must never be visible to the
+  guest. The host SVE state is saved at the *host's* max VL
+  (`kvm_host_sve_max_vl`), not the guest's.
+- **Standard nVHE (pKVM disabled):** the hyp does NOT eagerly save host FP
+  state. The host is fully trusted and its vCPU is run directly; its own
+  lazy-FPSIMD machinery restores host state after the run, and the hyp only
+  marshals vector length around entry/exit via `fpsimd_lazy_switch_to_guest()` /
+  `fpsimd_lazy_switch_to_host()` (which move `ZCR_EL1` / `ZCR_EL2`), wrapped
+  around `__kvm_vcpu_run()`. These lazy-switch helpers are NOT used under pKVM.
+
+New or modified EL2 FP-trap / FP-switch code must respect this split.
+
+**REPORT as bugs:**
+- Under pKVM, an FP path that restores (or exposes) guest FP without first
+  ensuring the hyp has saved and scrubbed the host's live FP/SVE state. This
+  leaks host register contents, including SVE upper bits, into the guest.
+- Saving *host* FP/SVE state at the guest's VL (or any VL narrower than the
+  host max), which truncates the host's registers.
+- FP-trap code that keys the eager-save decision off the per-guest protected
+  flag instead of `is_protected_kvm_enabled()`, or that assumes the
+  `fpsimd_lazy_switch_to_*` path runs under pKVM.
+
+**Do NOT flag:**
+- The absence of an eager `kvm_hyp_save_fpsimd_host()` on the standard-nVHE
+  (pKVM-disabled) path. There the trusted host's own lazy restore handles it; a
+  hyp-side eager save is not required and is not a "missing save."
+- The eager host-save running for a *non-protected* guest under pKVM. The gate
+  is the global mode, so this is correct, not redundant or misapplied work.
+
+## Per-Load vs Per-Entry Synchronization Seams (pKVM Lifecycle)
+
+When a guideline or commit message says some state "MUST be synced," the *seam*
+it names is part of the requirement. pKVM has two synchronization points with
+very different cadence, and a "missing sync" finding is valid only when the
+check is applied at the seam the requirement actually names.
+
+| Seam | Function(s) | Cadence | Handles |
+| :--- | :--- | :--- | :--- |
+| **Per-load** | `handle___pkvm_vcpu_load` (calls `pkvm_load_hyp_vcpu`) | Once, when the host's `KVM_RUN` loads a vCPU onto a physical CPU | Coarse configuration that persists across many entries (e.g. the `arch.fgt` block copy for non-protected guests) |
+| **Per-entry** | `flush_hyp_vcpu` (and the matching `sync_hyp_vcpu` on exit) | Every guest re-entry — potentially thousands of times between loads | Fine-grained per-entry state churn (e.g. `hcr_el2`, `mdcr_el2`, `arch.iflags`) |
+
+Before flagging a "missing sync," quote the guideline's *exact* cadence word —
+"on each vCPU **load**" vs "on each **entry**" / "**run**" — and confirm the
+check is against the matching function. A copy the requirement places at vCPU
+load is satisfied even when it is absent from the per-entry path, and vice
+versa.
+
+**Worked false-positive.** FGT trap registers are required to be copied "on
+each vCPU load" (see §Trap Register Initialization). That copy lives in
+`handle___pkvm_vcpu_load`, whose non-protected `else` branch copies the whole
+`arch.fgt` block from `host_vcpu` into the hyp vCPU. Flagging `flush_hyp_vcpu`
+(the per-entry path) for "not syncing `arch.fgt`" is a false positive: it is
+the wrong seam. The per-entry path correctly syncs only per-entry state; the
+per-load FGT copy is not its responsibility.
+
+**Do NOT flag:**
+- Per-load state (the FGT block, etc.) "missing" from the per-entry path
+  (`flush_hyp_vcpu` / `sync_hyp_vcpu`) when it is correctly handled at vCPU
+  load.
 
 ## SMC imm16 / SMCCC Pass-Through Rules
 
