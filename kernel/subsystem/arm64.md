@@ -151,10 +151,12 @@ Do not look to the generated mask for feature conditionality — it is not there
 "RES1 only when a feature is absent" (e.g. `SCTLR_ELx.{EIS, EOS}` are RES1 when
 `FEAT_ExS` is unimplemented) lives in KVM's runtime feature map, tagged
 `AS_RES1` ("RES1 when not supported") in `arch/arm64/kvm/config.c`, not in
-`<REG>_RES1`. `INIT_SCTLR_EL2_MMU_ON` above does not set `EIS`/`EOS` at all
-(the EL2 init leaves them `0`); where the kernel does force them to `1` — the
-EL1 inits `INIT_SCTLR_EL1_MMU_ON` / `INIT_SCTLR_EL1_MMU_OFF` — it uses the
-dedicated `SCTLR_EL1_EIS` / `SCTLR_EL1_EOS` field macros, never a `_RES1` mask.
+`<REG>_RES1`. And do not pin the check to an init macro's *current* contents
+either: both the value of a `_RES1` aggregate and the explicit field-macro terms
+an init ORs in (e.g. `SCTLR_ELx_EIS` / `SCTLR_ELx_EOS`) drift between releases.
+`INIT_SCTLR_EL2_MMU_ON` is a live example — it set neither `EIS` nor `EOS` in one
+release and forces both, via the field macros, in a later one. Read the consuming
+init at the revision under review, not from memory.
 
 - **Trigger.** A patch touches a `.sysreg` file so as to allocate bits or
   change a field's RES0 / RES1 classification, regenerating an aggregate
