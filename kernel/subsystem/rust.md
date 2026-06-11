@@ -2,6 +2,14 @@
 
 Read the general coding guidelines in `Documentation/rust/coding-guidelines.rst`.
 
+## Building
+
+  - Assume Rust code compiles successfully and is lint-clean (including Clippy lints) -- we have other bots and CI systems that ensure this.
+
+    However, CI builds only a limited set of kernel configurations, so still **REPORT as bugs**: conditional compilation issues, such as compilation errors or dead code, that arise under valid Kconfig symbol combinations (i.e. `CONFIG_*`).
+
+  - Assume Rust unstable features are available (the kernel uses `RUSTC_BOOTSTRAP=1`).
+
 ## Bindings and helpers
 
 Files under `rust/helpers/` are functions that export inline functions or function macros for Rust code to link to.
@@ -10,6 +18,8 @@ All helpers should be annotated with the `__rust_helper` attribute. **REPORT as 
 
 Constants defined in `rust/bindings/bindings_helper.h` re-define complex macro constants using `const` so that bindgen can convert them.
 They're all prefixed with `RUST_CONST_HELPER_` and the constants defined there will be exposed in `bindings` with the prefix stripped.
+
+If you have a concern about how a C API is used (i.e. a `bindings::*` call), read the corresponding C source to confirm its actual requirements rather than relying on your recollection of the API.
 
 ## FFI types
 
