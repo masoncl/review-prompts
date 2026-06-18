@@ -131,11 +131,30 @@ Do not count dropped issues in:
 - `review-inline.txt`
 - `review-metadata.json`
 
+### Slop gate (subjective findings)
+
+Some FILE-N issues are subjective "slop" observations (`issue_type: "subjective"`,
+`issue_category: "slop"`) — stylistic opinions from the review agent's subjective pass, never
+bugs. They must not pile onto a patch that has a real problem.
+
+After Automated Review Suppression, if the combined issue set contains ANY confirmed
+correctness regression (`issue_type: "regression"`) or a verified-false syzkaller claim, DROP
+all slop findings before counting or rendering. Slop only surfaces when the patch is otherwise
+clean.
+
+Surviving slop findings render exactly like SR-* subjective reviews per `inline-template.md`:
+"this isn't a bug, but ...", framed as a question about the specific code or prose, naming the
+exact snippet, never an accusation and never implying the code is machine-generated. Use the
+issue's `suggested_question` as the basis for the comment. Slop is always `issue_severity:
+"low"` and never raises the overall severity above `low`.
+
 **Issue types**: Each issue may have an `issue_type` field:
 - `"regression"` (default if field is absent): confirmed bug with proof
 - `"potential-issue"`: guide-directive flagged pattern where the agent is
   uncertain. These have additional `guide_directive` and `agent_analysis` fields
   documenting both perspectives.
+- `"subjective"`: a low-severity style opinion (e.g. `issue_category: "slop"`), gated and
+  rendered as described in the Slop gate above. Never a bug.
 
 Track totals after Automated Review Suppression:
    - Total issues found (regressions + guide-flagged), including lore and syzkaller

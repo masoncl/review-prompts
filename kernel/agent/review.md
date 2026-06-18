@@ -25,6 +25,7 @@ PHASE-3: Bulk semcode loading
 --- per CHANGE (expand for each FILE-N-CHANGE-M) ---
 FILE-N-CHANGE-M-step-1 through step-8 (including step-6b)
 --- end per CHANGE ---
+PHASE-4.5: Subjective slop pass (high bar)
 PHASE-5: Batch write results
 ```
 
@@ -72,6 +73,7 @@ number, and list of CHANGEs from index.json. Process ALL CHANGEs sequentially.
 - `<prompt_dir>/technical-patterns.md`
 - `<prompt_dir>/callstack.md`
 - `<prompt_dir>/subsystem/subsystem.md`
+- `<prompt_dir>/slop-indicators.md` (subjective slop indicators; the concrete arm of subjective-review.md, used in PHASE 4.5)
 - All `./review-context/FILE-N-CHANGE-M.json` files for this FILE-N
 
 **IMPORTANT**: Change files always use the `.json` extension. The orchestrator
@@ -303,6 +305,38 @@ After Steps 1-8, output:
 
 ---
 
+## PHASE 4.5: Subjective slop pass (high bar)
+
+After the regression analysis, do one light subjective pass over this FILE-N for "slop" —
+stylistic tells like restating/verbose comments, repeated deep-deref chains, copy-paste,
+churn, dead additions, or weak naming. This is the concrete arm of subjective review; findings
+are opinions, never bugs, and report.md drops them if the patch has a real regression.
+
+Skip this pass if the prompt asked to skip slop or subjective review.
+
+Apply `slop-indicators.md` (loaded in PHASE 1) with the discipline in
+`false-positive-guide.md` section 11.1:
+- **Defer to correctness.** Do not raise slop on any code you flagged as a regression above.
+  Slop is style only.
+- **High bar / cluster.** Keep only concrete, located findings with corroboration. Compare to
+  the surrounding code (use the semcode/grep tools already loaded in PHASE 1/3 — do not guess at
+  the neighbours); if there is a plausible reason for the pattern, stay silent.
+- **Never imply authorship.** Do not say or hint the code is AI/tool/machine generated, and do
+  not mention the author. Talk only about the code.
+- **Cap at 3** slop findings for this FILE-N; prefer the most objective (copy-paste, dead code,
+  weak changelog) over the softer ones (verbose, naming, churn, comments).
+- If this is FILE-1, also assess the commit message for SLOP-MSG (what-not-why, verbose padding,
+  non-kernel changelog format). Other FILE-N agents do not touch the commit message.
+
+Collect each kept finding as an issue for PHASE 5 with: `issue_type: "subjective"`,
+`issue_category: "slop"`, `slop_indicator: "<SLOP-...>"`, `issue_severity: "low"`, the verbatim
+snippet in `issue_context`, a neutral `issue_description` about the code only, and a gentle
+`suggested_question`. Commit-message findings use `"file_name": "COMMIT_MESSAGE"`.
+
+Output: `SLOP PASS: <count> kept | none`
+
+---
+
 ## PHASE 5: Batch Write Results
 
 After ALL CHANGEs are processed, write `./review-context/FILE-N-review-result.json`
@@ -343,3 +377,5 @@ Output file: FILE-N-review-result.json
 3. ALWAYS create `FILE-N-review-result.json` — the orchestrator requires it
 4. Use exact code from files for issue_context
 5. You only process ONE FILE-N per invocation
+6. Any PHASE 4.5 slop findings go in the same `regressions` array with
+   `issue_type: "subjective"`, `issue_category: "slop"`; report.md gates and renders them.

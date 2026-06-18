@@ -38,6 +38,14 @@ the author.
 - If the bug came from SR-* patterns, it is a subjective review.  Don't put a big
   SUBJECTIVE header on it, simply say something similar to: "this isn't a bug, but ..."
 
+- Slop observations (issue_category "slop", SLOP-* indicators) are subjective reviews too.
+  Render them the same gentle way: "this isn't a bug, but ...", framed as a question about the
+  specific code or prose, naming the exact snippet.  Never say or imply the code is
+  AI/tool/machine generated, and never mention the author.  Talk only about the code.
+  - example: "this isn't a bug, but could foo->bar->baz be hoisted into a local here?  it
+    is repeated a few times below."
+  - example: "this isn't a bug, but does the comment add anything over the line below it?"
+
 - Ask your question specifically about the sources you're referencing:
   - If the regression is a leak, don't call it a 'resource leak', ask
     specifically about the resource you seek leaking.  'Does this code leak the
