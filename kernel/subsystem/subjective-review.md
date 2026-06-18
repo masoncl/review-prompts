@@ -4,6 +4,11 @@
 
 **When to check**: mandatory for all non-trivial commits
 
+**Slop (concrete, always-on arm):** the indicators in `slop-indicators.md` are the concrete,
+high-confidence part of this subjective review. `agent/review.md` runs them on every patch
+(PHASE 4.5) and `agent/report.md` gates them so they only surface when the patch is otherwise
+clean. Apply them with the high bar in `false-positive-guide.md` section 11.1.
+
 IMPORTANT: never flag single dumb grammar changes: ex its vs it's, unless you
 have a collection of them that make the commit message/comment hard to understand
 

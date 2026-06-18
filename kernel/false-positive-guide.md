@@ -189,6 +189,30 @@ the dismissal is invalid. Report the race.
 nearby code, nearby comments, and the "debate yourself" section of the
 verification checklist.
 
+### 11.1 Slop observations (SLOP-* / issue_category "slop")
+
+Slop findings are the most subjective of all and carry the highest false-positive risk.
+The verification bar is correspondingly the highest. These checks apply only to slop findings
+(from `agent/review.md`'s PHASE 4.5 subjective slop pass), in addition to section 11.
+
+- **Never infer authorship.** Presence of a stylistic tell is not proof a tool wrote the code,
+  and absence is not proof a human did. Never report "this looks AI-generated", never name a
+  tool, never mention the author. A finding that depends on an authorship claim is invalid;
+  drop it.
+- **Cluster requirement.** Keep a slop finding only if it is concrete, precisely located, and
+  corroborated (the same tell repeated, or a second tell in the same change). A single weak or
+  isolated signal is a false positive; drop it.
+- **Compare to the neighbours.** The kernel is full of long, dense, complex code. If the
+  surrounding code in the same file/subsystem does the same thing, or there is a plausible
+  engineering reason for the pattern, drop the finding.
+- **Defer correctness.** If the concern is really about whether the code is correct, it is not a
+  slop finding — drop it here and let the regression pass own it. Slop is style/clarity only.
+- **Debate yourself (section 10) as the author.** Argue why the code is reasonable as written.
+  If you cannot refute that argument with a concrete readability or idiom point, drop it.
+- **Cap and bias to silence.** At most 3 slop findings per patch; keep the most concrete and
+  least arguable. A missed slop nit costs nothing; a wrong or noisy one costs reviewer trust.
+  When in doubt, stay silent.
+
 ### 12. Uninitialized variables
 - assigning to a variable is the same as initializing it.
 - passing uninitialized variables to a function is fine if that function writes
