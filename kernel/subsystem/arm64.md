@@ -17,6 +17,108 @@ different mode or hardware version onto this code. A genuinely suspect patch has
 a reason you can quote from a loaded guide or the code: report that, never the
 unverified recall.
 
+## ESR_ELx syndrome: exception class, the IL bit, and ISS sub-fields
+
+`ESR_ELx` holds the syndrome of a synchronous exception or an SError, including one that
+software synthesizes to inject: the Exception Class `EC` in bits[31:26], the
+Instruction Length `IL` in bit[25], and the Instruction Specific Syndrome `ISS`
+in bits[24:0] (`ESR_ELx_EC_SHIFT`, `ESR_ELx_IL`, `ESR_ELx_ISS_MASK` in
+`arch/arm64/include/asm/esr.h`). The ISS layout is per-EC: the same ISS bit
+means different things under different exception classes, so an ISS sub-field
+is defined only relative to a stated `EC`. These encodings are the ones the
+grounding note warns about, easy to misremember and reliably wrong from recall.
+The ones the in-tree code relies on are pre-verified and stated here, so a
+finding about them is grounded by quoting this section or the code. A finding
+that asserts a different layout from memory is the confabulation to discard.
+
+### The IL bit (bit[25])
+
+`IL` is the instruction-length field. For a trap on a single instruction it is
+0 for a 16-bit instruction and 1 for a 32-bit one. The architecture instead
+sets `IL` to 1 regardless of the trapping instruction's length for a fixed set
+of exceptions: an SError, an Instruction Abort, a PC alignment fault, an SP
+alignment fault, a Data Abort with `ISV == 0`, an Illegal Execution State
+exception, any debug exception other than a Breakpoint instruction (`BRK` /
+`BKPT`) exception, and any exception reported with `EC == 0b000000` (Unknown).
+A correct syndrome for any of these has `IL == 1`.
+
+KVM constructs `ESR_ELx` when it injects an exception into a guest or a nested
+guest, and the constructed value must carry the architecturally required `IL`.
+When the injected exception is one of the kinds above (an injected abort, an
+injected undefined or Unknown exception, an injected SError), the syndrome must
+set `ESR_ELx_IL`. Omitting it yields a syndrome that does not match what
+hardware would have written. This is an architectural requirement, not a
+property of any one change, so check the injection paths in the tree under
+review and confirm each sets `IL` for the exception kind it raises.
+
+### ISS sub-fields are per-EC
+
+Two exception classes whose ISS the in-tree exception-injection code uses:
+
+- **ERET trap, `EC == 0x1A`** (`ESR_ELx_EC_ERET`, EL2 only: an `ERET`,
+  `ERETAA`, or `ERETAB` trapped by `HCR_EL2.NV`):
+    - bit[1] `ESR_ELx_ERET_ISS_ERET` (`0x2`): 0 = plain `ERET`, 1 = an
+      authenticating `ERETAA` / `ERETAB`.
+    - bit[0] `ESR_ELx_ERET_ISS_ERETA` (`0x1`): which key an `ERETAx` used,
+      0 = A key (`ERETAA`), 1 = B key (`ERETAB`). RES0 when bit[1] is 0.
+    - bits[24:2] RES0.
+
+  In-tree, `esr_iss_is_eretax()` tests bit[1] and `esr_iss_is_eretab()` tests
+  bit[0].
+- **PAC Fail (FPAC), `EC == 0x1C`** (`ESR_ELx_EC_FPAC`: a pointer-authentication
+  failure, raised when `FEAT_FPAC` is implemented). The ARM ARM names its two
+  ISS bits:
+    - bit[1] `DnI`: which key class failed, 0 = Instruction key, 1 = Data key.
+    - bit[0] `BnA`: which key failed, 0 = A key, 1 = B key.
+    - bits[24:2] RES0.
+
+### Worked example: an FPAC syndrome built from a failed ERETAx (do NOT flag)
+
+When an emulated `ERETAA` / `ERETAB` fails to authenticate and an FPAC exception
+is delivered, KVM (`kvm_emulate_nested_eret()`,
+`arch/arm64/kvm/emulate-nested.c`) reuses the ERET-trap syndrome it already
+holds, masking the ISS down to the bits that carry over and re-stamping the
+`EC`. The correct construction is:
+
+```c
+esr &= (ESR_ELx_ERET_ISS_ERETA | ESR_ELx_IL);
+esr |= FIELD_PREP(ESR_ELx_EC_MASK, ESR_ELx_EC_FPAC);
+```
+
+A finding that this builds the FPAC ISS incorrectly is the confabulation to
+discard. Read it against the two ISS layouts above:
+
+- ISS bit[0] lines up. Under `EC == 0x1A` it is `ERETA` (A vs B key), under
+  `EC == 0x1C` it is `BnA` (A vs B key): same position, same polarity (0 = A,
+  1 = B). Keeping bit[0] carries the failing key's A/B sense into the FPAC
+  syndrome unchanged.
+- ISS bit[1] is cleared, so FPAC `DnI == 0` (Instruction key). That is correct:
+  `ERETAA` / `ERETAB` authenticate the return address with the instruction keys
+  `APIAKey_EL1` / `APIBKey_EL1`, so a PAC Fail from an `ERETAx` is always an
+  instruction-key failure.
+- `IL` is kept. An `ERET` / `ERETAx` is a 32-bit A64 instruction, so its trap
+  syndrome has `IL == 1`, which is also the `IL` the resulting FPAC exception
+  requires.
+
+The general check: when code turns one EC's syndrome into another's by masking
+and re-stamping the `EC`, a carried-over ISS bit is correct exactly when its
+position and polarity match between the two layouts. That is verifiable from
+the encodings, with no recall.
+
+**REPORT as bugs:**
+- A synthesized `ESR_ELx` for an injected exception in the `IL == 1` list above
+  (an abort, an Unknown or undefined exception, an SError) that does not set
+  `ESR_ELx_IL`.
+- An ISS bit carried unchanged across exception classes when, in the destination
+  class, that bit holds a different field, has opposite polarity, or is RES0.
+
+**Do NOT flag:**
+- The FPAC-from-`ERETAx` construction above. Bit[0] (A/B key) and `IL` carry
+  over correctly, and `DnI` is correctly 0.
+- A claim that an ISS sub-field sits at a different bit, or has opposite
+  polarity, than stated here when that claim rests only on recall. That is the
+  unverifiable-spec confabulation the grounding note rules out.
+
 ## Memory Tagging Extension (MTE) and Tagged Addresses
 
 Mishandling MTE tags or tagged addresses causes `KASAN invalid-access` panics,
