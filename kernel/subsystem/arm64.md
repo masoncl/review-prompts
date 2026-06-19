@@ -4,6 +4,19 @@ This guide covers architectural invariants, memory ordering rules, and common
 bug patterns for the ARM64 (AArch64) architecture, derived from historical
 lore and the ARM Architecture Reference Manual (ARM ARM).
 
+## Grounding: you do not have the ARM ARM
+
+You do not have the ARM ARM. The ARM facts in the loaded arm64/KVM guides are
+pre-verified for you. Any ARM fact you cannot find in a loaded guide or show in
+the code under review (such as an exact bit position, an ESR exception class or ISS
+sub-field, RES0/RES1 polarity, an ordering rule, or what the architecture traps
+or routes where or designates as guest-owned versus host-owned) is unverified
+recall, and you are reliably wrong on exactly these details. Do not assert
+such a detail as fact or build a finding on it, and do not carry a fact from a
+different mode or hardware version onto this code. A genuinely suspect patch has
+a reason you can quote from a loaded guide or the code: report that, never the
+unverified recall.
+
 ## Memory Tagging Extension (MTE) and Tagged Addresses
 
 Mishandling MTE tags or tagged addresses causes `KASAN invalid-access` panics,
