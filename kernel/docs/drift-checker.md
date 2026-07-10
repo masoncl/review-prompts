@@ -162,6 +162,27 @@ rules do not catch: author shorthand for a longer symbol (`MIN_PKVM` for
 `__KVM_HOST_SMCCC_FUNC_MIN_PKVM`), metavariables (`VNCR_r`), and identifiers
 that appear only in worked examples (`vcpu_reset_args`, `captured_seq`).
 
+## Running the checker
+
+Locally, point the checker at a full working kernel tree. Every check runs,
+including the commit and footer-ancestry checks:
+
+```
+python3 kernel/scripts/check-drift.py --tree /path/to/linux --require-footer \
+    kernel/subsystem/arm64.md kernel/subsystem/kvm.md \
+    kernel/subsystem/kvm-arm64.md kernel/subsystem/hyp-arm64.md
+```
+
+Continuous integration (`.github/workflows/drift-check.yml`) runs the same
+check on a pull request that touches a guide, and once a week to catch drift as
+the kernel moves. A full kernel clone is too expensive for CI, so it uses a
+depth-1 clone. That tree carries the tip's files but no commit history, so the
+checker detects the shallow clone and skips the checks that need history, the
+commit SHAs and subjects (C3) and the footer's ancestor check (C4), while still
+verifying paths and symbols (C1, C2), which is where citations rot in practice.
+A citation is never reported as broken merely because the tree lacks the history
+to check it.
+
 ## Mechanical checking and drift-robust prose
 
 The two are complementary. A worked example can be written so it does not pin

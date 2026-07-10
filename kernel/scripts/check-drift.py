@@ -390,6 +390,8 @@ class KernelTree:
         self.rev = self._rev_parse(rev)
         self.head = self._rev_parse("HEAD")
         self.at_head = self.rev == self.head
+        self.shallow = (self._git(["rev-parse", "--is-shallow-repository"])
+                        .stdout.strip() == "true")
         self._files = None
 
     def _git(self, args, check=False):
@@ -510,10 +512,12 @@ def paragraph_of(text_lines):
     return out
 
 
-def decide(cite, sym_hit, path_res):
+def decide(cite, sym_hit, path_res, shallow=False):
     """(decision, reason) for one citation. decision is 'check', 'skip', or
     'ignore'; reason is a short tag, with reasons starting 'DRIFT' / 'gone' /
-    'ambiguous' marking a finding."""
+    'ambiguous' marking a finding. On a shallow tree the commit-history checks
+    (C3, C3b) are skipped: their git plumbing needs history the tree omits, and
+    a missing object would otherwise read as a broken citation."""
     cls, sub, tok = cite.cls, cite.sub, cite.token
     if cls == "C1":
         if sub == "repo-internal":               # verified against the prompts repo, not the kernel
@@ -531,9 +535,9 @@ def decide(cite, sym_hit, path_res):
     if cls == "C3":
         if sub == "sha-in-fence":
             return "ignore", "example-sha"
-        return "check", "sha"
+        return ("skip", "shallow-history") if shallow else ("check", "sha")
     if cls == "C3b":
-        return "check", "subject"
+        return ("skip", "shallow-history") if shallow else ("check", "subject")
     if cls == "C5":
         return "ignore", "spec"
     if cls == "illustrative":
@@ -596,7 +600,7 @@ def check_guide(tree, path, text_lines, cites, sym_hit, opts, repo_files=frozens
     for c in cites:
         if c.cls != "C1" or c.sub == "repo-internal":
             continue
-        decision, reason = decide(c, sym_hit, path_res)
+        decision, reason = decide(c, sym_hit, path_res, tree.shallow)
         if decision == "check" and not reason.startswith(("gone", "ambiguous")):
             same_line_paths[c.line].add(c.token)
             pp = line_para.get(c.line)
@@ -604,7 +608,7 @@ def check_guide(tree, path, text_lines, cites, sym_hit, opts, repo_files=frozens
                 para_paths[pp].add(c.token)
 
     for c in cites:
-        decision, reason = decide(c, sym_hit, path_res)
+        decision, reason = decide(c, sym_hit, path_res, tree.shallow)
         stats[(c.cls, decision)] += 1
         if decision != "check":
             continue
@@ -679,13 +683,14 @@ def check_footer(tree, guide, text_lines, opts):
     findings = []
     rev, fdate, status, fline = parse_footer(text_lines)
     if status == "ok":
-        if not tree.commit_exists(rev):
-            findings.append(Finding(guide, fline, "C4", "error",
-                                    f"footer rev {rev} does not resolve"))
-        elif not tree.is_ancestor(rev, tree.rev):
-            findings.append(Finding(guide, fline, "C4", "error",
-                                    f"footer rev {rev} is not an ancestor of "
-                                    f"{tree.rev[:12]}"))
+        if not tree.shallow:                          # ancestry needs history
+            if not tree.commit_exists(rev):
+                findings.append(Finding(guide, fline, "C4", "error",
+                                        f"footer rev {rev} does not resolve"))
+            elif not tree.is_ancestor(rev, tree.rev):
+                findings.append(Finding(guide, fline, "C4", "error",
+                                        f"footer rev {rev} is not an ancestor of "
+                                        f"{tree.rev[:12]}"))
         try:
             age = (date.today() - date.fromisoformat(fdate)).days
             if age > 90:
@@ -1026,6 +1031,42 @@ def selftest():
         want("C4 malformed", {(x.check, x.level, x.message) for x in fm},
              [("C4", "error", "malformed drift-checked footer")], [])
 
+        # Shallow tree (a depth-1 CI clone): the commit-history checks omit their
+        # git plumbing rather than false-flag citations whose history is absent,
+        # while path and symbol checks, which read only the tip, still run.
+        shallow = os.path.join(d, "shallow")
+        subprocess.run(["git", "clone", "-q", "--depth", "1", f"file://{repo}",
+                        shallow], check=True, env=env)
+        tree_sh = KernelTree(shallow)
+        assert tree_sh.shallow
+
+        def findings_sh(tree_x, body, o=opts):
+            gp = os.path.join(d, "guide.md")
+            with open(gp, "w") as fh:
+                fh.write(body)
+            found, _ = run(tree_x, [gp], o)
+            return {(x.check, x.level, x.message) for x in found}
+
+        want("shallow skips C3, keeps C1/C2",
+             findings_sh(tree_sh, "`deadbeefdeadbeef`, gone `mm/nope.c`, "
+                         "gone `vanished_helper`.\n"),
+             [("C1", "error", "undefined path 'mm/nope.c'"),
+              ("C2", "error", "undefined symbol 'vanished_helper'")],
+             [("C3", "error", "unknown commit deadbeefdeadbeef")])
+        want("shallow skips C3b",
+             findings_sh(tree_sh, "`KVM: arm64: nonexistent subject line here`\n"),
+             [], [("C3", "error", 'no commit matches subject '
+                   '"KVM: arm64: nonexistent subject line here"')])
+        # A footer whose rev is outside the shallow history: no false rev error,
+        # and the age warning still fires.
+        want("shallow footer keeps age, skips ancestry",
+             findings_sh(tree_sh,
+                         "body\n\n<!-- drift-checked: rev=000000000000 "
+                         "date=2000-01-01 -->\n", Opts0),
+             [("C4", "warn", "footer dated 2000-01-01 is "
+               f"{(date.today() - date(2000, 1, 1)).days} days old")],
+             [("C4", "error", "footer rev 000000000000 does not resolve")])
+
     ok = True
     for name, passed, got in checks:
         print(f"  {'ok  ' if passed else 'FAIL'}  {name}")
@@ -1072,6 +1113,9 @@ def main():
         ap.error("--tree and at least one guide are required")
 
     tree = KernelTree(opts.tree, opts.rev, opts.jobs)
+    if tree.shallow:
+        print("check-drift.py: shallow kernel tree; commit-history checks "
+              "(C3 commit citations, footer ancestry) skipped", file=sys.stderr)
     findings, stats = run(tree, opts.guides, opts)
     errors = report(findings, stats, opts)
     return 1 if errors else 0
