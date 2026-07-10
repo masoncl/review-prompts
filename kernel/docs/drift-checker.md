@@ -30,10 +30,15 @@ citation exits non-zero; an age warning does not.
   nowhere in code. Identifiers inside fenced examples are extracted and
   existence-checked the same way, since even a deliberately-wrong example line
   uses real symbol names.
-- **C3, commit.** A hex string of twelve or more digits is checked to resolve
-  to a commit. When the citation is the adjacent `` `<sha>` ("subject") ``
-  form, the quoted subject is compared; a bare backticked subject with no SHA
-  is resolved by a fixed-string substring match over `git log --grep`.
+- **C3, commit.** A hex string of twelve or more digits must resolve to a
+  commit that is an ancestor of `--rev`. A commit that exists in the repository
+  but not in the revision's history is a finding, so a guide checked against an
+  older release flags SHAs that had not yet merged then. When the citation is
+  the adjacent `` `<sha>` ("subject") `` form, the quoted subject is compared.
+  A bare backticked subject with no SHA is matched against commit subjects: a
+  whole-message `git log --grep` narrows the candidates, then only a commit
+  whose subject contains the string counts, so a subject never validates
+  against an unrelated commit's body.
 - **C4, footer.** See Verification footer.
 
 ## Citation forms

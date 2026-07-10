@@ -389,9 +389,12 @@ class KernelTree:
         return self._git(["log", "-1", "--format=%s", sha]).stdout.strip()
 
     def subject_count(self, subject):
-        r = self._git(["log", "--oneline", "--fixed-strings",
-                       f"--grep={subject}", self.rev])
-        return len([l for l in r.stdout.splitlines() if l.strip()])
+        """Commits in --rev's history whose SUBJECT contains the string. --grep
+        (a whole-message match) is a cheap prefilter; the subject-only filter
+        keeps a citation from validating against an unrelated commit's body."""
+        r = self._git(["log", "--fixed-strings", f"--grep={subject}",
+                       "--format=%s", self.rev])
+        return sum(1 for s in r.stdout.splitlines() if subject in s)
 
     def is_ancestor(self, older, newer):
         return self._git(["merge-base", "--is-ancestor", older, newer]).returncode == 0
@@ -549,6 +552,10 @@ def check_guide(tree, path, text_lines, cites, sym_hit, opts):
             if not tree.commit_exists(c.token):
                 findings.append(Finding(guide, c.line, "C3", "error",
                                         f"unknown commit {c.token}"))
+            elif not tree.is_ancestor(c.token, tree.rev):
+                findings.append(Finding(guide, c.line, "C3", "error",
+                                        f"commit {c.token} not in history of "
+                                        f"{tree.rev[:12]}"))
             else:
                 quoted = adjacent_subject(paragraph_text(text_lines, c.line), c.token)
                 if quoted:
@@ -724,7 +731,17 @@ def selftest():
             subprocess.run(["git", "-C", repo] + args, check=True, env=env)
         sha = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
                              capture_output=True, text=True).stdout.strip()
+        # A later commit whose body mentions a commit-subject-shaped phrase absent
+        # from its own subject: exercises the C3b subject-only match, and being
+        # outside the first commit's history, the C3 ancestry scope.
+        subprocess.run(["git", "-C", repo, "commit", "-q", "--allow-empty",
+                        "-m", "KVM: arm64: real subject present\n\n"
+                        "Body text mentions KVM: arm64: body-only phrase here."],
+                       check=True, env=env)
+        sha2 = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
+                              capture_output=True, text=True).stdout.strip()
         tree = KernelTree(repo)
+        tree_old = KernelTree(repo, rev=sha)
         opts = Opts(all=True, require_footer=False, stats=False, spec_index=None)
 
         def findings_for(body):
@@ -783,6 +800,31 @@ def selftest():
              [("C3", "error", 'no commit matches subject '
                '"KVM: arm64: nonexistent subject line here"')],
              [])
+
+        # C3b subject-only: a commit-subject-shaped phrase present only in a
+        # commit BODY is a finding (--grep matches the body, the subject-only
+        # filter rejects it); the actual subject resolves.
+        got = findings_for("`KVM: arm64: body-only phrase here`\n")
+        want("C3b body-only rejected", got,
+             [("C3", "error", 'no commit matches subject '
+               '"KVM: arm64: body-only phrase here"')], [])
+        got = findings_for("`KVM: arm64: real subject present`\n")
+        want("C3b real subject resolves", got, [],
+             [("C3", "error", 'no commit matches subject '
+               '"KVM: arm64: real subject present"')])
+
+        # C3 ancestry: a valid commit outside the checked rev's history is a
+        # finding; the rev's own commit is not (a commit is its own ancestor).
+        def findings_at(tree_x, body):
+            gp = os.path.join(d, "guide.md")
+            with open(gp, "w") as fh:
+                fh.write(body)
+            found, _ = run(tree_x, [gp], opts)
+            return {(x.check, x.level, x.message) for x in found}
+        want("C3 not-in-history", findings_at(tree_old, f"See `{sha2}`.\n"),
+             [("C3", "error", f"commit {sha2} not in history of {sha[:12]}")], [])
+        want("C3 in-history self", findings_at(tree_old, f"See `{sha}`.\n"),
+             [], [("C3", "error", f"commit {sha} not in history of {sha[:12]}")])
 
         # C4: footer absent (default skip / --require-footer error) and stale.
         Opts0 = Opts(all=False, require_footer=False, stats=False, spec_index=None)
