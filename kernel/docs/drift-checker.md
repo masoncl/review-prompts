@@ -109,6 +109,8 @@ For a guide that has a footer, the checker validates that `rev` resolves and
 is an ancestor of `--rev`, and warns when `date` is more than 90 days old.
 `--require-footer` turns a missing footer into an error for the guides named
 on the command line; continuous integration uses it on the onboarded guides.
+`--all` checks a guide's citations even without a footer, for the pre-onboarding
+run that decides whether the guide is ready to carry one.
 
 The footer is the only markup the checker adds inside a guide. The guides are
 fed to their readers verbatim, so the footer is an HTML comment: it does not
