@@ -14,7 +14,7 @@ and are easy to miss in a focused review:
   behaviour the guest can observe (a new ioctl, a new VM or vCPU capability, a
   new exit reason, a new emulated instruction) MUST be off by default and
   discoverable through the architecture's standard enumeration interface, for
-  example `KVM_CHECK_EXTENSION` / `KVM_CAP_*`, `KVM_GET_SUPPORTED_CPUID2` on
+  example `KVM_CHECK_EXTENSION` / `KVM_CAP_*`, `KVM_GET_SUPPORTED_CPUID` on
   x86, or ID-register feature bits on ARM64. Silently-on features break live
   migration and make capability negotiation impossible.
 - **No guest- or host-userspace-reachable `WARN_ON` / `BUG_ON`.** A `WARN_ON`
@@ -102,12 +102,14 @@ translation usage.
 ```c
 // WRONG: Accessing memslots without SRCU protection
 struct kvm_memslots *slots = kvm_memslots(vcpu->kvm);
-hva = __gfn_to_hva_memslots(slots, gfn); // Potential UAF
+struct kvm_memory_slot *slot = __gfn_to_memslot(slots, gfn);
+hva = __gfn_to_hva_memslot(slot, gfn); // Potential UAF
 
 // CORRECT: Protecting with SRCU
 int idx = srcu_read_lock(&kvm->srcu);
 struct kvm_memslots *slots = kvm_vcpu_memslots(vcpu);
-hva = __gfn_to_hva_memslots(slots, gfn);
+struct kvm_memory_slot *slot = __gfn_to_memslot(slots, gfn);
+hva = __gfn_to_hva_memslot(slot, gfn);
 srcu_read_unlock(&kvm->srcu, idx);
 ```
 
@@ -227,3 +229,5 @@ information or NULL pointer dereferences.
   sequence after pinning.
 - `KVM_SET_USER_MEMORY_REGION2` handlers that permit GPA overlap between
   private and public memslots.
+
+<!-- drift-checked: rev=0e35b9b6ec0ffcc5e23cbdec09f5c622ad532b53 date=2026-07-10 -->
