@@ -83,6 +83,23 @@ Not checked:
   cannot meaningfully fail an existence check and is skipped. Every stale
   citation this checker is built to catch resolves to well under that; the
   checked symbols top out below 100 occurrences.
+- **Fragments and family placeholders.** A token that begins with a single
+  underscore or ends with one (`_scoped`, `QCM_`, `_WRITE`) is a prefix or
+  suffix stub, and one whose only capital is a size or level metavariable
+  (`__raw_readN`, `pXd_mkspecial`) names a family, not a symbol. A token
+  extracted after a digit (`_dwlib` out of `8250_dwlib`) is the tail of a
+  digit-led name. These are skipped only when they would otherwise be flagged;
+  a token that resolves is always a real symbol and is kept.
+- **Metasyntactic example identifiers.** A worked example that uses a
+  conventional stand-in (`my_free`, `foo_pm_ops`, `alloc_thing`,
+  `SOME_SUBSYSTEM`) names nothing in the tree. A 0-hit token with a
+  metasyntactic component (`foo`, `my`, `some`, `thing`, `wrapper`, ...) is
+  taken as illustrative.
+- **Documented removals.** A guide often names an absent symbol precisely to
+  say it is gone (`hrtimer_init() is removed; use hrtimer_setup()`). When the
+  citation's own sentence says the token was removed, renamed, or does not
+  exist, flagging it would report a removal the author documents on purpose,
+  so it is not a finding.
 
 ## Symbol corpus
 
@@ -95,6 +112,20 @@ code. `KVM_GET_SUPPORTED_CPUID2`, for example, survives only in
 When a symbol sits on the same line as, or in a paragraph with exactly one,
 backticked path, the checker names that file in the finding. Otherwise the
 lookup is tree-wide.
+
+## Path references
+
+A path citation is resolved against the tree exact, then as a directory, then
+as a unique filename suffix. Some backticked path-shaped tokens are not source
+citations and are skipped: absolute runtime paths (`/proc/meminfo`, `/sys/...`,
+`/dev/zero`), glob or enumeration patterns (`include/linux/bpf*.h`,
+`vmg->start/end`), and an extensionless slashed token whose first component is
+not a kernel top-level directory. A bare filename that matches several real
+files (`namei.c`) still exists, so it is not reported as drift.
+
+References into the review-prompts repo itself (a sibling guide such as
+`btf.md`, an agent prompt such as `../agent/review.md`) are verified against
+that repo, not the kernel tree; a missing one is still reported.
 
 ## Verification footer
 

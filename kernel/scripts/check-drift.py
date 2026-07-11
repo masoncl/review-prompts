@@ -65,7 +65,23 @@ META = re.compile(r"<[A-Za-z0-9_|,.]+>")             # <REG>, <cc>, <n>, <0|1>
 BRACE_EXPANSION = re.compile(r"\{[^}]*[,|][^}]*\}")   # {0,1}, {I,F}
 MD_REF = re.compile(r"^[A-Za-z0-9._-]+\.md$")         # guide-internal reference
 
+# The kernel tree's top-level directories. An extensionless slashed token is a
+# real path only under one of these; a bare `foo/end` or `gpio/` is not.
+KNOWN_TOPDIRS = {"arch", "block", "certs", "crypto", "drivers", "Documentation",
+                 "fs", "include", "init", "io_uring", "ipc", "kernel", "lib",
+                 "mm", "net", "rust", "samples", "scripts", "security", "sound",
+                 "tools", "usr", "virt"}
+
 Cite = namedtuple("Cite", "guide line cls sub token raw in_fence")
+
+
+def is_repo_internal(s):
+    """A reference into the review-prompts repo (a sibling guide, an agent
+    prompt, a repo-relative path), which is verified against that repo, not the
+    kernel tree. A bare `.md` extension is a file-type reference, not a target."""
+    return (bool(re.search(r"[A-Za-z0-9_-]\.md$", s))
+            or s.startswith("../")
+            or s.startswith("review-prompts/"))
 
 
 def is_commit_subject(c):
@@ -83,12 +99,15 @@ def is_path(c):
     s = c.strip()
     if s.startswith("<") or " " in s or s.startswith("http"):
         return False
-    if s.endswith("/"):
-        return "/" in s.rstrip("/") + "/"
+    if s.startswith("/"):                             # absolute runtime path (/proc, /sys, /dev)
+        return False
+    if s.endswith("/"):                               # directory
+        body = s.rstrip("/")
+        return "/" in body or body in KNOWN_TOPDIRS
     if SRC_EXT.search(s):
         return True
     if "/" in s and re.search(r"/[a-z][a-z0-9_.-]*$", s):
-        return True
+        return s.split("/", 1)[0] in KNOWN_TOPDIRS    # extensionless path only under a real top dir
     return False
 
 
@@ -144,6 +163,9 @@ class Extractor:
         if pattern_token(c, m.start(), m.end()):
             self.add(lineno, "illustrative", "placeholder", t, c, False)
             return
+        if m.start() > 0 and c[m.start() - 1].isdigit():   # tail of a digit-led name (8250_dwlib)
+            self.add(lineno, "illustrative", "fragment", t, c, False)
+            return
         if t.startswith("CONFIG_"):
             self.add(lineno, "C2", "config", t, c, False)
         elif t.startswith("FEAT_"):
@@ -165,8 +187,15 @@ class Extractor:
         if is_commit_subject(c):
             self.add(lineno, "C3b", "commit-subject", c.strip(), c, False)
             return
-        if MD_REF.match(c.strip()):
-            self.add(lineno, "C1", "repo-internal", c.strip(), c, False)
+        s = c.strip()
+        if is_repo_internal(s):                       # sibling guide / agent prompt / repo path
+            self.add(lineno, "C1", "repo-internal", s, c, False)
+            return
+        if s.startswith("/"):                         # absolute runtime path, not a source citation
+            self.add(lineno, "illustrative", "abs-path", s, c, False)
+            return
+        if "/" in s and (re.search(r"[*,]", s) or "->" in s):   # glob / enumeration path
+            self.add(lineno, "illustrative", "pattern-path", s, c, False)
             return
         if is_path(c):
             s = c.strip()
@@ -252,6 +281,9 @@ def extract_citations(text_lines, guide):
                 if pattern_token(ln_code, mm.start(), mm.end()):
                     ex.add(lineno, "illustrative", "placeholder", t, ln.strip(), True)
                     continue
+                if mm.start() > 0 and ln_code[mm.start() - 1].isdigit():
+                    ex.add(lineno, "illustrative", "fragment", t, ln.strip(), True)
+                    continue
                 sub = "in-fence-local" if t in SNIPPET_LOCALS else "in-fence"
                 ex.add(lineno, "C2", sub, t, ln.strip(), True)
             for mm in SHA_IN_TEXT.finditer(ln):
@@ -291,6 +323,35 @@ SPEC_MNEMONIC = {"BnA", "DnI", "ERETA", "RVAE1IS", "S12E1R", "TBIDn",
                  "TBNZ", "TBZ", "TRCIT", "eret", "irqsave"}
 # A bare file-type reference (`*.c`, `.sysreg`), not a specific path citation.
 TYPEREF_RE = re.compile(r"^\*?\.[a-z0-9]+$")
+# Metasyntactic placeholder components used in worked examples across the guides
+# (`my_free`, `foo_pm_ops`, `alloc_thing`, `SOME_SUBSYSTEM`). A conventional
+# stand-in, never a real kernel symbol.
+METASYNTACTIC = {"foo", "bar", "baz", "qux", "quux", "my", "some", "thing",
+                 "things", "wrapper", "dummy", "example", "frob", "blah", "mine"}
+# The guide names an absent symbol precisely to document its removal.
+REMOVED_WORD = re.compile(r"\b(removed|renamed|replaced|deleted|gone)\b")
+
+
+def is_metasyntactic(tok):
+    return any(part.lower() in METASYNTACTIC for part in tok.split("_"))
+
+
+def documents_removal(context, tok):
+    """True when the guide's own sentence says this token is gone, so flagging
+    it as undefined would be reporting a removal the author is documenting on
+    purpose (only ever consulted for an already-absent token). The removal word
+    must take the token as its subject (`X is removed`, `X ... have been
+    removed`), not merely appear nearby: `add_to_swap() ... remains until
+    explicitly removed` describes the folio, not the function."""
+    esc = re.escape(tok)
+    context = context.replace("`", " ")               # markdown emphasis is not prose
+    return bool(re.search(esc + r"[\s,()]*(\w+[,]?\s+){0,6}"
+                          r"(is|are|was|were|has been|have been|been)\s+"
+                          + REMOVED_WORD.pattern, context)
+                or re.search(r"\b(is|are) no\b[^.]{0,45}" + esc, context)
+                or re.search(r"\bno (function|symbol|macro|helper|field|member|such)"
+                             r"[^.]{0,45}" + esc, context)
+                or re.search(esc + r"[^.]{0,45}no longer\b", context))
 
 
 def is_typeref(tok):
@@ -455,12 +516,16 @@ def decide(cite, sym_hit, path_res):
     'ambiguous' marking a finding."""
     cls, sub, tok = cite.cls, cite.sub, cite.token
     if cls == "C1":
+        if sub == "repo-internal":               # verified against the prompts repo, not the kernel
+            return "check", "repo-ref"
         if is_typeref(tok):
             return "skip", "path-typeref"
         n, kind = path_res[tok]
         if n == 0:
             return "check", "gone-path"
         if kind == "suffix" and n > 1:
+            if "/" not in tok:                   # a bare basename matching several files still exists
+                return "skip", "ambiguous-basename"
             return "check", "ambiguous-path"
         return "check", "resolves"
     if cls == "C3":
@@ -487,7 +552,17 @@ def decide(cite, sym_hit, path_res):
         return "skip", "spec-arch"               # architectural register name
     if hit >= GENERIC_THRESHOLD:
         return "skip", "generic"
-    return "check", ("resolves" if hit > 0 else "DRIFT")
+    if hit > 0:
+        return "check", "resolves"
+    # hit == 0 would be a DRIFT finding; a resolving token is real, so these
+    # false-positive shapes are only suppressed here, never for a live symbol.
+    if re.match(r"^_[^_]", tok) or re.search(r"[^_]_$", tok):
+        return "skip", "fragment"                # prefix/suffix stub: _scoped, QCM_, _WRITE
+    if re.fullmatch(r"[a-z0-9_]*[NX][a-z0-9_]*", tok) and re.search(r"[a-z][NX]", tok):
+        return "skip", "metavar"                 # family placeholder: __raw_readN, pXd_mkspecial
+    if is_metasyntactic(tok):
+        return "skip", "example"                 # metasyntactic stand-in: foo_pm_ops, alloc_thing
+    return "check", "DRIFT"
 
 
 def paired_path(cite, same_line_paths, para_paths, line_para):
@@ -503,7 +578,7 @@ def paired_path(cite, same_line_paths, para_paths, line_para):
     return None
 
 
-def check_guide(tree, path, text_lines, cites, sym_hit, opts):
+def check_guide(tree, path, text_lines, cites, sym_hit, opts, repo_files=frozenset()):
     """Findings for one guide whose citations are being checked."""
     guide = os.path.basename(path)
     findings = []
@@ -511,7 +586,7 @@ def check_guide(tree, path, text_lines, cites, sym_hit, opts):
 
     path_res = {}
     for c in cites:
-        if c.cls == "C1" and not is_typeref(c.token):
+        if c.cls == "C1" and c.sub != "repo-internal" and not is_typeref(c.token):
             path_res[c.token] = tree.resolve_path(c.token)
 
     # Symbol<->path pairing, used only to name the cited file in a finding.
@@ -519,7 +594,7 @@ def check_guide(tree, path, text_lines, cites, sym_hit, opts):
     same_line_paths = defaultdict(set)
     para_paths = defaultdict(set)
     for c in cites:
-        if c.cls != "C1":
+        if c.cls != "C1" or c.sub == "repo-internal":
             continue
         decision, reason = decide(c, sym_hit, path_res)
         if decision == "check" and not reason.startswith(("gone", "ambiguous")):
@@ -534,7 +609,11 @@ def check_guide(tree, path, text_lines, cites, sym_hit, opts):
         if decision != "check":
             continue
         if c.cls == "C1":
-            if reason == "gone-path":
+            if reason == "repo-ref":
+                if not repo_resolves(c.token, repo_files):
+                    findings.append(Finding(guide, c.line, "C1", "error",
+                                            f"unresolved guide reference '{c.token}'"))
+            elif reason == "gone-path":
                 findings.append(Finding(guide, c.line, "C1", "error",
                                         f"undefined path '{c.token}'"))
             elif reason == "ambiguous-path":
@@ -543,6 +622,10 @@ def check_guide(tree, path, text_lines, cites, sym_hit, opts):
                                         f"({path_res[c.token][0]} matches)"))
         elif c.cls == "C2":
             if reason == "DRIFT":
+                if documents_removal(paragraph_text(text_lines, c.line), c.token):
+                    stats[(c.cls, "check")] -= 1     # the guide documents this removal on purpose
+                    stats[(c.cls, "skip")] += 1
+                    continue
                 near = paired_path(c, same_line_paths, para_paths, line_para)
                 msg = f"undefined symbol '{c.token}'"
                 if near:
@@ -634,12 +717,49 @@ def load_spec_index(path):
         return {ln.strip() for ln in f if ln.strip() and not ln.startswith("#")}
 
 
+def repo_file_set(guide_path):
+    """The set of files in the prompts repo containing the guide, for resolving
+    repo-internal references. Uses git if the guide is tracked, else walks the
+    enclosing tree."""
+    d = os.path.dirname(os.path.abspath(guide_path)) or "."
+    r = subprocess.run(["git", "-C", d, "rev-parse", "--show-toplevel"],
+                       capture_output=True, encoding="utf-8", errors="replace")
+    if r.returncode == 0:
+        root = r.stdout.strip()
+        files = subprocess.run(["git", "-C", root, "ls-files"],
+                               capture_output=True, encoding="utf-8", errors="replace").stdout
+        return set(files.splitlines())
+    out = set()                                       # untracked guide: walk its own directory
+    for base, _, names in os.walk(d):
+        rel = os.path.relpath(base, d)
+        for n in names:
+            out.add(n if rel == "." else os.path.join(rel, n))
+    return out
+
+
+def repo_resolves(token, repo_files):
+    """A repo-internal reference resolves if the prompts repo has a matching
+    file (exact, or a unique-enough basename/suffix), or a directory for a
+    trailing-slash reference."""
+    s = token.lstrip("./")
+    while s.startswith("../"):
+        s = s[3:]
+    if s.startswith("review-prompts/"):
+        s = s[len("review-prompts/"):]
+    if s.endswith("/"):
+        pre = s.rstrip("/") + "/"
+        return any(("/" + f).endswith("/" + pre[:-1] + "/") or f.startswith(pre)
+                   for f in repo_files)
+    return any(f == s or f.endswith("/" + s) for f in repo_files)
+
+
 def run(tree, guides, opts):
     """Check every guide; return (findings, stats). Symbol lookups for all
     guides are batched into one probe pass."""
     per_guide = []
     footer_findings = []
     spec_index = load_spec_index(opts.spec_index)
+    repo_files = repo_file_set(guides[0]) if guides else frozenset()
     for path in guides:
         guide = os.path.basename(path)
         with open(path, encoding="utf-8") as f:
@@ -656,7 +776,7 @@ def run(tree, guides, opts):
     findings = list(footer_findings)
     stats = Counter()
     for path, lines, cites in per_guide:
-        gf, gs = check_guide(tree, path, lines, cites, sym_hit, opts)
+        gf, gs = check_guide(tree, path, lines, cites, sym_hit, opts, repo_files)
         findings += gf
         stats += gs
         if spec_index is not None:
@@ -722,6 +842,11 @@ def selftest():
                     "struct memslot_map { int member; };\n")
         with open(os.path.join(repo, "mm", "other.c"), "w") as f:
             f.write("void unrelated(void) {}\n")
+        os.makedirs(os.path.join(repo, "net"))
+        with open(os.path.join(repo, "mm", "shared.c"), "w") as f:
+            f.write("void mm_fn(void) {}\n")
+        with open(os.path.join(repo, "net", "shared.c"), "w") as f:
+            f.write("void net_fn(void) {}\n")
         with open(os.path.join(repo, "Documentation", "note.rst"), "w") as f:
             f.write("The doc_only_symbol lives only here.\n")
         env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
@@ -766,12 +891,58 @@ def selftest():
 
         # C2: a live symbol resolves, a vanished one is a finding, a symbol that
         # survives only under Documentation/ is a finding (corpus excludes it).
-        got = findings_for("`live_helper` is fine, `vanished_helper` is gone, "
-                           "`doc_only_symbol` only in docs.\n")
+        got = findings_for("`live_helper` is fine, `vanished_helper` is called here, "
+                           "`doc_only_symbol` appears in docs.\n")
         want("C2 gone", got,
              [("C2", "error", "undefined symbol 'vanished_helper'"),
               ("C2", "error", "undefined symbol 'doc_only_symbol'")],
              [("C2", "error", "undefined symbol 'live_helper'")])
+
+        # Parser generalizations (F4): each FP class the repo-wide sweep exposed.
+        with open(os.path.join(d, "sibling.md"), "w") as fh:
+            fh.write("x\n")
+        # Repo-internal references resolve against the prompts repo, not the kernel.
+        got = findings_for("See `sibling.md`, but `nope.md` is missing.\n")
+        want("repo-internal resolves vs missing", got,
+             [("C1", "error", "unresolved guide reference 'nope.md'")],
+             [("C1", "error", "unresolved guide reference 'sibling.md'")])
+
+        # Absolute runtime paths and glob/enumeration paths are not citations.
+        got = findings_for("Read `/proc/meminfo`; touch `include/linux/bpf*.h` "
+                           "and `wrap_begin/end`.\n")
+        want("abs and glob paths skipped", got, [],
+             [("C1", "error", "undefined path '/proc/meminfo'"),
+              ("C1", "error", "undefined path 'include/linux/bpf*.h'")])
+
+        # A bare basename matching several real files still exists; not a finding.
+        got = findings_for("The helper lives in `shared.c` in the tree.\n")
+        want("ambiguous basename skipped", got, [],
+             [("C1", "error", "ambiguous path fragment 'shared.c' (2 matches)")])
+
+        # A 0-hit fragment / metavariable / metasyntactic placeholder is not drift.
+        got = findings_for("`8250_dwlib.o`, `_scoped` variants, `QCM_` prefix, "
+                           "`__raw_readN` family, `pXd_mkspecial`, `foo_pm_ops`, "
+                           "`alloc_thing`, `my_free`.\n")
+        want("fragment/metavar/metasyntactic skipped", got, [],
+             [("C2", "error", "undefined symbol '_dwlib'"),
+              ("C2", "error", "undefined symbol '_scoped'"),
+              ("C2", "error", "undefined symbol 'QCM_'"),
+              ("C2", "error", "undefined symbol '__raw_readN'"),
+              ("C2", "error", "undefined symbol 'pXd_mkspecial'"),
+              ("C2", "error", "undefined symbol 'foo_pm_ops'"),
+              ("C2", "error", "undefined symbol 'alloc_thing'"),
+              ("C2", "error", "undefined symbol 'my_free'")])
+
+        # A live symbol keeps its underscore/metavariable shape (suppression is
+        # only for 0-hit tokens, never a real symbol).
+        got = findings_for("`live_helper` is fine even as `_live_helper` shape.\n")
+        want("suppression never hides a live symbol", got, [],
+             [("C2", "error", "undefined symbol 'live_helper'")])
+
+        # A citation the guide documents as removed is not flagged as drift.
+        got = findings_for("`vanished_helper` has been removed from the tree.\n")
+        want("removal-notice suppressed", got, [],
+             [("C2", "error", "undefined symbol 'vanished_helper'")])
 
         # A live symbol cited beside an unrelated file is not a finding:
         # existence is tree-wide, and a same-paragraph path is a coincidence,
