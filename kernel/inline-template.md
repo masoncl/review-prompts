@@ -271,6 +271,9 @@ Create a TodoWrite for these items, all of which your report should include:
 - [ ] Author: line from the commit
 - [ ] One line subject from the commit
 - [ ] A brief (max 3 sentence) summary of the commit.
+- [ ] **Patch Decomposition Recommendation**: If the patch was found to be too large or conceptually complex (based on the Patch Size Analysis), include the detailed breakdown recommendation here.
+  - [ ] Use factual, plain text formatting.
+  - [ ] Include the suggested patch series, proposed commit messages, and summaries of code changes for each.
 - [ ] Any Link: tags from the commit header
 - [ ] A unified diff of the commit, quoted as though it's in an email reply.
   - [ ] The diff must not be generated from existing context.
@@ -313,6 +316,19 @@ Author: Kairui Song <kasong@tencent.com>
 mm, swap: only scan one cluster in fragment list
     
 <brief description>
+
+This patch is doing too many things. Please split it into a 2-patch series:
+
+Patch 1: mm, swap: isolate fragment cluster scanning
+Commit message:
+mm, swap: isolate fragment cluster scanning logic into a separate block
+to prepare for optimization.
+Code changes: Move the while loop into an if (ci) block.
+
+Patch 2: mm, swap: scan only one cluster in fragment list
+Commit message:
+mm, swap: only scan one cluster in fragment list to reduce latency.
+Code changes: Remove the frags loop and scan only one cluster.
 
 > diff --git a/mm/swapfile.c b/mm/swapfile.c
 > index b4f3cc7125804..1f1110e37f68b 100644
@@ -375,6 +391,7 @@ updates are getting lost.
 >  		}
 >  	}
 >  
+[ ... ]
 ```
 
 Sample commit message issue:
