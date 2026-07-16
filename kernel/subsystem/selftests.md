@@ -76,6 +76,67 @@ vm = vm_create_with_one_vcpu(&vcpu, NULL);
 kvm_irqfd(vm, gsi, eventfd, 0);
 ```
 
+## Network Namespace Tests: Device Config Inherited from init_net
+
+A new network namespace does not start from compiled defaults for IPv4. It
+copies `conf/all` and `conf/default` from `init_net`. A test that asserts on a
+device config knob it never sets is therefore asserting on the config of the
+machine running the test.
+
+The behavior is controlled by `net.core.devconf_inherit_init_net`, and IPv4 and
+IPv6 disagree at the default value of 0:
+
+| `devconf_inherit_init_net` | IPv4 (`devinet_init_net`) | IPv6 (`addrconf_init_net`) |
+|----------------------------|---------------------------|----------------------------|
+| 0 (default) | copy from `init_net` | compiled defaults |
+| 1 | copy from `init_net` | copy from `init_net` |
+| 2 | compiled defaults | compiled defaults |
+| 3 | copy from current netns | copy from current netns |
+
+So on any host with `net.ipv4.conf.all.forwarding=1` (a router, a container
+host, most developer workstations that have ever run docker), devices created
+inside a test's netns come up with forwarding already enabled. The same test on
+a CI VM, where forwarding is off, sees the opposite. IPv6 is unaffected at the
+default, which is why this class of bug often shows up in the IPv4 arms only.
+
+This produces two distinct failures.
+
+**False failure.** A test that expects an operation to be refused because
+forwarding is off will see it succeed instead, and fail. It passes in CI and
+fails for developers, which sends people looking for a kernel regression that
+is not there.
+
+**False pass.** A negative test asserting error code X can become a tautology
+if the bug it targets would also produce X, for an unrelated reason. The
+inherited config decides which gate the buggy path stops at, and therefore
+which error code comes back. When the host makes an earlier gate fire, the test
+discriminates; when it does not, the same test passes whether or not the kernel
+is broken.
+
+```c
+// WRONG: forwarding is whatever the host had, so the arms below only mean
+// what they say on a host with forwarding off
+SYS(fail, "ip link add veth1 type veth peer name veth2");
+
+// CORRECT: pin the state the assertions depend on, then enable per device
+err = write_sysctl("/proc/sys/net/ipv4/conf/all/forwarding", "0");
+if (!ASSERT_OK(err, "write_sysctl(net.ipv4.conf.all.forwarding)"))
+	goto fail;
+err = write_sysctl("/proc/sys/net/ipv4/conf/default/forwarding", "0");
+if (!ASSERT_OK(err, "write_sysctl(net.ipv4.conf.default.forwarding)"))
+	goto fail;
+
+SYS(fail, "ip link add veth1 type veth peer name veth2");
+```
+
+For a negative test, the check that catches the tautology is to ask what a
+kernel with the targeted bug would actually return, and whether that value
+differs from the asserted one. If both the correct kernel and the broken kernel
+can produce the asserted code, the test pins nothing. The fix is usually to
+give the buggy path something to succeed at, so the two outcomes separate:
+adding a route, an address, or an enabled device turns the broken kernel's
+answer into a success code that the assertion then catches.
+
 ## Quick Checks
 
 - **New shared files**: When a commit creates a file that is sourced or
@@ -86,3 +147,12 @@ kvm_irqfd(vm, gsi, eventfd, 0);
 - **KVM IRQ chip tests**: When tests use `KVM_IRQFD`, `KVM_IRQ_LINE`, or IRQ
   routing, verify `vm_create_with_one_vcpu()` is used and
   `TEST_REQUIRE(kvm_arch_has_default_irqchip())` is present
+- **netns config assumptions**: When a test asserts an outcome that depends on
+  `forwarding`, `rp_filter`, `accept_local` or any other `conf/{all,default}`
+  knob, verify the test writes that knob itself. IPv4 inherits it from
+  `init_net`, so an unwritten knob makes the assertion depend on the test host
+- **Negative tests**: When a test asserts an error code for a condition that
+  should be refused, verify a kernel missing that check would return a
+  different code. If the missing check and an unrelated missing precondition
+  both yield the asserted code, the test passes whether or not the kernel is
+  correct
