@@ -162,13 +162,52 @@ safety semantics or causing unexpected traps.
     - Executing an `isb` instruction.
     - Exception entry or return (subject to `SCTLR_ELx.{EIS, EOS}` bits and
       `FEAT_ExS`).
-- **Immediate Synchronization:** Every write to a control-plane system
-  register MUST be followed by an `isb()` *as the very next instruction*. The
-  barrier must precede any subsequent read-back, comparison, conditional
-  branch, return, or further sysreg access — not just appear "somewhere later"
-  in the function. Code that places *any* instruction between the write and
-  the `isb()` is buggy, even when an `isb()` is eventually issued, because the
-  intervening instruction observes architecturally undefined pipeline state.
+- **Synchronize before an *indirect* read relies on the effect; a plain
+  direct read-back does not need one.** The architecture does not require
+  an `isb()` after every control-register write. Whether a Context
+  Synchronization Event (CSE) is needed is keyed to *how* the new value is next
+  used (Arm ARM DDI 0487, D24.1.2.2, Table D24-1, for two accesses to the same
+  register):
+    - **Direct read-back — an `MRS` of the register just written — needs no
+      CSE.** A direct write is ordered before a later direct read of the same
+      register with no synchronization ("Direct write -> Direct read: None"),
+      so the read-back returns the written value. (Exception: a set/clear
+      register (`*_SET`/`*_CLR`, e.g. `PMOVSSET_EL0`); the spec defines its
+      write *effect* as an indirect write, so a read-back needs a CSE
+      — "Indirect write -> Direct read: Required". Ordinary RW trap/control
+      registers are not set/clear.)
+    - **Indirect read — the register's *effect* governing a later instruction
+      (a trap taking effect, a translation using a new `TTBR`/`TCR`, an FP
+      instruction gated by `CPTR`) — requires a CSE** between the write and
+      that instruction ("Direct write -> Indirect read: Required"), unless the
+      register/field is self-synchronizing (see below).
+  A read-back confirms the *stored value*; it does not confirm the *effect* is
+  active. Different questions, different answers.
+- **The CSE need not be an explicit `isb()` you add; it can be one already on
+  the path.** An exception return (`ERET`) or exception entry is a CSE, unless
+  `FEAT_ExS` is implemented and the relevant enable is cleared (`SCTLR_ELx.EOS
+  == 0` for the return, `SCTLR_ELx.EIS == 0` for the entry), in which case that
+  boundary is not a CSE and the effect must be synchronized explicitly. In the
+  common case, when the instruction that relies on the effect runs at a
+  *lower/other* Exception level, the `ERET`/exception-entry that transfers there
+  supplies the CSE, and no separate `isb()` after the write is needed.
+- **Ask who relies on the value and how, not which register it is.** The same
+  register can need an `isb()` on one path and not another. `CPTR_EL2` traps
+  FP/SVE at EL2, EL1 and EL0 alike, yet it is written with no `isb()` when
+  *activating* guest traps: EL2 executes no FP/SVE on that path before the
+  `ERET`, so nothing in-context relies on the new value and guest entry is the
+  CSE. Writing it to *deactivate* those traps so **EL2 itself** may touch
+  FP/SVE, by contrast, requires an `isb()` after that write and before EL2's
+  FP/SVE access — an in-context indirect read (upstream `257d0aa8e250` added
+  exactly that barrier to fix a host SVE-trap crash). Identical register,
+  opposite requirement, decided by the consumer.
+- **Counter-exception — a value the `ERET` itself indirectly consumes.** An
+  `ERET` does not cover every preceding write. Some `HCR_EL2` fields are read
+  by the `ERET` while it constructs the target context, so their new value is
+  relied upon *before* the `ERET`'s own synchronization point; those need an
+  `isb()` before the `ERET`. The Arm ARM names this: "changes to some fields of
+  `HCR_EL2` at EL2 need an explicit ISB in program order before an ERET
+  instruction" (D24.1.2.2 Note).
 - **GIC Synchronization:**
     - Writes to most `ICC_*_EL1` registers require a CSE to be visible to
       subsequent instructions. Notable exceptions: writes to `ICC_PMR_EL1` and
@@ -180,8 +219,9 @@ safety semantics or causing unexpected traps.
       `GICR_ICENABLER0`, `GICR_CTLR.EnableLPIs` (1→0), and DPG writes.
       Priority, routing, and enable-set writes are NOT tracked by either RWP
       bit.
-- **Self-Synchronizing Registers and Fields (no ISB needed):** The blanket
-  rule above has architecturally-defined exceptions: some System register
+- **Self-Synchronizing Registers and Fields (no ISB needed):** The
+  indirect-read rule above (an effect relied upon by a later instruction needs a
+  CSE) has architecturally-defined exceptions: some System register
   effects are guaranteed visible to subsequent instructions in program order
   *without* a CSE. The architecture grants this in more than one way, so
   recognize both forms:
@@ -219,23 +259,53 @@ safety semantics or causing unexpected traps.
   `ZCR_ELx.LEN`) or register (e.g. `FPMR`) is a false positive.
 
 **REPORT as bugs:**
-- Writing to a control system register without an `isb()` as the very next
-  instruction. Includes patterns that delay the barrier behind a
-  read-back-and-verify, a conditional branch, or any other instruction. Worked
-  example of the bug:
-    ```c
-    write_sysreg_s(val, SYS_HFGRTR_EL2);
-    if (read_sysreg_s(SYS_HFGRTR_EL2) != val)   /* observes pipeline */
-        return -EIO;
-    isb();                                       /* too late — read-back already executed */
-    ```
-  The `isb()` exists, but the read-back has already executed against
-  architecturally undefined pipeline state. Correct ordering is `write → isb()
-  → read-back`.
+- An *in-context indirect read* with no CSE before it: the writing EL's own
+  next instructions rely on the register's *effect* with no `isb()` between.
+  Examples: disabling a trap and then the current EL executing the
+  now-untrapped instruction (the `CPTR_EL2` deactivation case, upstream
+  `257d0aa8e250`); writing `TCR_EL1`/`TTBR_ELx` then a subsequent memory access
+  that uses the new translation. Note the reliance is on the *effect*, not on a
+  read-back.
+- A change to a register field that the `ERET` itself indirectly consumes
+  (certain `HCR_EL2` fields) with no explicit `isb()` between the write and the
+  `ERET`. The `ERET` is not sufficient here: it reads these fields while
+  constructing the target context, before its own synchronization point, so the
+  Arm ARM requires "an explicit ISB in program order before an ERET
+  instruction" (D24.1.2.2 Note).
 - Writing to `ICC_*_EL1` registers (excluding `ICC_PMR_EL1`) without an
   `isb()`.
 - Writing to tracked memory-mapped GIC registers without polling the
   appropriate `GICD_CTLR.RWP` or `GICR_CTLR.RWP`.
+
+**Do NOT report (false positives):**
+- A missing `isb()` between a direct write and a direct `MRS` read-back of the
+  *same* register. Table D24-1 requires none; the read-back returns the written
+  value. The read-back below is correct with no CSE before it:
+    ```c
+    write_sysreg_s(val, SYS_HFGRTR_EL2);
+    if (read_sysreg_s(SYS_HFGRTR_EL2) != val)   /* direct read-back: returns val, no CSE */
+        return -EIO;
+    ```
+  `HFGRTR_EL2` controls fine-grained traps taken at EL1/EL0, so its *effect* is
+  relied upon only after guest entry; the guest-entry `ERET` (a CSE) provides
+  the synchronization, and no `isb()` at EL2 is required for the traps either.
+- A missing `isb()` after a control-register write whose effect only governs a
+  lower/other Exception level or a different execution state, where an
+  `ERET`/exception boundary that is a CSE intervenes before the effect is relied
+  upon: guest trap/enable bits set on `vcpu_load` or the world-switch path (e.g.
+  the `CNTHCTL_EL2` `EL1*` guest bits written in `timer_set_traps()`, `CPTR_EL2`
+  when *activating* guest traps), or `FPEXC32_EL2` (relevant only to an AArch32
+  guest; the guest-entry `ERET` synchronizes it — upstream `b1a9a9b96169`
+  removed the redundant `isb()`). Judge by the consumer, not the register name.
+  (This assumes the boundary is a CSE, i.e. not the `FEAT_ExS` +
+  `SCTLR_ELx.EOS`/`EIS == 0` case above.) Beware the same register on a
+  different path: under VHE the `CNTHCTL_EL2` `EL0*` bits (`EL0PCTEN` etc.,
+  gated by `HCR_EL2.TGE == 1`) govern the *host's own* EL0, an in-context
+  consumer — a write the host relies on without an intervening `ERET` does need
+  synchronization. Same register, opposite answer, per the consumer.
+- A missing `isb()` after a write to a self-synchronizing register/field
+  (`ZCR_ELx.LEN`, `SMCR_ELx.LEN`, `FPMR`, or `ICC_PMR_EL1` on the mask path);
+  covered by the self-synchronizing-registers rule above.
 
 ## Auto-Generated Definitions and Semantic Drift
 
