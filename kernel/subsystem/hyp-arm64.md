@@ -740,3 +740,5 @@ as a regression** — neither form is more or less correct than the other, and
     - **REPORT as bugs:** Code that disables an asynchronous feature but fails
       to execute a subsequent synchronization barrier before changing the
       translation context (e.g., updating `VTTBR_EL2` or `TTBRn_ELx`).
+
+<!-- drift-checked: rev=0e35b9b6ec0ffcc5e23cbdec09f5c622ad532b53 date=2026-07-10 -->

@@ -84,7 +84,7 @@ completes. Use temp variables until validation passes. Pattern from
 `nfsd_set_fh_dentry()` fix (b3da9b141578).
 
 **Refcount pairs:**
-- `nfs4_get_stid` / `nfs4_put_stid`
+- `refcount_inc(&stid->sc_count)` / `nfs4_put_stid` (the acquire is open-coded; there is no `nfs4_get_stid` helper)
 - `nfsd_file_get` / `nfsd_file_put`
 - `exp_get` / `exp_put`
 - `fh_put` (copy semantics)
@@ -116,12 +116,12 @@ drains stateids (each `nfs4_free_ol_stateid` drops its owner ref via
 succeeds. Access before verification causes NULL dereference or stale data use.
 
 **Permission flags:** `NFSD_MAY_*` flags must match the operation:
-- `MAY_READ` before read operations
-- `MAY_WRITE` before write operations
-- `MAY_EXEC` for directory traversal
-- `MAY_SATTR` for setattr
+- `NFSD_MAY_READ` before read operations
+- `NFSD_MAY_WRITE` before write operations
+- `NFSD_MAY_EXEC` for directory traversal
+- `NFSD_MAY_SATTR` for setattr
 
-Common bug: using `MAY_READ` before `vfs_write()` (wrong flag for operation).
+Common bug: using `NFSD_MAY_READ` before `vfs_write()` (wrong flag for operation).
 
 **File type enforcement:** Pass `S_IFREG`/`S_IFDIR` to `fh_verify()` when the
 caller assumes a specific file type. Using `0` skips the check.

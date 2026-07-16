@@ -49,8 +49,9 @@ malfunction.
 
 `genpd_power_off_unused()` runs at `late_initcall_sync`
 (`drivers/pmdomain/core.c`). It iterates all registered genpds and queues
-`genpd_power_off_work` for each, which asynchronously attempts to power off
-domains with no active consumers. Domains with `stay_on == true` are skipped.
+each genpd's `power_off_work`, whose handler `genpd_power_off_work_fn()`
+asynchronously attempts to power off domains with no active consumers. Domains
+with `stay_on == true` are skipped.
 
 `regulator_init_complete()` also runs at `late_initcall_sync`
 (`drivers/regulator/core.c`), but it does not disable regulators

@@ -144,9 +144,16 @@ access patterns.
 *   **Feature ID / RESx Writeable Mask:** `ID_AA64*` register fields exposed
     to userspace must have correct writeable masks and runtime sanitization. A
     field that is RES0 in the hardware but exposed as writable causes silent
-    guest misconfiguration. Every new field exposure must be paired with the
-    correct `kvm_id_reg_rw_mask` or RESx-handling entry and a corresponding
-    trap/enablement in `HCR_EL2`, `CPTR_EL2`, or `MDCR_EL2`.
+    guest misconfiguration. A field is user-writable only through the register's
+    writable-field mask, and a userspace write is accepted only if it is a safe
+    subset of KVM's sanitised limit, so a guest can never be advertised a feature
+    the host does not support. In the current tree that mask is the ID register
+    descriptor's writable-bits value (`ID_WRITABLE` / `ID_FILTERED` entries;
+    `ID_SANITISED` makes a register read-only) and the subset check is
+    `arm64_check_features()`; confirm the entry and the check against the tree
+    under review rather than a remembered symbol name. Every new field exposure
+    must be paired with the correct writable-mask or RESx-handling entry and a
+    corresponding trap/enablement in `HCR_EL2`, `CPTR_EL2`, or `MDCR_EL2`.
 *   **`vcpu_sysreg` numbering is sparse — never range-check it:** `enum
     vcpu_sysreg` (`arch/arm64/include/asm/kvm_host.h`) indexes
     `vcpu->arch.ctxt.sys_regs[]`, but VNCR-mapped entries are numbered by their
@@ -231,3 +238,5 @@ of resource leaks and stale-state bugs.
   the change.
 - Guest-entry paths that load LRs or VMCR before re-synchronizing
   `ICH_HCR_EL2` trap bits.
+
+<!-- drift-checked: rev=0e35b9b6ec0ffcc5e23cbdec09f5c622ad532b53 date=2026-07-10 -->
