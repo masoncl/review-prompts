@@ -189,6 +189,76 @@ re-expose stale data.
 the `init_on_alloc` case. See `vrealloc_node_align_noprof()` in
 `mm/vmalloc.c` and `__do_krealloc()` in `mm/slub.c`.
 
+## kmalloc Alignment Guarantees
+
+`kmalloc()` makes a documented alignment guarantee:
+
+- The returned address is aligned to at least `ARCH_KMALLOC_MINALIGN`.
+- **For power-of-two sizes the alignment is at least the size itself.**
+  `kmalloc(PAGE_SIZE, ...)` is therefore always `PAGE_SIZE`-aligned, and
+  `PAGE_ALIGNED()` / `IS_ALIGNED(p, PAGE_SIZE)` on it is always true.
+- For other sizes the alignment is at least the largest power-of-two divisor
+  of the size.
+
+This is a property of the API, not an artifact of the current implementation.
+See `Documentation/core-api/memory-allocation.rst`, the `kmalloc()` kernel-doc
+in `include/linux/slab.h`, and commit 59bb47985c1d ("mm, sl[aou]b: guarantee
+natural alignment for kmalloc(power-of-two)").
+
+It is enforced by construction:
+
+- `create_boot_cache()` in `mm/slab_common.c` raises the cache alignment to
+  `1U << (ffs(size) - 1)` for any `SLAB_KMALLOC` cache, i.e. to the size for
+  power-of-two sizes.
+- Allocations larger than `KMALLOC_MAX_CACHE_SIZE` bypass the slab caches and
+  go straight to the page allocator, so they are at least page-aligned.
+
+**Debug options do not weaken it.** `calculate_sizes()` in `mm/slub.c` rounds
+the redzone padding up to the cache alignment (`s->red_left_pad =
+ALIGN(s->red_left_pad, s->align)`) and then sizes each object to
+`ALIGN(size, s->align)`. Holding the guarantee under debug was the point of
+59bb47985c1d.
+
+**Do NOT report** that memory from `kmalloc()`/`kzalloc()` of a power-of-two
+size may be insufficiently aligned, that its alignment is "not guaranteed", or
+that `SLUB_DEBUG` / redzones / `KASAN` / `kmemleak` / `SLAB_STORE_USER` can
+shift an object off its natural alignment. Callers that depend on the
+alignment, e.g. via `PAGE_ALIGNED()` or by masking low address bits, are
+correct to do so; finding such a caller is not evidence of a bug.
+
+A genuine alignment finding requires an alignment the allocator can actually
+return: verify the requested size is not a power of two, or that the required
+alignment exceeds it, and quote the code that misbehaves at the alignment
+actually guaranteed for that size.
+
+## Suitability of kmalloc Memory
+
+kmalloc memory is physically contiguous and shares its backing pages with
+unrelated objects. That second property, not alignment, determines where it
+cannot be used.
+
+**Not usable when the caller needs the backing `struct page`**: the buffer is
+passed to `virt_to_page()`, `page_to_pfn()`, `vmalloc_to_page()`,
+`get_page()`/`put_page()` or `SetPage*()`, or any page flag or `struct page`
+field is accessed; it is mapped to userspace (`vm_insert_page()`,
+`remap_pfn_range()`, a `->fault` handler), fed to `sendpage`/`splice`, or
+handed to a hypervisor or firmware interface that reclaims or frees whole page
+frames. Neighbouring objects in the same page are corrupted or exposed.
+
+**`__GFP_DMA32` is silently ignored.** It is absent from
+`KMALLOC_NOT_NORMAL_BITS`, and `kmalloc_type()` in `include/linux/slab.h`
+branches only on `__GFP_DMA`, `__GFP_RECLAIMABLE` and `__GFP_ACCOUNT`. A
+`GFP_DMA32` kmalloc can return memory above 4G, silently breaking
+32-bit-addressable DMA or an interface taking a 32-bit physical address. Unlike
+an unsupported flag that fails loudly, this produces no diagnostic.
+
+**Above `KMALLOC_MAX_CACHE_SIZE`** the allocation is served by the page
+allocator, with that path's order limits and failure behaviour.
+
+Physical contiguity, `virt_to_phys()` / `__pa()` / `__va()`, DMA mapping, and
+page-size alignment of a power-of-two allocation are all sound on kmalloc
+memory and are **not** grounds for a finding.
+
 ## kmemleak Tracking Symmetry
 
 Allocation/free APIs must pair symmetrically for kmemleak: `kmalloc()` with
