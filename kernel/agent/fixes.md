@@ -281,6 +281,7 @@ was found, use `"issues": []` and `"fixed-commit-found": false`.
       "function": null,
       "issue_category": "missing-fixes-tag|wrong-fixes-tag",
       "issue_severity": "low",
+      "issue_context": [],
       "issue_description": "..."
     }
   ]
