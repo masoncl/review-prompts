@@ -312,7 +312,8 @@ stylistic tells like restating/verbose comments, repeated deep-deref chains, cop
 churn, dead additions, or weak naming. This is the concrete arm of subjective review; findings
 are opinions, never bugs, and report.md drops them if the patch has a real regression.
 
-Skip this pass if the prompt asked to skip slop or subjective review.
+Skip this pass if the prompt asked to skip slop or subjective review, or if any
+confirmed regression (`issue_type: "regression"`) was identified in PHASE 4.
 
 Apply `slop-indicators.md` (loaded in PHASE 1) with the discipline in
 `false-positive-guide.md` section 11.1:
