@@ -57,7 +57,7 @@ guides and pattern files are in `<prompt_dir>/` (one level up).
 
 You will be given:
 1. A commit reference (SHA, range, or patch file path)
-2. The prompt directory path (contains agent/, patterns/, and subsystem guides)
+2. The prompt directory path (contains agent/, technical-patterns.md, and subsystem guides)
 3. Optional flags:
    - skip foo.md: one or more prompts or agents to skip
    - run without subagents: one or more prompts should be run directly, without
@@ -223,7 +223,7 @@ Prompt: Analyze FILE-<N> for regressions.
 
         Git range for fix checking: <git_range_for_fixes or "none">
 
-        Guides location: <prompt_dir>/*.md and <prompt_dir>/patterns/*.md
+        Guides location: <prompt_dir>/*.md and <prompt_dir>/subsystem/*.md
 ```
 
 **CRITICAL**: The "Git range for fix checking" line MUST be included in every FILE-N
@@ -514,7 +514,8 @@ Analyze patch file /path/to/patch.diff
 │   ├── lore.md
 │   ├── syzkaller.md
 │   ├── fixes.md
-│   ├── report.md
+│   └── report.md
+├── scripts/
 │   └── create_changes.py
 ├── callstack.md
 ├── subsystem/

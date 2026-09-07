@@ -2,6 +2,7 @@
 name: process-failed-reviews
 description: Batch process review-failed.md files across multiple directories, updating subsystem guides and committing after each
 tools: Read, Write, Glob, Bash, Task, TaskCreate, TaskUpdate, TaskList
+model: sonnet
 ---
 
 # Process Failed Reviews Agent
