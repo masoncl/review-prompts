@@ -56,17 +56,17 @@ ls -d ./review-context 2>/dev/null
 Run the `create_changes.py` script:
 
 ```bash
-create_changes.py <commit_ref> -o ./review-context
+<prompt_dir>/scripts/create_changes.py <commit_ref> -o ./review-context
 ```
 
 For example:
 ```bash
-create_changes.py abc123def -o ./review-context
+<prompt_dir>/scripts/create_changes.py abc123def -o ./review-context
 ```
 
 Or for a patch file:
 ```bash
-create_changes.py /path/to/patch.diff -o ./review-context
+<prompt_dir>/scripts/create_changes.py /path/to/patch.diff -o ./review-context
 ```
 
 The script automatically:
