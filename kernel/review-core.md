@@ -328,7 +328,7 @@ Always conclude with:
 
 Create a json file in the current directory named ./review-metadata.json
 
-Identify an issue severity score "low", "medium", "high", "urgent" for anything
+Identify an issue severity score "low", "medium", "high", "critical" for anything
 reported in ./review-inline.txt. Scores would increase in severity based on
 user-visible errors such as system crashes, instability, security problems, or
 incorrect system behavior.
@@ -353,7 +353,7 @@ THESE EXACT FIELDS IN THIS EXACT FORMAT.  DEVIATION IS NOT ALLOWED.
   "sha": "<string sha of the commit>",
   "subject": "<string commit subject>",
   "issues-found": <number>,
-  "issue-severity-score": "<none/low/medium/high/urgent>",
+  "issue-severity-score": "<none/low/medium/high/critical>",
   "issue-severity-explanation": "<string, result of Task 5 analysis>"
 }
 ```

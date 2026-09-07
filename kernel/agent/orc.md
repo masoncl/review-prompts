@@ -444,7 +444,7 @@ Total issues found: <count>
   - Lore issues: <count>
   - Syzkaller false claims: <count> (if applicable)
   - Missing Fixes: tag: <yes|no>
-Highest severity: <none|low|medium|high|urgent>
+Highest severity: <none|low|medium|high|critical>
 
 Output files:
 - ./review-metadata.json
