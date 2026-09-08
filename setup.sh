@@ -29,7 +29,7 @@ usage() {
     echo ""
     echo "Arguments:"
     echo "  <agent>     Install skill and commands for this code agent"
-    echo "              Available agents: claude, cline, codex, opencode,"
+    echo "              Available agents: agy, claude, cline, codex, opencode,"
     echo "                                gemini, goose, kiro-cli"
     echo "  <project>   Install skills and commands for this project"
     echo "              Available projects: iproute, kernel, nfs-utils,"
@@ -103,6 +103,10 @@ install_project() {
                 echo "  ${COMMAND_PREFIX:-/}${cmd_name%.md}"
             fi
         done
+    fi
+
+    if declare -F agent_post_install > /dev/null; then
+        agent_post_install "$project_dir"
     fi
 
     echo ""
