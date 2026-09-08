@@ -29,7 +29,7 @@ usage() {
     echo ""
     echo "Arguments:"
     echo "  <agent>     Install skill and commands for this code agent"
-    echo "              Available agents: claude, cline, codex, opencode,"
+    echo "              Available agents: agy, claude, cline, codex, opencode,"
     echo "                                gemini, goose, kiro-cli"
     echo "  <project>   Install skills and commands for this project"
     echo "              Available projects: iproute, kernel, nfs-utils, pahole,"
@@ -62,6 +62,7 @@ install_project() {
 
     mkdir -p "$agent_skills_dir"
     sed "s|{{${prompts_dir_var}}}|$project_dir|g" "$src_skill_path" > "$agent_skill_path"
+    local installed_files=("$agent_skill_path")
 
     echo "Installed skill:"
     echo "  $agent_skill_path"
@@ -97,12 +98,18 @@ install_project() {
                         fi
                         sed "s|{{REVIEW_DIR}}|$project_dir|g" "$cmd_file"
                     } > "$cmd_skill_dir/$SKILL_FILE_NAME"
+                    installed_files+=("$cmd_skill_dir/$SKILL_FILE_NAME")
                 else
                     sed "s|{{REVIEW_DIR}}|$project_dir|g" "$cmd_file" > "$COMMANDS_DIR/$cmd_name"
+                    installed_files+=("$COMMANDS_DIR/$cmd_name")
                 fi
                 echo "  ${COMMAND_PREFIX:-/}${cmd_name%.md}"
             fi
         done
+    fi
+
+    if declare -F agent_post_install > /dev/null; then
+        agent_post_install "$project_dir" "${installed_files[@]}"
     fi
 
     echo ""
