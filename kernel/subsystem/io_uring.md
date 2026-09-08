@@ -97,14 +97,12 @@ before copying, the handler reads stale data.
 - On async punt, `io_uring_cmd_sqe_copy()` copies the SQE into
   `ac->sqes` and updates `ioucmd->sqe`. `REQ_F_SQE_COPIED` prevents
   double copies. Both copy and pointer update must happen together.
-- SQE fields needed at issue must be cached during prep with
-  `READ_ONCE()` (e.g., `ioucmd->cmd_op = READ_ONCE(sqe->cmd_op)`).
-  Issue code must use cached values, not `cmd->sqe->`. See
-  `io_uring_cmd_prep()` in `io_uring/uring_cmd.c` and
-  `io_uring_cmd_sock()` in `io_uring/cmd_net.c`.
+- Because of that copy, a `->uring_cmd()` handler reading `ioucmd->sqe`
+  directly at issue time is not a bug. Do not require the driver to cache SQE
+  fields during `prep`.
 
-**REPORT as bugs**: `ioucmd->sqe` accessed after async punt without copy.
-Issue code reading SQE fields through `cmd->sqe->` instead of cached values.
+**REPORT as bugs**: `ioucmd->sqe` read from a deferred completion callback
+after the handler returned `-EIOCBQUEUED`.
 
 ## CQE Sizing Modes: CQE32 vs CQE_MIXED
 
