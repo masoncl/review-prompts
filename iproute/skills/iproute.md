@@ -1,7 +1,6 @@
 ---
 name: iproute
 description: AI-assisted code review for iproute2, the Linux networking userspace utilities.
-invocation_policy: automatic
 ---
 
 # iproute Skill

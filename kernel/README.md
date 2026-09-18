@@ -14,21 +14,26 @@ through lore as part of the review.
 
 ## Installation
 
-Run the setup script from the root of this repository to
-install the kernel skill and slash commands:
+Run the setup script from the root of this repository to install the kernel
+skill and commands:
 
 ```bash
-../setup.sh <agent> <project>
+./setup.sh <agent> kernel
 ```
 
 Where `<agent>` is one of available agents and `<project>` is one of available
 projects that are explicitly stated in the usage message when the script is
 executed with `-h|--help` option.
 
-This installs:
-- **Kernel skill** (`~/.claude/skills/kernel/SKILL.md`) - Automatically loads
-  kernel-specific context when working in kernel trees
-- **Slash commands** (`~/.claude/commands/`) - Quick access to common operations:
+This installs the kernel context skill and quick access commands in the
+selected agent's configuration directory. For Codex, they are installed under
+`${CODEX_HOME:-$HOME/.codex}/skills`; start a new session and invoke them as
+`$kreview`, `$kseries`, `$kdebug`, and `$kverify`. Agents with native slash
+commands use:
+
+- **Kernel skill** - Automatically loads kernel-specific context when working
+  in kernel trees
+- **Commands** - Quick access to common operations:
   - `/kreview` - Review a single commit for regressions
   - `/kseries` - Review an entire patch series (git range) commit-by-commit
   - `/kdebug` - Debug kernel crashes and warnings
