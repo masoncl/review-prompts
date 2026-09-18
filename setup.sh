@@ -30,7 +30,7 @@ usage() {
     echo "Arguments:"
     echo "  <agent>     Install skill and commands for this code agent"
     echo "              Available agents: claude, codex, opencode, gemini,"
-    echo "                                goose, kiro-cli"
+    echo "                                goose, kiro-cli, muse"
     echo "  <project>   Install skills and commands for this project"
     echo "              Available projects: iproute, kernel, systemd"
     echo ""
