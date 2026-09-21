@@ -237,13 +237,26 @@ kmalloc memory is physically contiguous and shares its backing pages with
 unrelated objects. That second property, not alignment, determines where it
 cannot be used.
 
-**Not usable when the caller needs the backing `struct page`**: the buffer is
-passed to `virt_to_page()`, `page_to_pfn()`, `vmalloc_to_page()`,
-`get_page()`/`put_page()` or `SetPage*()`, or any page flag or `struct page`
-field is accessed; it is mapped to userspace (`vm_insert_page()`,
-`remap_pfn_range()`, a `->fault` handler), fed to `sendpage`/`splice`, or
-handed to a hypervisor or firmware interface that reclaims or frees whole page
-frames. Neighbouring objects in the same page are corrupted or exposed.
+**Not usable when the caller treats the backing page as its own**: it takes or
+drops a page reference (`get_page()`, `try_get_page()`, `put_page()`; a page
+reference never pins a slab object, and since v6.14 slab pages have a zero
+refcount, so these warn or return early), sets page flags (`SetPage*()`),
+reads or writes `struct page` fields other than the flags (`->mapping`,
+`->private`, `->lru`; `struct slab` in `mm/slab.h` overlays them), maps the
+page to userspace (`vm_insert_page()`, `remap_pfn_range()`, a `->fault`
+handler), has the network stack splice it in by reference (`sendmsg()` with
+`MSG_SPLICE_PAGES`, which replaced `->sendpage()` in v6.5; callers test
+`sendpage_ok()`, which rejects slab pages, and fall back to copying), or hands
+it to a hypervisor or firmware interface that reclaims or frees whole page
+frames. Neighbouring objects in the same page are corrupted or exposed, or the
+buffer is freed and reused while the caller believes it still holds a
+reference.
+
+Looking the page up is not the problem. `virt_to_page()` and `page_to_pfn()`
+on a kmalloc buffer are routine: `sg_set_buf()` and `dma_map_single()` both
+call `virt_to_page()` on the buffer they are given, and kmalloc memory is a
+normal argument to both. A finding needs the caller to then do one of the
+things above with the page, not merely to have converted the address.
 
 **`__GFP_DMA32` is silently ignored.** It is absent from
 `KMALLOC_NOT_NORMAL_BITS`, and `kmalloc_type()` in `include/linux/slab.h`
@@ -255,9 +268,10 @@ an unsupported flag that fails loudly, this produces no diagnostic.
 **Above `KMALLOC_MAX_CACHE_SIZE`** the allocation is served by the page
 allocator, with that path's order limits and failure behaviour.
 
-Physical contiguity, `virt_to_phys()` / `__pa()` / `__va()`, DMA mapping, and
-page-size alignment of a power-of-two allocation are all sound on kmalloc
-memory and are **not** grounds for a finding.
+Physical contiguity, `virt_to_phys()` / `__pa()` / `__va()`, `virt_to_page()`
+to build a scatterlist, DMA mapping, and page-size alignment of a power-of-two
+allocation are all sound on kmalloc memory and are **not** grounds for a
+finding.
 
 ## kmemleak Tracking Symmetry
 
