@@ -15,8 +15,9 @@ semantics such as when device tree phandles to GPIO lines are tagged with
 `GPIO_ACTIVE_HIGH` from `<dt-bindings/gpio/gpio.h>`.
 
 In these cases, recommend that a polarity quirk be added to
-`drivers/gpio/gpiolib-of.h` enforcing a certain polarity for a certain binding,
-thereby preserving the polarity semantics.
+`of_gpio_try_fixup_polarity()` in `drivers/gpio/gpiolib-of.c` enforcing a
+certain polarity for a certain binding, thereby preserving the polarity
+semantics.
 
 Do not recommend developers to use raw accessors such as
 `gpiod_get_raw_value()` or `gpiod_get_raw_value_cansleep()` to work around
@@ -35,8 +36,8 @@ This works especially well when the number of GPIOs are equal to the number of
 bits in a register, but can often be used also when the GPIO lines are accessed
 in several similarly shaped registers so that after GPIO 31 in bit 31 a second
 register starting with GPIO 32 at bit 0 in the new register and GPIO 33 at bit
-1 in the new registet etc, in this case GPIOs can often be grouped into banks
-with 8/16/32/64 GPIOs each, where each bank correpsonds to one GPIO chip.
+1 in the new register etc, in this case GPIOs can often be grouped into banks
+with 8/16/32/64 GPIOs each, where each bank corresponds to one GPIO chip.
 
 During device tree review it should be pointed out that a structure where a
 single node exposing e.g 128 GPIOs could possibly be broken into 4 nodes
@@ -46,12 +47,11 @@ it easier to write a driver using `GPIO_GENERIC` later on.
 ## Use Generic Regmap GPIO library
 
 If a new GPIO driver using `<linux/gpio/driver.h>` is also using the regmap
-abstraction from `<linux/regmap.h>` it may be adivisable to use the GPIO regmap
+abstraction from `<linux/regmap.h>` it may be advisable to use the GPIO regmap
 helper library enabled by `select GPIO_REGMAP` in `Kconfig` and including the
 header `<linux/gpio/regmap.h>`
 
 The regmap library has a function to translate a GPIO line offset to a register
 and bitmask, so that registers with bitfields for different settings
-and values can easily be used accessed if these registers and bitmasks have
+and values can easily be accessed if these registers and bitmasks have
 a repeating pattern.
-
