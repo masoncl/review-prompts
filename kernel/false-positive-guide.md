@@ -175,6 +175,36 @@ the dismissal is invalid. Report the race.
 - Simplicity/maintainability was prioritized
 - It's optimizing for a different use case
 
+### 9.1 Documented API Guarantees
+**Never report** that an API fails to provide something its own documentation
+and kernel-doc promise, unless you can quote the implementation defeating the
+promise. A documented guarantee binds every configuration, including debug
+ones. Do not speculate that `SLUB_DEBUG`, `KASAN`, `kmemleak`, redzones,
+padding or instrumentation quietly opt out of it.
+
+Callers legitimately rely on documented guarantees without re-checking them.
+Finding such a caller is not evidence that the guarantee is violated, and the
+absence of a defensive check at the call site is not a bug.
+
+**Most common instance -- kmalloc alignment**:
+`kmalloc()`/`kzalloc()` of a power-of-two size is aligned to at least that
+size, so `kmalloc(PAGE_SIZE, ...)` is always page-aligned. This is stated in
+`Documentation/core-api/memory-allocation.rst` and the `kmalloc()` kernel-doc
+in `include/linux/slab.h`, and enforced in `create_boot_cache()`
+(`mm/slab_common.c`) and `calculate_sizes()` (`mm/slub.c`), which rounds
+redzone padding up to the cache alignment.
+
+- ❌ "This buffer may not be page-aligned, because SLUB debugging can add
+  redzones, so the `BUG_ON(!PAGE_ALIGNED(buf))` in a driver using it can fire."
+- ✅ "The size is `UART_XMIT_SIZE * 3`, which is not a power of two, so the
+  allocation is only guaranteed `UART_XMIT_SIZE` alignment, while `foo()`
+  masks the low `PAGE_SHIFT` bits of the address."
+
+See "kmalloc Alignment Guarantees" in `subsystem/mm-alloc.md` for the full
+rules, and "Suitability of kmalloc Memory" for the constraints on kmalloc
+memory that are real (`struct page` requirements, silently-ignored
+`__GFP_DMA32`).
+
 ### 10. Intentional backwards compatibility
 - Leaving stub sysfs or procfs files is not required, and also not a regression
 - It is not a regression for deprecated sysfs files to remain and just return

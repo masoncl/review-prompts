@@ -58,6 +58,14 @@ Assume `pageblock_nr_pages == 512` for the numeric example below.
 **REPORT as bugs**: treating `pageblock_end_pfn(pfn)` as inclusive, or using
 `pageblock_align(pfn)` where `pageblock_start_pfn(pfn)` is needed.
 
+## Allocator Alignment
+
+Do not confuse "the address is page-aligned" with "the memory came from the
+page allocator". `kmalloc()` of a power-of-two size is aligned to at least that
+size, so `kmalloc(PAGE_SIZE, ...)` satisfies `PAGE_ALIGNED()`. See "kmalloc
+Alignment Guarantees" in `mm-alloc.md` for the alignment each allocator
+actually provides before concluding that an alignment requirement is unmet.
+
 ## Quick Checks
 
 - **Already-aligned input**: `ALIGN(x, a)` keeps an aligned `x` unchanged; it
