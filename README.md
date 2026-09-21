@@ -1,7 +1,7 @@
 # Review Prompts for AI-Assisted Code Review
 
-AI-assisted code review prompts for Linux kernel, systemd, and iproute development.
-Works with Claude Code and other AI tools.
+AI-assisted code review prompts for Linux kernel, systemd, iproute, and
+nfs-utils development. Works with Claude Code and other AI tools.
 
 ## Quick Start
 
@@ -22,12 +22,14 @@ executed with `-h|--help` option.
 | Kernel | `/kreview` | `/kdebug` | `/kverify` |
 | systemd | `/systemd-review` | `/systemd-debug` | `/systemd-verify` |
 | iproute | `/iproute-review` | `/iproute-debug` | `/iproute-verify` |
+| nfs-utils | `/nfs-utils-review` | `/nfs-utils-debug` | `/nfs-utils-verify` |
 
 ## Project Documentation
 
 * [Kernel Review Prompts](kernel/README.md) - Linux kernel specific patterns and protocols
 * [systemd Review Prompts](systemd/README.md) - systemd specific patterns and protocols
 * [iproute Review Prompts](iproute/README.md) - iproute specific patterns and protocols
+* [nfs-utils Review Prompts](nfs-utils/README.md) - nfs-utils specific patterns and protocols
 
 ## How It Works
 
@@ -40,6 +42,7 @@ The skills detect your working directory and load appropriate context:
 - In a kernel tree: kernel skill loads automatically
 - In a systemd tree: systemd skill loads automatically
 - In an iproute tree: iproute skill loads automatically
+- In an nfs-utils tree: nfs-utils skill loads automatically
 
 ## Structure
 
@@ -65,6 +68,12 @@ review-prompts/
 │   ├── scripts/              # Setup script
 │   ├── patterns/             # Bug pattern documentation
 │   └── *.md                  # Subsystem and protocol files
+│
+├── nfs-utils/                # nfs-utils prompts
+│   ├── skills/               # Skill template
+│   ├── slash-commands/       # /nfs-utils-review, -debug, -verify
+│   ├── subsystem/            # Per-component guides + trigger index
+│   └── *.md                  # Core protocol files
 │
 └── README.md                  # This file
 ```
