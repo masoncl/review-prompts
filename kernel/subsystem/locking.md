@@ -81,7 +81,38 @@ lock → find item → unlock
 item->data ← USE-AFTER-FREE
 ```
 
-Fix: take a reference count under the lock before releasing it.
+Fix: take a reference count under the lock before releasing it. The
+reference has to be taken before the lock or RCU read-side section is dropped
+and released only after the last use.
+
+**Build the reference budget before reporting use-after-free.** When the other
+side of a suspected use-after-free is asynchronous work, an RCU callback or a
+workqueue item, list what keeps the object alive on each side. A pin is a
+reference, a held lock, or an open RCU read-side section (see Q4 below). Name
+every acquire that pins the shared pointer, who owns it, and every release, up
+to the claimed free point.
+
+Report only if the free can happen while the using side still holds a live
+pointer with no pin. It is not a use-after-free when:
+
+- the stored pointer is itself counted. Its holder took a reference when it
+  saved the pointer, so the free is only deferred until that reference is
+  dropped — a deferred free.
+- the freeing side waits for the user to finish before it frees.
+
+**Returning storage to a pool is a free.** If storage is permanently mapped or
+pooled, return-to-pool and reallocation is a logical free even though the
+storage remains addressable and reads do not fault; do not dismiss because the
+underlying storage remains mapped. Distinguish read from write after logical
+free: a read is reportable only when the stale value drives a decision, a
+write is always reportable because it corrupts the next owner's reuse of the
+same storage.
+
+Record the result as one line:
+
+```
+budget: acquires=[...], releases=[...], refs_live_at_free=..., free_reachable_without_pin=[proof | no]; logical_free=[storage-free | pool-return], use=[read-driving-decision | write]
+```
 
 ## 3. The Four Questions at Every Access Point
 

@@ -200,7 +200,10 @@ complete caller analysis.
     being used to change the objects.
   - Output: list of pointers you found for the same memory
 - step resource.4: Verify resources are properly initialized, locked, and freed
-- step resource.4b: For any suspected race claiming use-after-free via asynchronous work, RCU callback, or workqueue, trace reference counts on both sides back far enough that it can be proven with certainty that one side lacks the reference needed to keep the object alive. Enumerate every acquire that pins the shared pointer and every release, and build the reference budget at the claimed free point. Only report if the freeing side can reach zero while the using side still holds a live pointer without a pinning reference; if the cached pointer itself holds a pinning reference, the reference keeps the object alive and only defers its freeing until dropped — a deferred free, not a use-after-free. For a use that survives a lock or RCU drop, identify the logical owner and the pin that survives the drop. If storage is permanently mapped or pooled, return-to-pool and reuse is a logical free even though reads do not fault; distinguish read (reportable only when stale value drives a decision) from write (always reportable because it corrupts the next owner's reuse). Only a reference or other explicit pin held before the drop and released after the last use proves safety.
+- step resource.4b: For any suspected race, including a use-after-free where the other side is asynchronous work, an RCU callback or a workqueue item:
+  - Load `subsystem/locking.md` if not already loaded, and follow its tracing method
+  - For a suspected use-after-free, complete "Step 5: Check Object Lifetime", including the reference budget, before reporting
+  - Output: "subsystem/locking.md loaded: [ y / n ]", plus the `budget:` line for a suspected use-after-free
 - step resource.5: Continue into Task 5B, even if you think you've found enough details to complete the analysis
 - Output: Category NUMBER [ list of resources checked: line of code where each resource was assigned ]
 
