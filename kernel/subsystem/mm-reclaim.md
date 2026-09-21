@@ -176,9 +176,15 @@ must precede uncharging to avoid accessing freed memcg data.
   extend lifetime. `get_mem_cgroup_from_*()` functions acquire a reference
   internally
 
-**Per-CPU stock drain:** charges are batched in per-CPU stocks. Destroying a
-memcg requires `drain_all_stock()` (`mm/memcontrol.c`) -- missing this
-prevents cgroup deletion.
+**Per-CPU stock drain:** charges are batched in per-CPU stocks that cache
+a memcg pointer. Each cached entry holds a reference that pins the memcg
+— search near the per-CPU charge-caching code to find the acquire that
+pins the pointer when it is cached and the release that drops it when the
+stock is drained. Destroying a memcg drains those stocks to flush charges
+and drop the reference — without the drain the cached pointer simply keeps
+the memcg alive until a later drain, deferring its freeing; the reference
+makes this a delayed free, not a use-after-free. Cgroup removal itself
+proceeds, the object just lingers until drained.
 
 ## Folio Migration and Sleeping Constraints
 

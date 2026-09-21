@@ -168,6 +168,33 @@ Before accepting a race dismissal, answer ALL of these:
 If you cannot affirmatively answer #4 for every intermediate instruction,
 the dismissal is invalid. Report the race.
 
+### 8.2. Race refcount budget (MANDATORY)
+For any suspected race claiming use-after-free via asynchronous work, RCU
+callback, or workqueue, trace reference counts on both sides of the suspected
+race back far enough that it can be proven with certainty that one side lacks
+the reference needed to keep the object alive. Enumerate every acquire that
+pins the shared pointer and every release, and build the reference budget at
+the claimed free point. Only report use-after-free if the freeing side can
+reach zero while the using side still holds a live pointer without a pinning
+reference. If the cached pointer itself holds a pinning reference, the
+reference keeps the object alive and only defers its freeing until dropped —
+a deferred free, not a use-after-free. Cgroup/file removal proceeds; what
+lingers is the backing object until drained/released.
+
+For a use that survives a lock or RCU drop, identify the object's logical
+owner and the pin that survives the drop. If storage is permanently mapped or
+pooled, return-to-pool and reallocation is a logical free even though the
+storage remains addressable and reads do not fault; do not dismiss because the
+underlying storage remains mapped. Distinguish read from write after logical
+free: a read is reportable only when the stale value drives a decision, a
+write is always reportable because it corrupts the next owner's reuse of the
+same storage. Only a reference or other explicit pin held before the drop and
+released after the last use proves safety.
+
+Required output: `budget: acquires=[...], releases=[...], refs live at free
+point=..., proof free reachable while live pointer held without pin;
+logical-free type: [storage-free vs pool-return], use: [read-driving-decision vs write]`.
+
 ### 9. Performance Tradeoffs
 **Not a regression if**:
 - Lower performance was an intentional tradeoff
