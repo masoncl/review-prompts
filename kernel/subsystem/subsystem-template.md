@@ -79,6 +79,23 @@ API details using:
   backticks for all function names, type names, field names, macros, and
   constants.
 
+- **Backticks mean it exists in the kernel tree.**
+  `kernel/scripts/check-drift.py` looks up every backticked name, so keep
+  backticks for things it can find:
+  - functions and function-like macros carry parentheses: `folio_lock()`
+  - struct, union and enum tags carry their keyword: `struct folio`
+  - files and directories carry a slash: `mm/filemap.c`, `mm/`
+  - commits are written as `<sha>` ("subject")
+  - fields, typedefs, constants and Kconfig symbols are written as they
+    appear in the source: `i_size`, `spinlock_t`, `GFP_KERNEL`, `CONFIG_SMP`
+  - a family of names may use `*` or `{a,b}`: `folio_test_*()`,
+    `p{te,md,ud}_present()`
+
+  Anything that is not in the tree stays out of backticks: invented names in
+  an example, placeholders (write `<name>`), tool names, and terms from a
+  hardware specification. A fenced block tagged `c` is real kernel code. Tag
+  an illustration or a timeline `c example` or `text`.
+
 - **Tables** for reference data where multiple items share the same set of
   attributes. Always explain non-obvious column meanings in a paragraph before
   the table. Examples:
@@ -173,7 +190,8 @@ additional items that don't warrant their own section.
 
 1. Title is `# <Name> Subsystem Details`
 2. Every section opens with a consequence paragraph
-3. All function/type/field/macro names use backticks
+3. All function/type/field/macro names use backticks, functions carry `()`,
+   and nothing that is absent from the kernel tree is backticked
 4. Tables have column explanations when meanings aren't self-evident
 5. No numbered pattern IDs as top-level headers
 6. No Risk/Details/When-to-check boilerplate
