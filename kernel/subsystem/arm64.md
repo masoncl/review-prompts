@@ -412,7 +412,7 @@ you MUST follow the BBM sequence to prevent TLB conflicts.
   issuing CPU (for executable mappings or where local synchronization is
   required).
 - Missing `isb()` after TLBI in mode-entry paths (e.g., `enter_vhe()`, nVHE
-  `__tlb_switch_to_guest()`, `__primary_switch()`); the TLBI is not
+  `enter_vmid_context()`, `__primary_switch()`); the TLBI is not
   synchronized to the new execution context without it.
 - Updating a live page table entry (changing OA to a non-matching address or
   attributes) without an intervening invalidation (skipping the "Break" step).
@@ -527,3 +527,5 @@ register state or performing incorrect state merges.
   mid-batch. In interrupt contexts the batching window is broken and an
   explicit barrier must be issued before the interrupted path observes the
   mappings.
+
+<!-- drift-checked: rev=bd5f485f3f026225b86573e559af0b7254ef4184 date=2026-08-21 -->

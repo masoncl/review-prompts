@@ -1,0 +1,56 @@
+# Citation drift check for the onboarded arm64/KVM subsystem guides.
+#
+# This runs kernel/scripts/check-drift.py against a kernel tree and reports any
+# guide citation that no longer resolves. The same check runs locally, and that
+# is the primary path: against a full working kernel tree it verifies every
+# class of citation (paths, symbols, commits, and the verification footer):
+#
+#   python3 kernel/scripts/check-drift.py --tree /path/to/linux --require-footer \
+#       kernel/subsystem/arm64.md kernel/subsystem/kvm.md \
+#       kernel/subsystem/kvm-arm64.md kernel/subsystem/hyp-arm64.md
+#
+# CI cannot afford a full kernel clone, so it uses a depth-1 clone. That tree
+# has the tip's files but no commit history, so the checker skips the
+# commit-history checks (commit SHAs, commit subjects, and the footer's ancestry
+# check) and verifies paths and symbols, which is where citations rot in
+# practice. See kernel/docs/drift-checker.md for the check model.
+
+name: drift-check
+
+on:
+  pull_request:
+    paths:
+      - 'kernel/subsystem/**'
+      - 'kernel/scripts/check-drift.py'
+      - 'kernel/docs/drift-checker.md'
+      - '.github/workflows/drift-check.yml'
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC, to catch drift as the kernel moves
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out review-prompts
+        uses: actions/checkout@v5
+
+      - name: Self-test the checker
+        run: python3 kernel/scripts/check-drift.py --selftest
+
+      - name: Shallow-clone the kernel
+        run: |
+          git clone --depth 1 \
+            https://github.com/torvalds/linux.git "$RUNNER_TEMP/linux"
+
+      - name: Check the onboarded guides
+        run: |
+          python3 kernel/scripts/check-drift.py \
+            --tree "$RUNNER_TEMP/linux" --require-footer \
+            kernel/subsystem/arm64.md \
+            kernel/subsystem/kvm.md \
+            kernel/subsystem/kvm-arm64.md \
+            kernel/subsystem/hyp-arm64.md
