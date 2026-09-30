@@ -69,7 +69,14 @@ automatically using semcode lore integration (if available).
    Performance/behavior changes: <summary or "none">
    ```
 
-3. Analyze the series as a whole:
+3. Ensure the series can be applied at all
+   - Enumerate the stated dependencies
+   - Look for suspiciously long dependency lists (more than 2 series is generally a bad sign)
+   - Complain if any of the dependencies had gone stale or were explicitly NAKed
+   - Complain if the dependencies are nontrivial and still not present in linux-next/master
+     at the time of submission, unless the series reviewed is an RFC
+
+4. Analyze the series as a whole:
    - Read all commit messages to understand the overall goals
    - Cross-reference with cover letter goals (if available)
    - Identify the subsystems affected
@@ -78,7 +85,7 @@ automatically using semcode lore integration (if available).
    - Note any patterns across the series (e.g., "first 3 commits are prep work, next 2 are the feature")
    - Check if commit messages align with cover letter narrative
 
-4. Output series context:
+5. Output series context:
    ```
    === SERIES ANALYSIS ===
    Range: <base>..<head>
