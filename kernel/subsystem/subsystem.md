@@ -77,7 +77,7 @@ and symbols regexes.
 | USB Storage | drivers/usb/storage/, unusual_devs.h, UNUSUAL_DEV, USB_SC_, USB_PR_ | usb-storage.md |
 | ATA/libata | drivers/ata/, ata_dev_, ata_port_, ata_read_log_, ATA_QUIRK_ | ata.md |
 | I/O Accessors | writesl, readsl, writesw, readsw, writesb, readsb, __raw_writel, __raw_readl, FIFO | io-accessors.md |
-| Kconfig | Kconfig, `config `, `select `, `depends on `, `tristate `, `bool ` | kconfig.md |
+| Kconfig | Kconfig, Makefile, `config `, `select `, `depends on `, `tristate `, `bool `, `obj-$(CONFIG_` | kconfig.md |
 | Build System | Kbuild, Makefile, scripts/, tools/, `gnu11`, `-funsigned-char`, `-fno-strict-aliasing` | build.md |
 | I2C | drivers/i2c/, i2c_*, include/linux/i2c.h, i2c_transfer, i2c_master_send, i2c_master_recv, i2c_smbus_, i2c_get_dma_safe_msg_buf | i2c.md |
 | HID | drivers/hid/, include/linux/hid.h, hid_device, hid_driver, hid_register_driver, hid_hw_start, hid_hw_stop, hid_input_report, hid_safe_input_report | hid.md |
