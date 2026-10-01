@@ -1,7 +1,6 @@
 ---
 name: systemd
 description: Load anytime the working directory is a systemd tree. systemd-specific knowledge, subsystem details, code review, and debugging protocols. Read this anytime you're in the systemd tree.
-invocation_policy: automatic
 ---
 
 ## ALWAYS READ

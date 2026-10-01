@@ -29,8 +29,8 @@ usage() {
     echo ""
     echo "Arguments:"
     echo "  <agent>     Install skill and commands for this code agent"
-    echo "              Available agents: claude, codex, opencode, gemini,"
-    echo "                                goose, kiro-cli"
+    echo "              Available agents: claude, cline, codex, opencode,"
+    echo "                                gemini, goose, kiro-cli, muse"
     echo "  <project>   Install skills and commands for this project"
     echo "              Available projects: iproute, kernel, nfs-utils, pahole,"
     echo "                                  systemd"
@@ -74,30 +74,47 @@ install_project() {
         mkdir -p "$COMMANDS_DIR"
 
         echo ""
-        echo "Installed slash commands:"
+        if [ "${COMMANDS_AS_SKILLS:-0}" = "1" ]; then
+            echo "Installed command skills:"
+        else
+            echo "Installed slash commands:"
+        fi
 
         for cmd_file in "$src_commands"/*.md; do
             if [ -f "$cmd_file" ]; then
                 local cmd_name=$(basename "$cmd_file")
                 if [ "${COMMANDS_AS_SKILLS:-0}" = "1" ]; then
-                    # The agent has no standalone slash-command files; install
-                    # each command as a skill (<name>/SKILL.md) so the agent
-                    # exposes it as /<name>.  Skills require frontmatter with
-                    # a name, so generate it when the source file has none.
+                    # The agent uses skills for reusable commands. Install each
+                    # command as <name>/SKILL.md and generate required
+                    # frontmatter when the source file has none.
                     local cmd_skill_dir="$COMMANDS_DIR/${cmd_name%.md}"
                     mkdir -p "$cmd_skill_dir"
                     {
                         if ! head -n 1 "$cmd_file" | grep -q '^---$'; then
                             printf -- '---\n'
                             printf 'name: %s\n' "${cmd_name%.md}"
-                            printf 'description: "/%s slash command from the %s review prompts; load only when invoked explicitly"\n' \
+                            printf 'description: "%s workflow from the %s review prompts; use when explicitly invoked"\n' \
                                 "${cmd_name%.md}" "$project"
                             printf -- '---\n\n'
                         fi
-                        sed "s|{{REVIEW_DIR}}|$project_dir|g" "$cmd_file"
+                        sed \
+                            -e "s|{{REVIEW_DIR}}|$project_dir|g" \
+                            -e "s|{{${prompts_dir_var}}}|$project_dir|g" \
+                            "$cmd_file"
                     } > "$cmd_skill_dir/$SKILL_FILE_NAME"
+
+                    if [ "${COMMAND_SKILLS_EXPLICIT_ONLY:-0}" = "1" ]; then
+                        mkdir -p "$cmd_skill_dir/agents"
+                        {
+                            printf 'policy:\n'
+                            printf '  allow_implicit_invocation: false\n'
+                        } > "$cmd_skill_dir/agents/openai.yaml"
+                    fi
                 else
-                    sed "s|{{REVIEW_DIR}}|$project_dir|g" "$cmd_file" > "$COMMANDS_DIR/$cmd_name"
+                    sed \
+                        -e "s|{{REVIEW_DIR}}|$project_dir|g" \
+                        -e "s|{{${prompts_dir_var}}}|$project_dir|g" \
+                        "$cmd_file" > "$COMMANDS_DIR/$cmd_name"
                 fi
                 echo "  ${COMMAND_PREFIX:-/}${cmd_name%.md}"
             fi
@@ -148,4 +165,7 @@ install_project "$PROJECT"
 
 echo "Setup complete!"
 echo ""
-echo "The skills load automatically in their respective project trees."
+echo "The project skill loads automatically when relevant."
+if [ -n "${INSTALL_RESTART_NOTICE:-}" ]; then
+    echo "$INSTALL_RESTART_NOTICE"
+fi

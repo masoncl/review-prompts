@@ -15,6 +15,12 @@ Where `<agent>` is one of available agents and `<project>` is one of available
 projects that are explicitly stated in the usage message when the script is
 executed with `-h|--help` option.
 
+Codex installs the project context and each command as a skill under
+`${CODEX_HOME:-$HOME/.codex}/skills`. Start a new Codex session after
+installation, then invoke command skills with `$`, such as `$kreview` or
+`$systemd-debug`. The command names below use `/` on agents with native slash
+commands.
+
 ## Available Commands
 
 | Project | Review | Debug | Verify |
