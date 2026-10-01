@@ -15,7 +15,8 @@ subsystem.
 ## Initialization and Data Structures
 
 *   **`struct i2c_device_id`**: Initialized arrays of type `struct i2c_device_id`
-    must be declared const and use named initializers.
+    must be declared const. New or changed entries should use named
+    initializers; positional entries in existing tables are not bugs.
 
 ## Transfer Buffers and DMA Safety
 

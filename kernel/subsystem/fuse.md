@@ -18,7 +18,11 @@ fuse reads the submission queue entry through the ->uring_cmd handler.
 uring_cmd handlers should be accessing the sqe fields.
 
 **Not a bug**: reading `cmd->sqe` fields at issue time instead of caching the
-sqe's fields at prep time. `uring_cmd` has no `->prep()` and does not need
-one, since the SQE is stable at issue time (the first issue runs while the
-ring slot is valid and io_uring copies the whole SQE before any async
-retries).
+sqe's fields at prep time. A `->uring_cmd()` handler has no prep hook and
+does not need one: the first issue runs while the ring slot is valid, and
+io_uring copies the whole SQE (`io_req_sqe_copy()`) before it punts the
+request to io-wq or poll, or queues it behind a link. No copy is made after
+the handler returns `-EIOCBQUEUED`, or on a reissue queued with
+`io_uring_cmd_issue_blocking()`. fuse reads the SQE only on the path from
+`fuse_uring_cmd()`, before that function returns, and does not call
+`io_uring_cmd_issue_blocking()`.

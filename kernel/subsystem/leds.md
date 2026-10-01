@@ -20,7 +20,7 @@ Failing to use managed registration APIs (`devm_*`) in probe functions or incorr
 ```c
 // WRONG: Manual lifecycle management with bad removal ordering
 static int my_led_probe(struct platform_device *pdev) {
-    struct my_led_data *ddata = devm_kzalloc(&pdev->dev, sizeof(*ddata), GFP_KERNEL);
+    struct my_led_data *ddata = kzalloc(sizeof(*ddata), GFP_KERNEL);
     ...
     // Unmanaged registration
     ret = led_classdev_register(&pdev->dev, &ddata->cdev);

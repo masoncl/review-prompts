@@ -2,14 +2,14 @@
 
 ## Coding style
 
-- Code must follow guildelines in `Documentation/hwmon/submitting-patches.rst`.
+- Code must follow guidelines in `Documentation/hwmon/submitting-patches.rst`.
 
 - enum values in this subsystem are traditionally lowercase.
   Uppercase is permitted, but not mandatory.
 
 ## Arithmetic
 
-- Check for overflows and underflows in arithmetc calculations
+- Check for overflows and underflows in arithmetic calculations
 
 - Check for field overflows in bit field operations
 
@@ -18,8 +18,11 @@
 HWMON is an API in Linux, not just a physical layout. Hardware Monitoring
 drivers should reside in the `drivers/hwmon/` directory.
 
-Registering hardware monitoring devices from outside `drivers/hwmon/` violates
-layering, increases driver complexity, and bypasses maintainer review.
+In a new driver, registering hardware monitoring devices from outside
+`drivers/hwmon/` violates layering, increases driver complexity, and bypasses
+maintainer review. Many existing drivers outside `drivers/hwmon/` register
+hardware monitoring devices (e.g. under `drivers/net/` and
+`drivers/platform/`); that existing code is not a bug.
 
 - If the main functionality of a chip is not hardware monitoring (such as network
   interface controllers, drm controllers, or a platform specific multi-function

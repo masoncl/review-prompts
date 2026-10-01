@@ -11,13 +11,13 @@ Using non-standard commit message prefixes or naming schemes hinders Git history
 
 ## MFD API Scope & Target Directory
 
-MFD is an API in Linux, not just a physical layout. Core drivers registering multiple children must live in `drivers/mfd/` and only they should call `mfd_add_devices()`.
+MFD is an API in Linux, not just a physical layout. New core drivers registering multiple children belong in `drivers/mfd/`, and so do new calls to `mfd_add_devices()`.
 
 Placing MFD logic outside `drivers/mfd/` or using it for single-function devices violates layering, increases driver complexity, and bypasses maintainer review.
 
 - Do not use the MFD API for simple devices with a single function. Use it only for devices registering multiple children in different subsystems via the MFD API or `of_platform_populate()`.
-- Core MFD drivers must be located in `drivers/mfd/`.
-- Call `mfd_add_devices()` or `devm_mfd_add_devices()` only from within `drivers/mfd/`.
+- New core MFD drivers belong in `drivers/mfd/`.
+- New calls to `mfd_add_devices()` or `devm_mfd_add_devices()` belong in `drivers/mfd/`. Existing callers elsewhere (e.g. `drivers/soc/samsung/exynos-pmu.c`, `drivers/misc/cardreader/rtsx_pcr.c`) are not bugs.
 - For simple MFDs, consider if standard DT compatible properties like `"simple-mfd"` or `"simple-pm-bus"` can be used instead of writing a custom driver.
 
 ## Parent-Child Data Sharing & Bespoke Accessors
@@ -44,12 +44,12 @@ struct my_parent_data *ddata = dev_get_drvdata(pdev->dev.parent);
 
 ## Child Platform Data & Match Data
 
-Cell arrays (`mfd_cell` array) must be `static const`. Do not pass dynamic platform data via the `.data` field of device match tables (e.g. `of_device_id`).
+Cell arrays (`mfd_cell` array) should be `static const`. Do not pass dynamic platform data via the `.data` field of device match tables (e.g. `of_device_id`).
 
-Passing complex pointers through match data tables causes memory safety hazards and leads to initialization ordering races.
+These are preferences for new code, not bugs: `drivers/mfd/simple-mfd-i2c.c` passes its cell arrays through `.data`.
 
-- **REPORT as bugs**: Platform data for child devices (e.g., `mfd_cell` arrays) passed via the `.data` field of `of_device_id`, `spi_device_id`, or similar match tables.
-- Define `mfd_cell` arrays as `static const`.
+- In new code, do not pass platform data for child devices (e.g., `mfd_cell` arrays) via the `.data` field of `of_device_id`, `spi_device_id`, or similar match tables.
+- Define `mfd_cell` arrays as `static const`. An array that the driver writes at probe time (e.g. `rtc_devs[]` in `drivers/mfd/88pm800.c`) cannot be `const`.
 - To pass device-variant information, store an `enum` or integer ID in the match table's `.data` field, and use a `switch` statement in the C probe code to select the correct `static const mfd_cell` array.
 - For `mfd_cells`, do not create local copies for dynamic amendments; always use static references.
 
