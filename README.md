@@ -1,7 +1,7 @@
 # Review Prompts for AI-Assisted Code Review
 
-AI-assisted code review prompts for Linux kernel, systemd, iproute, and
-nfs-utils development. Works with Claude Code and other AI tools.
+AI-assisted code review prompts for Linux kernel, systemd, iproute,
+nfs-utils, and pahole development. Works with Claude Code and other AI tools.
 
 ## Quick Start
 
@@ -23,6 +23,7 @@ executed with `-h|--help` option.
 | systemd | `/systemd-review` | `/systemd-debug` | `/systemd-verify` |
 | iproute | `/iproute-review` | `/iproute-debug` | `/iproute-verify` |
 | nfs-utils | `/nfs-utils-review` | `/nfs-utils-debug` | `/nfs-utils-verify` |
+| pahole | `/pahole-review` | `/pahole-debug` | `/pahole-verify` |
 
 ## Project Documentation
 
@@ -30,6 +31,7 @@ executed with `-h|--help` option.
 * [systemd Review Prompts](systemd/README.md) - systemd specific patterns and protocols
 * [iproute Review Prompts](iproute/README.md) - iproute specific patterns and protocols
 * [nfs-utils Review Prompts](nfs-utils/README.md) - nfs-utils specific patterns and protocols
+* [pahole Review Prompts](pahole/README.md) - pahole specific patterns and protocols
 
 ## How It Works
 
@@ -43,6 +45,7 @@ The skills detect your working directory and load appropriate context:
 - In a systemd tree: systemd skill loads automatically
 - In an iproute tree: iproute skill loads automatically
 - In an nfs-utils tree: nfs-utils skill loads automatically
+- In a pahole tree: pahole skill loads automatically
 
 ## Structure
 
@@ -74,6 +77,11 @@ review-prompts/
 │   ├── slash-commands/       # /nfs-utils-review, -debug, -verify
 │   ├── subsystem/            # Per-component guides + trigger index
 │   └── *.md                  # Core protocol files
+│
+├── pahole/                   # pahole prompts
+│   ├── skills/               # Skill template
+│   ├── slash-commands/       # /pahole-review, /pahole-debug, /pahole-verify
+│   └── *.md                  # Subsystem and protocol files
 │
 └── README.md                  # This file
 ```
