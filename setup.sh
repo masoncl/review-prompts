@@ -29,14 +29,15 @@ usage() {
     echo ""
     echo "Arguments:"
     echo "  <agent>     Install skill and commands for this code agent"
-    echo "              Available agents: claude, codex, opencode, gemini,"
-    echo "                                goose, kiro-cli"
+    echo "              Available agents: agy, claude, cline, codex, opencode,"
+    echo "                                gemini, goose, kiro-cli"
     echo "  <project>   Install skills and commands for this project"
     echo "              Available projects: iproute, kernel, nfs-utils, pahole,"
     echo "                                  systemd"
     echo ""
     echo "Options:"
-    echo "  -h, --help  Show this help message and exit"
+    echo "  -d, --dir <dir>  Base directory to install into (overrides agent default)"
+    echo "  -h, --help       Show this help message and exit"
 }
 
 # Skill and slash commands installation process.
@@ -104,14 +105,40 @@ install_project() {
         done
     fi
 
+    if declare -F agent_post_install > /dev/null; then
+        agent_post_install "$project_dir"
+    fi
+
     echo ""
 }
 
 # Handle args and flags
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    usage
-    exit 0
-fi
+INSTALL_DIR=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -d|--dir)
+            if [ -z "${2:-}" ]; then
+                echo "Error: -d/--dir requires a directory argument"
+                exit 1
+            fi
+            INSTALL_DIR="$2"
+            shift 2
+            ;;
+        -*)
+            echo "Error: unknown option: $1"
+            echo ""
+            usage
+            exit 1
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 if [ "$#" -ne 2 ]; then
     echo "Error: expected 2 arguments (<agent> <project>), got $#"
@@ -139,9 +166,24 @@ fi
 # Load agent configuration
 source "$AGENT_SCRIPT"
 
+if [ -n "$INSTALL_DIR" ]; then
+    if [ -n "${SKILL_BASE_DIR:-}" ]; then
+        SKILL_BASE_DIR="$INSTALL_DIR/$(basename "$SKILL_BASE_DIR")"
+    fi
+    if [ -n "${COMMANDS_DIR:-}" ]; then
+        COMMANDS_DIR="$INSTALL_DIR/$(basename "$COMMANDS_DIR")"
+    fi
+    if [ -n "${AGENTS_DIR:-}" ]; then
+        AGENTS_DIR="$INSTALL_DIR/$(basename "$AGENTS_DIR")"
+    fi
+fi
+
 echo "Review prompts directory: $SCRIPT_DIR/$PROJECT"
 echo "Setting up for agent: $AGENT"
 echo "Setting up for project: $PROJECT"
+if [ -n "$INSTALL_DIR" ]; then
+    echo "Install directory: $INSTALL_DIR"
+fi
 echo ""
 
 install_project "$PROJECT"
