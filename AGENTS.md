@@ -18,14 +18,13 @@ from, and "this repository" is the one you are in.
 | `kernel/review-core.md` | The file a review reads first. It names the other files a review loads, and when |
 | `kernel/subsystem/subsystem.md` | How a review finds what the guides say about a patch: how to choose the build directory, how to search its index, and a short table of the guides that are loaded whole |
 | `kernel/subsystem/README.md` | What a subsystem guide is and how to read one |
-| `kernel/subsystem/fuse.md`, `hwmon.md`, `leds.md`, `media.md`, `mfd.md` | Guides written by hand, which have no questions yet. A review loads them whole, from a table in `subsystem.md` |
 | `kernel/subsystem/build/linus/` | The built guides, from the most recent tree of Linus's that was scanned. `linus` is not a release: `kernel-version.yaml` says which release that was. Everything in the directory is build output |
 | `kernel/subsystem/build/linus/*.md` | The guides a review loads |
 | `kernel/subsystem/build/linus/subsystem-guide-index.txt` | The index a review searches: one line for each answer, with its guide, line, source file and symbols |
 | `kernel/subsystem/build/linus/answers/` | The answers the guides are built from |
 | `kernel/subsystem/build/linus/kernel-version.yaml` | The release and the commit that the whole build was made from |
 | `kernel/subsystem/questions/` | The questions the guides are built from. Written by hand |
-| `kernel/subsystem/verbatim/` | Text that a build inserts unchanged, including the race-tracing method, which the build copies to `races.md`. Written by hand |
+| `kernel/subsystem/verbatim/` | Text that a build inserts unchanged: the race-tracing method, which the build copies to `races.md`, the wording of a specification, and the conventions that the maintainers of a subsystem ask for. Written by hand |
 | `kernel/agent/` | The prompts a model follows to review a patch or to build a guide |
 | `kernel/docs/subsystem-questions.md` | How guides are built, how to write a question, how to rebuild, how to add a guide |
 | `kernel/docs/writing-style.md` | How to write prompts, questions, docs and commit messages here |
@@ -108,9 +107,8 @@ Read these first:
 
 - **Don't copy facts from the old hand-written guides.** The ones that a
   built guide replaced were deleted from this repository and remain only in
-  its git history. Most were never checked against current sources. Five
-  guides are still written by hand, since they have no questions yet. To
-  convert one, follow `kernel/docs/convert-guide-agent.md`.
+  its git history. Most were never checked against current sources. To add
+  a guide, follow `kernel/docs/convert-guide-agent.md`.
 - **Check against a kernel tree, not from memory.** Check every function,
   file, lock and return value that a guide names. Finding a name mentioned
   somewhere is not enough. Each name has to be defined where the guide says
@@ -122,7 +120,9 @@ Read these first:
   build directory, which the build writes.
 - **Keep by hand the text that no kernel tree can supply, and have the build
   insert it. Don't drop it.** Such text is a method, such as the race-tracing
-  method, or the wording of a specification. It lives in
+  method, the wording of a specification, or a convention that the
+  maintainers of a subsystem ask for, such as the form of a commit subject.
+  It lives in
   `kernel/subsystem/verbatim/`, and a verbatim item in a question file
   inserts it into a guide. See "Text a build inserts" in
   `kernel/docs/subsystem-questions.md`.

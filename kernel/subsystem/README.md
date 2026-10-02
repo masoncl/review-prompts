@@ -71,9 +71,9 @@ wrong or missing, fix or add the question and rebuild. See "Converting a
 guide" and "Rebuilding" in `kernel/docs/subsystem-questions.md`.
 
 The built guides replaced hand-written guides, which remain only in the git
-history of this repository. Five guides are still written by hand, since they
-have no questions yet: `fuse.md`, `hwmon.md`, `leds.md`, `media.md` and
-`mfd.md`. They are in this directory, and a review loads them whole.
+history of this repository. What a hand-written guide said that no kernel tree
+can supply, such as the form of a commit subject that the maintainers ask for,
+is kept by hand in `verbatim/`, and the build inserts it into the guide.
 
 ## What is in this directory
 
@@ -85,8 +85,7 @@ have no questions yet: `fuse.md`, `hwmon.md`, `leds.md`, `media.md` and
 | `build/linus/kernel-version.yaml` | the kernel the whole build was made from and checked against: the release and the commit | the build |
 | `build/linus/races.md` | the race-tracing method, copied from `verbatim/races.md` | the build, from a hand-written file |
 | `build/linus/subsystem-guide-index.txt` | the index a review searches: one line for each answer, with its guide, line, source file and symbols | the build |
-| `subsystem.md` | how to choose the build directory and search its index, and the table of the guides that a review loads whole | hand |
-| `fuse.md`, `hwmon.md`, `leds.md`, `media.md`, `mfd.md` | guides that have no questions yet. No build makes them and no index covers them | hand |
+| `subsystem.md` | how to choose the build directory and search its index, the table of the guides that a review loads whole, and the table of the guides that hold conventions | hand |
 | `subjective-review.md` | the prompt for reviewing code quality. It is not a subsystem guide | hand |
 | `README.md` | this file | hand |
 | `questions/` | the question files | hand |

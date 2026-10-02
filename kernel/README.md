@@ -121,8 +121,9 @@ explains what the models are most likely to have wrong.
   patch touches, and reads the answers that the search finds.
 - A few guides are loaded whole, since they apply to a kind of file or a kind
   of bug: races, selftests, Kconfig, the build system and Rust.
-- Five guides are still written by hand and are loaded whole: fuse, hwmon,
-  leds, media and mfd.  They are in subsystem/, and have no questions yet.
+- Three guides also hold the conventions that the maintainers of the
+  subsystem ask of new code: hwmon, leds and mfd.  That text is kept by hand
+  in subsystem/verbatim/, and the build inserts it.
 
 | To learn | Read |
 |---|---|

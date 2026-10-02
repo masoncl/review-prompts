@@ -69,8 +69,8 @@ rely on what a guide says about it.
 > are in **the build directory you chose**. For example, with `build/linus/`,
 > `subsystem-guide-index.txt` resolves to
 > `review-prompts/kernel/subsystem/build/linus/subsystem-guide-index.txt`.
-> The guides under "Guides written by hand" and `subjective-review.md` are
-> beside this file, and `callstack.md` is in `review-prompts/kernel/`.
+> `subjective-review.md` is beside this file, and `callstack.md` is in
+> `review-prompts/kernel/`.
 
 ### Search the index for what the patch touches
 
@@ -147,19 +147,25 @@ change can match more than one row: load every guide that matches.
 | Build System | Kbuild, Makefile, scripts/, tools/, `gnu11`, `-funsigned-char`, `-fno-strict-aliasing`, and code built with its own flags: arch/*/boot/, drivers/firmware/efi/libstub/, realmode, purgatory, vdso | build.md |
 | Rust | any Rust code | rust.md |
 
-### Guides written by hand
+### Conventions of a subsystem
 
-These guides have no questions yet, so no build makes them and no index covers
-them. They are beside this file, not in a build directory. Load the whole
-guide when its row matches.
+The maintainers of some subsystems ask for conventions that no code states,
+such as the form of a commit subject or the name of a driver's private data.
+A guide holds them in one answer, titled "Conventions for new code". A search
+of the index for the symbols of a patch can miss that answer, so read it when
+a patch touches the directory in its row.
 
-| Subsystem | Triggers | File |
-|-----------|----------|------|
-| FUSE | fs/fuse/, fuse_uring_, fuse_chan_, fuse_dev_, FUSE_IO_URING, FUSE_OVER_IO_URING | fuse.md |
-| hwmon | drivers/hwmon/, hwmon_*, asus-ec-sensors, ec_board_info | hwmon.md |
-| LEDs | drivers/leds/, include/linux/leds.h, led_classdev_register, devm_led_classdev_register | leds.md |
-| Media/V4L2 | drivers/media/, include/media/, v4l2_subdev_, V4L2_SUBDEV_, MEDIA_BUS_FMT_ | media.md |
-| Multi-Function Devices (MFD) | drivers/mfd/, include/linux/mfd/, mfd_add_devices, devm_mfd_add_devices, mfd_cell, mfd_remove_devices | mfd.md |
+| The patch touches | Read "Conventions for new code" in |
+|---|---|
+| drivers/hwmon/ | hwmon.md |
+| drivers/leds/ | leds.md |
+| drivers/mfd/ | mfd.md |
+
+Find the line of each answer with:
+
+```
+grep -n -F 'Conventions for new code' subsystem-guide-index.txt
+```
 
 ## Optional Patterns
 

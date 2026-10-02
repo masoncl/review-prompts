@@ -204,6 +204,15 @@ into the guide under that title, exactly as it is:
 The files live in `kernel/subsystem/verbatim/` and are kept by hand. The five
 for `gic-v3` were copied byte for byte from the hand-written guide.
 
+The same way keeps what the maintainers of a subsystem ask for and no code
+states, such as the form of a commit subject. `hwmon`, `leds` and `mfd` each
+have a file `<guide>-conventions.md`, inserted under the title "Conventions for
+new code". Such a file states each convention once, says that existing code
+may differ, and leaves out what tells a reviewer what to report.
+`kernel/subsystem/subsystem.md` has a table that sends a review to those
+answers, since a search of the index by symbol can miss them. Add a row there
+when you add such a file.
+
 A whole guide can be kept by hand the same way. A question file whose header
 has `- verbatim: ../verbatim/races.md` and no questions builds to a copy of
 that file. That is how the race-tracing method, split out of the hand-written
@@ -1419,11 +1428,7 @@ instruction from what is knowledge of the tree.
 
 ## Where things stand
 
-- **Five guides are still written by hand**: `fuse.md`, `hwmon.md`, `leds.md`,
-  `media.md` and `mfd.md`, in `kernel/subsystem/`. They came in after the
-  conversion and have no questions yet. A review loads them whole, from a
-  table in `subsystem.md`.
-- **Every other subsystem guide has been converted.** All 63 have a measurement
+- **Every subsystem guide has been converted.** All 68 have a measurement
   set, a results file and a build set, and a guide built from them, committed
   under `kernel/subsystem/build/linus/`.
 - **The built guides are what a review loads.** They replaced the hand-written
