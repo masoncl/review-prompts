@@ -201,9 +201,9 @@ complete caller analysis.
   - Output: list of pointers you found for the same memory
 - step resource.4: Verify resources are properly initialized, locked, and freed
 - step resource.4b: For any suspected race, including a use-after-free where the other side is asynchronous work, an RCU callback or a workqueue item:
-  - Load `subsystem/locking.md` if not already loaded, and follow its tracing method
+  - Load `races.md` if not already loaded, and follow its tracing method; load `locking.md` for the locking reference it relies on. Both are in the build directory that `subsystem/subsystem.md` tells you to choose
   - For a suspected use-after-free, complete "Step 5: Check Object Lifetime", including the reference budget, before reporting
-  - Output: "subsystem/locking.md loaded: [ y / n ]", plus the `budget:` line for a suspected use-after-free
+  - Output: "subsystem/races.md loaded: [ y / n ]", plus the `budget:` line for a suspected use-after-free
 - step resource.5: Continue into Task 5B, even if you think you've found enough details to complete the analysis
 - Output: Category NUMBER [ list of resources checked: line of code where each resource was assigned ]
 
@@ -212,7 +212,7 @@ complete caller analysis.
 **CRITICAL**: This task catches use-after-free bugs in RCU-protected data structures.
 
 - step rcu.1: For any `call_rcu()`, `synchronize_rcu()`, or `kfree_rcu()` in the diff:
-  - Load `subsystem/rcu.md` if not already loaded
+  - Load `rcu.md` from the build directory that `subsystem/subsystem.md` tells you to choose, if not already loaded
   - Output: "subsystem/rcu.md loaded: [ y / n ]"
 - step rcu.2: Identify what data structures the object is part of (rhashtable, hlist, list, rb-tree, etc.)
   - Output: "Object in data structures: [ list ]"

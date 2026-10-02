@@ -25,6 +25,9 @@ executed with `-h|--help` option.
 | nfs-utils | `/nfs-utils-review` | `/nfs-utils-debug` | `/nfs-utils-verify` |
 | pahole | `/pahole-review` | `/pahole-debug` | `/pahole-verify` |
 
+The kernel has four more commands: `/kseries`, `/korcreview`, `/kslop` and
+`/cocci`. See [kernel/README.md](kernel/README.md).
+
 ## Project Documentation
 
 * [Kernel Review Prompts](kernel/README.md) - Linux kernel specific patterns and protocols
@@ -38,7 +41,9 @@ executed with `-h|--help` option.
 Each project has:
 - **Skill file** - Automatically loads context when working in the project tree
 - **Slash commands** - Quick access to review, debug, and verify workflows
-- **Subsystem files** - Domain-specific knowledge loaded on demand
+- **Subsystem files** - Domain-specific knowledge loaded on demand. For the
+  kernel these are guides built from a kernel tree, which a review searches
+  through an index
 
 The skills detect your working directory and load appropriate context:
 - In a kernel tree: kernel skill loads automatically
@@ -51,25 +56,29 @@ The skills detect your working directory and load appropriate context:
 
 ```
 review-prompts/
+├── setup.sh                   # Installs the skill and slash commands of one project for one agent
+├── agents/                    # Where each agent keeps skills and commands, for setup.sh
+├── AGENTS.md                  # Notes for an agent that works on this repository
+│
 ├── kernel/                    # Linux kernel prompts
 │   ├── skills/               # Skill template
-│   ├── slash-commands/       # /kreview, /kdebug, /kverify
-│   ├── scripts/              # Setup script and utilities
-│   ├── patterns/             # Bug pattern documentation
-│   └── *.md                  # Subsystem and protocol files
+│   ├── slash-commands/       # /kreview, /kseries, /korcreview, /kdebug, /kverify, /kslop, /cocci
+│   ├── agent/                # Prompts for a review split across several agents, and for building the guides
+│   ├── scripts/              # Scripts that run reviews and build the subsystem guides
+│   ├── docs/                 # How the guides are built, and how to write prompts here
+│   ├── examples/             # Sample output
+│   ├── subsystem/            # The questions the subsystem guides are built from, and build/linus/ with the built guides and their index
+│   └── *.md                  # Protocol files
 │
 ├── systemd/                   # systemd prompts
 │   ├── skills/               # Skill template
 │   ├── slash-commands/       # /systemd-review, /systemd-debug, /systemd-verify
-│   ├── scripts/              # Setup script
 │   ├── patterns/             # Bug pattern documentation
 │   └── *.md                  # Subsystem and protocol files
 │
 ├── iproute/                  # iproute prompts
 │   ├── skills/               # Skill template
 │   ├── slash-commands/       # /iproute-review, /iproute-debug, /iproute-verify
-│   ├── scripts/              # Setup script
-│   ├── patterns/             # Bug pattern documentation
 │   └── *.md                  # Subsystem and protocol files
 │
 ├── nfs-utils/                # nfs-utils prompts

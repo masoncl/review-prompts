@@ -1,0 +1,9 @@
+| Job | File | Easy to miss |
+|---|---|---|
+| Contents encryption through the block layer | `fs/crypto/block.c` | There is no fs/crypto/inline_crypt.c and no fs/crypto/bio.c. Built by `fscrypto-$(CONFIG_BLOCK)` in `fs/crypto/Makefile`. `fscrypt_zeroout_range()` is here. |
+| Choice between block layer and CPU | `fscrypt_using_inline_encryption()` in `fs/crypto/fscrypt_private.h` | There is no fscrypt_select_encryption_impl(). True for a regular file when `s_cop->is_block_based` is set, whatever the mount options. |
+| Contents encryption by the CPU, filesystem not block-based | `fs/crypto/crypto.c` | Callers outside `fs/crypto/` are in `fs/ceph/` and `fs/ubifs/`. There is no fscrypt_decrypt_pagecache_blocks() and no fscrypt_decrypt_bio(). |
+| Contents encryption by the CPU, block-based filesystem (ext4, f2fs) | `block/blk-crypto-fallback.c`, outside `fs/crypto/` | Reached from `__blk_crypto_submit_bio()`. Always used without `SB_INLINECRYPT`: `fscrypt_prepare_inline_crypt_key()` then omits `BLK_CRYPTO_CFG_ALLOW_HW`. |
+| Key setup for blk-crypto keys | `fs/crypto/block.c` | `fscrypt_prepare_inline_crypt_key()` and `fscrypt_destroy_inline_crypt_key()` are defined here; `fs/crypto/keysetup.c` only calls them. |
+| `CONFIG_FS_ENCRYPTION_INLINE_CRYPT` | `fs/crypto/Kconfig` | No prompt: `default y if FS_ENCRYPTION && BLOCK`. It guards the `fs/crypto/block.c` declarations and stubs in `fs/crypto/fscrypt_private.h` and `include/linux/fscrypt.h`, not the `fs/crypto/Makefile` line. |
+| Hooks called from filesystem operations | `fs/crypto/hooks.c` holds the `__`-prefixed bodies, for example `__fscrypt_prepare_link()` | The unprefixed wrappers, for example `fscrypt_prepare_link()` and `fscrypt_encrypt_symlink()`, are inline in `include/linux/fscrypt.h` and test `IS_ENCRYPTED()` first. |

@@ -37,19 +37,30 @@ You will be given:
 <prompt_dir>/subsystem/subsystem.md
 ```
 
-After loading `subsystem.md`, scan the diff and commit message against EVERY
-row in the subsystem trigger table. A subsystem matches if ANY of its triggers
-appear — function names, type names, macro calls, file paths, or symbols.
+After loading `subsystem.md`, follow it. `<build_dir>` is the build directory
+that `subsystem.md` tells you to choose, one of the directories in
+`<prompt_dir>/subsystem/build/`.
+
+1. Search `<build_dir>/subsystem-guide-index.txt` for the symbols in the diff.
+   Keep each line whose answer is about code that the patch changes or calls.
+2. Scan the diff and commit message against EVERY row in the table of
+   `subsystem.md`. A row matches if ANY of its triggers appear — function
+   names, type names, macro calls, file paths, or symbols.
 
 **MANDATORY output:**
 ```
+Subsystem index search:
+  [symbol]: [guide]:[line] [title] → reading | not about this patch
+  [symbol]: no line
+  ... (every symbol searched)
 Subsystem trigger scan:
   [subsystem]: [MATCHED trigger] → loading [file] | no match
   ... (every row)
+Answers to read: [list]
 Guides to load: [list]
 ```
 
-Load ALL matched guides in a single parallel Read.
+Read ALL kept answers and load ALL matched guides in a single parallel Read.
 
 Output: `OVERVIEW PHASE 1 COMPLETE - context loaded, <count> guides loaded`
 
@@ -134,7 +145,8 @@ Use `Grep` to find all references to identified globals.
 
 ### 3d. Subsystem Rules Check
 
-Using the subsystem guides loaded in Phase 1, check the ENTIRE diff against
+Using the answers read and the subsystem guides loaded in Phase 1, check the
+ENTIRE diff against
 subsystem-specific invariants. Flag violations that span multiple changes
 (e.g., an invariant requiring consistency across all hunks, not just within
 a single function).

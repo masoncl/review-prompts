@@ -121,11 +121,17 @@ determine if it alters an invariant that other code depends on:
 Record each behavioral change with: `change_id`, `type`, `description`,
 `old_behavior`, `new_behavior`, `shared_resource`.
 
-**1b. Discover subsystem guides.** Using `subsystem.md`, check EVERY row
-against the diff, commit message, and CHANGE files. A subsystem matches if
-ANY trigger appears — function names, type names, macros, file paths, symbols.
+**1b. Discover subsystem guides.** Follow `subsystem.md`. `<build_dir>` is the
+build directory that it tells you to choose, one of the directories in
+`<prompt_dir>/subsystem/build/`. Search
+`<build_dir>/subsystem-guide-index.txt` for the symbols in the diff and the
+CHANGE files, and keep each line whose answer is about code that the patch
+changes or calls. Then check EVERY row of the table in `subsystem.md` against
+the diff, commit message, and CHANGE files. A row matches if ANY trigger
+appears — function names, type names, macros, file paths, symbols.
 
-Load ALL matched guides in a single parallel Read. **In the same message**,
+Read ALL kept answers and load ALL matched guides in a single parallel Read.
+**In the same message**,
 also call ToolSearch for any semcode tools you will need.
 
 **MANDATORY output:**
@@ -133,6 +139,7 @@ also call ToolSearch for any semcode tools you will need.
 STEP 1 COMPLETE:
   Behavioral changes detected: <N>
     - <change_id>: <type> — <description>
+  Subsystem answers read: <list>
   Subsystem guides loaded: <list>
 ```
 
@@ -170,9 +177,9 @@ SEARCH PLAN: <change_id> × <rule_name>
 `grep_functions`/`find_callers` for X"), use those exact searches. The guide
 authors wrote those instructions specifically for this scenario.
 
-**For `locking_protocol` changes:** The guide rules tell you which lock holders to
-search for. If a guide says "REPORT as bugs: functions holding lock X that access
-resource Y before calling Z()," your search is:
+**For `locking_protocol` changes:** The guide tells you which lock holders to
+search for. If a guide says "**Unsafe usage**: holding lock X and accessing
+resource Y before calling Z()", your search is:
 1. `grep_functions(pattern="lock_X")` — find all holders of lock X
 2. For each result, check: does it access resource Y before calling Z()?
 
@@ -213,8 +220,8 @@ mechanically verify against. Write it now — do NOT defer.
   "guide_named_functions": [
     {
       "guide": "<guide>.md",
-      "function": "<function named in rule section containing REPORT directive>",
-      "directive_quoted": "<full REPORT as bugs text>",
+      "function": "<function named in the answer containing the Unsafe usage statement>",
+      "directive_quoted": "<the full Unsafe usage bullet and the Correct bullets under it>",
       "relevant_behavioral_change": "FILE-N-CHANGE-M",
       "action": "FLAG"
     }
@@ -227,11 +234,12 @@ mechanically verify against. Write it now — do NOT defer.
 ```
 
 **`guide_named_functions`**: Extract EVERY function explicitly named in the
-rule section containing a "REPORT as bugs" directive, not just the REPORT line
-itself. Guide rules often name specific functions in the paragraph preceding
-the REPORT directive (e.g., "`check_pmd_still_valid()` / `find_pmd_or_thp_or_none()`
-... **REPORT as bugs**: Functions holding `mmap_write_lock`..."). Include all
-such functions where the directive intersects with a detected behavioral change.
+answer (the bullets under one bold title) that contains an `**Unsafe usage**:`
+or `**Potentially unsafe usage**:` statement, not just that bullet itself. The bullets before it and the "Correct:"
+bullets under it often name the functions that matter (e.g., "`walk_pmd_range()`
+... **Unsafe usage**: a `pmd_entry` that sets `ACTION_AGAIN` whenever ...
+Correct: ... see `mincore_pte_range()`"). Include all such functions where the
+statement intersects with a detected behavioral change.
 These functions MUST be flagged for review even if grep doesn't find them — use
 `find_function` directly.
 
@@ -327,7 +335,8 @@ not make earlier dereferences safe.
 **Verdict classification for Step 6:**
 
 - **Guide-sourced POTENTIAL_BUG**: The issue was found by executing a search
-  plan constructed from a guide's "REPORT as bugs" directive (check
+  plan constructed from a guide's `**Unsafe usage**:` or
+  `**Potentially unsafe usage**:` statement (check
   `guide_intersections` in the debug file). These become `issue_type:
   "potential-issue"` with `subsystem_guide_violation: true` and `guide_directive`
   populated. The guide told us what to search for and what counts as a bug.
@@ -353,13 +362,18 @@ not make earlier dereferences safe.
 
 ### Step 4b: Guide Directive Cross-Reference (MANDATORY)
 
-**Subsystem guide directives are authoritative.** When a guide says "REPORT as
-bugs", do not override with your own reasoning.
+**Subsystem guides are authoritative about the tree they were built from.** A
+directive is an `**Unsafe usage**:` or `**Potentially unsafe usage**:`
+statement in a loaded guide, together with the usages listed under it. When the
+code does what a guide marks unsafe, in none of the correct forms, do not
+override that with your own reasoning. A `**Potentially unsafe usage**:`
+statement gives an unsafe case and a safe one: work out from the code which the
+function is in, and it matches only in the unsafe case.
 
-Verify no guide directive was overridden by agent reasoning. For each "REPORT
-as bugs" directive recorded in the debug file's `guide_intersections` and
-`guide_named_functions`:
-1. Check if any flagged function matches the directive's pattern — either
+Verify no guide directive was overridden by agent reasoning. For each such
+statement recorded in the debug file's `guide_intersections`
+and `guide_named_functions`:
+1. Check if any flagged function matches the unsafe pattern — either
    directly, or because it **calls** a guide-named function in the problematic
    ordering (e.g., guide names `funcA()`, flagged function
    `funcB()` calls it before `funcC()`)
@@ -369,7 +383,7 @@ as bugs" directive recorded in the debug file's `guide_intersections` and
 
 Also check every entry in `regressions_ruled_out`: if the ruled-out function
 appears in `guide_named_functions`, calls a guide-named function, or matches a
-REPORT directive's pattern, reclassify as POTENTIAL_BUG.
+directive's unsafe pattern, reclassify as POTENTIAL_BUG.
 
 Update the debug file's `guide_cross_reference` field:
 ```json
@@ -387,8 +401,8 @@ CROSS-REFERENCE: <function_name>
   Guide refutes dismissal: <yes — quote | no>
 ```
 
-The agent's own analysis CANNOT override explicit guide directives. These
-directives encode domain expertise that has been verified against real bugs.
+The agent's own analysis CANNOT override explicit guide directives. Each was
+checked against the source of the tree the guide was built from.
 A validation check before the exclusion point is TOCTOU, not protection —
 this principle is reiterated here because agents consistently reason past it.
 

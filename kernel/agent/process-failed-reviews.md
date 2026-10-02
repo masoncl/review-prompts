@@ -60,8 +60,9 @@ For each directory, in order:
        Read ./review-failed.md and process it according to the failed-review.md
        instructions. Write your report to ./failed-review-report.md
 
-       You may need to update subsystem guides in <prompt_dir>/subsystem/
-       based on the classification of missed bugs.
+       You may need to add or sharpen questions in <prompt_dir>/subsystem/questions/
+       based on the classification of missed bugs. Never edit a guide in
+       <prompt_dir>/subsystem/*.md: those are build output.
      """
    )
    ```
@@ -73,28 +74,32 @@ For each directory, in order:
    cd <prompt_dir>/.. && git status
    ```
 
-   Look for:
-   - **Modified files**: `modified: kernel/subsystem/*.md`
-   - **New files**: `Untracked files: ... kernel/subsystem/*.md`
+   Look for **modified files** under `kernel/subsystem/questions/`. If a guide
+   itself (`kernel/subsystem/build/linus/<guide>.md`) or anything else under
+   `kernel/subsystem/build/` shows as modified, the agent edited build output:
+   restore it with `git checkout --` and do not commit it.
 
-   If there are ANY changes (modified OR new files) in `kernel/subsystem/`:
+   If there are changes in `kernel/subsystem/questions/`:
    ```bash
    cd <prompt_dir>/.. && \
-     git add -A kernel/subsystem/ && \
+     git add kernel/subsystem/questions/ && \
      git commit -s -m "$(cat <<'EOF'
-   subsystem[/<file>]: <brief description of changes>
+   questions[/<guide>]: <brief description of changes>
 
-   <1-2 sentence explanation of what was added/updated>
+   <1-2 sentence explanation of what is now asked, and that <guide> needs rebuilding>
 
    Learned from: <sha> ("<commit subject>")
    EOF
    )"
    ```
 
-   The `git add -A` stages both new and modified files. Common scenarios:
-   - **New subsystem guide created**: e.g., `kernel/subsystem/drm.md` appears as untracked
-   - **Existing guide updated**: e.g., `kernel/subsystem/btrfs.md` appears as modified
-   - **Trigger table updated**: `kernel/subsystem/subsystem.md` modified to add new entry
+   Common scenarios:
+   - **Question added**: e.g., `kernel/subsystem/questions/drm.md` gains a question
+   - **Question sharpened**: an existing question's text changes, its id does not
+
+   The guides change only when the maintainer rebuilds them with
+   `kernel/scripts/rebuild-guides.sh`; keep a list of the guides that need it and
+   give it at the end.
 
 4. **Mark task completed**
 
@@ -103,26 +108,26 @@ For each directory, in order:
 ## Commit Message Format
 
 ```
-subsystem[/<file>]: <brief description>
+questions[/<guide>]: <brief description>
 
-<What knowledge was added and why it matters>
+<What is now asked and why it matters; <guide> needs rebuilding>
 
 Learned from: <sha> ("<commit subject>")
 ```
 
 Examples:
-- `subsystem: add DRM/Display guide with atomic context rules`
-- `subsystem/drm: add system PM vs runtime PM context section`
-- `subsystem/btrfs: add zoned storage zone limits section`
+- `questions/drm: ask which commit callbacks run in atomic context`
+- `questions/drm: ask what system PM and runtime PM callbacks may do`
+- `questions/btrfs: ask how the active zone limit is enforced`
 
 ## Important Notes
 
 - **Sequential processing required**: Agents must run one at a time to avoid
-  conflicts when updating shared subsystem guides
+  conflicts when updating shared question files
 - **Commit after each directory**: Do not batch commits; commit immediately
   after each directory that produces changes
 - **Skip commits when no changes**: If the failed-review agent classifies all
-  bugs as `process error` or `other`, there will be no guide changes to commit
+  bugs as `process error` or `other`, there will be no question changes to commit
 - **Use signed commits**: Always use `git commit -s`
 
 ## Reference
@@ -136,11 +141,16 @@ Examples:
 │   └── ...
 ├── subsystem/
 │   ├── subsystem.md
-│   ├── networking-core.md
-│   ├── networking-drivers.md
-│   ├── drm.md
-│   ├── locking.md
-│   └── ...
+│   ├── questions/            (what the guides are built from; the only thing edited here)
+│   └── build/linus/          (the built guides; the build writes all of it)
+│       ├── subsystem-guide-index.txt   (the index a review searches)
+│       ├── kernel-version.yaml
+│       ├── networking-core.md
+│       ├── networking-drivers.md
+│       ├── drm.md
+│       ├── locking.md
+│       ├── races.md
+│       └── ...
 ├── technical-patterns.md
 └── ...
 
@@ -165,14 +175,14 @@ PROCESS-FAILED-REVIEWS COMPLETE
 Directories processed: <count>
 Commits made: <count>
 
-Subsystem guides created:
+Code no guide covers (needs a new build set):
   - <path>: <description>
 
-Subsystem guides updated:
-  - <path>: <section added>
+Question files changed (their guides need rebuilding):
+  - <path>: <question id added or sharpened>
 
 Classifications summary:
-  missing subsystem knowledge: <count> (guides updated)
+  missing subsystem knowledge: <count> (questions added or sharpened)
   process error: <count> (no changes)
   other: <count> (no changes)
 ================================================================================

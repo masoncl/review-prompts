@@ -98,8 +98,8 @@ For each modified function:
   kernels. Feature use needs runtime detection, not a build-time assumption.
   See `subsystem/netlink.md`.
 - **Cross-tree changes.** If the patch pairs with a kernel change, the kernel
-  side's invariants are in `../kernel/subsystem/nfsd.md` and
-  `../kernel/subsystem/sunrpc.md` (available when the kernel prompt set is also
+  side's invariants are in `../kernel/subsystem/build/linus/nfsd.md` and
+  `../kernel/subsystem/build/linus/sunrpc.md` (available when the kernel prompt set is also
   installed).
 
 ## Severity Classification

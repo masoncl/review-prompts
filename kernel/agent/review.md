@@ -16,8 +16,8 @@ kernel commit. Each FILE-N represents all changes to a single source file.
 
 ```
 PHASE-1: Bulk context loading
-PHASE-2-SUBSYSTEM: Read subsystem.md, scan every row
-PHASE-2-GUIDES: Load matched subsystem guides
+PHASE-2-SUBSYSTEM: Follow subsystem.md: search the index, scan every row
+PHASE-2-GUIDES: Read the answers found, load matched subsystem guides
 PHASE-2-BIDIR: Bidirectional rule analysis (forward + reverse)
 PHASE-2-NAMED: Named function extraction
 PHASE-2-PLAN: Per-CHANGE planning
@@ -88,35 +88,51 @@ Always append `.json` when reading.
 
 ### Subsystem Guide Loading
 
-Using subsystem.md (already loaded in Phase 1), check EVERY row against the
-patch diff, commit message, and CHANGE files. A subsystem matches if ANY trigger
-appears anywhere — function names, type names, macros, file paths, symbols.
+Follow subsystem.md (already loaded in Phase 1). `<build_dir>` is the build
+directory that subsystem.md tells you to choose, one of the directories in
+`<prompt_dir>/subsystem/build/`.
+
+1. Search `<build_dir>/subsystem-guide-index.txt` for the symbols in the patch
+   diff and the CHANGE files. Keep each line whose answer is about code that
+   the patch changes or calls.
+2. Check EVERY row of the table in subsystem.md against the patch diff,
+   commit message, and CHANGE files. A row matches if ANY trigger appears
+   anywhere — function names, type names, macros, file paths, symbols.
 
 **MANDATORY output:**
 ```
+Subsystem index search:
+  [symbol]: [guide]:[line] [title] → reading | not about this patch
+  [symbol]: no line
+  ... (every symbol searched)
 Subsystem trigger scan:
   [subsystem]: [MATCHED trigger] → loading [file] | no match
   ... (every row in subsystem.md)
+Answers to read: [list]
 Guides to load: [list]
 ```
 
-Enumerate every row. Load ALL matched guides in a single parallel Read.
+Enumerate every row. Read ALL kept answers and load ALL matched guides in a
+single parallel Read.
 **In the same message**, also call ToolSearch for any semcode tools you will
 need (find_function, find_callers, etc.) — these are independent of the
 guide reads and should not be a separate turn.
 
 ### Bidirectional Rule Analysis and Named Function Extraction
 
-After loading guides, for each rule in each guide determine BOTH directions:
+After loading, for each rule in each answer and each guide that you read,
+determine BOTH directions:
 
 1. **Forward**: Does the patch's new code satisfy the rule?
 2. **Reverse**: Does the patch change an invariant that OTHER code depends on?
    If a guide says "function X requires lock L" and the patch changes locking
    to no longer hold L, the bug is in X — the patch CAUSES it.
 
-Extract EVERY function explicitly named in guide text ("See X()", "REPORT as
-bugs" directives). For each, if the patch touches the invariant the rule
-documents, add to PHASE 3 loading plan with tag "GUIDE-NAMED".
+Extract EVERY function explicitly named in guide text ("see `x()`",
+`**Unsafe usage**:` and `**Potentially unsafe usage**:` statements and the
+usages listed under them). For
+each, if the patch touches the invariant the rule documents, add to PHASE 3
+loading plan with tag "GUIDE-NAMED".
 
 ### Per-CHANGE Planning
 
@@ -164,9 +180,19 @@ For each rule from PHASE 2:
 - If the rule names specific functions, check if the change invalidates their
   assumptions about locking, ordering, or preconditions.
 
-**Subsystem guide directives are authoritative.** When a guide says "REPORT as
-bugs", do not override with your own reasoning. A validation check before the
-exclusion point is TOCTOU, not protection.
+**Subsystem guides are authoritative about the tree they were built from.** A
+guide does not explain the subsystem: every line is a place where the code
+differs from what you would assume, checked against the source. When a guide
+marks a usage `**Unsafe usage**:` and the change does it, with none of the
+correct usages listed under it, do not override that with your own reasoning. A
+validation check before the exclusion point is TOCTOU, not protection.
+
+A `**Potentially unsafe usage**:` statement is different: the usage breaks in
+one case and is safe in another, and the bullets under it say which is which.
+Work out from the code which case the change is in, and say what you read that
+decided it. It is a bug only in the unsafe case. If the change is in neither
+case the guide describes, treat the usage as unsafe until the code shows
+otherwise.
 
 ### Step 3: Write Initial Debug File
 
@@ -206,9 +232,12 @@ issue type, location (file/line/function), description, evidence.
 
 ### Step 6b: Guide Directive Cross-Reference (MANDATORY)
 
-Verify no guide directive was overridden by agent reasoning. For each "REPORT
-as bugs" directive in loaded guides:
-1. Check if this CHANGE matches the directive's pattern
+Verify no guide directive was overridden by agent reasoning. A directive is an
+`**Unsafe usage**:` or `**Potentially unsafe usage**:` statement in a loaded
+guide, together with the usages listed under it. For each one:
+1. Check if this CHANGE matches the unsafe pattern and none of the correct
+   usages under it. For a `**Potentially unsafe usage**:` statement, check that
+   it matches the unsafe case and not the safe one
 2. If matched, verify a corresponding issue was collected in Step 6
 3. If no issue collected: **CONFLICT** — add issue with category
    `guide-directive` and verdict `UNCERTAIN`

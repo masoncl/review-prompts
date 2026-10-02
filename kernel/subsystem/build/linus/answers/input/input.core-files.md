@@ -1,0 +1,10 @@
+| Job | File | Easy to miss |
+|---|---|---|
+| `struct input_device_id`, its match flags such as `INPUT_DEVICE_ID_MATCH_BUS`, its limits such as `INPUT_DEVICE_ID_KEY_MAX` | `include/linux/device-id/input.h` | `include/linux/mod_devicetable.h` holds no definition of them, only `#include "device-id/input.h"`; `include/linux/input.h` includes `<linux/device-id/input.h>` directly, not `include/linux/mod_devicetable.h` |
+| `struct serio_device_id`, `SERIO_ANY` | `include/linux/device-id/serio.h` | included by `include/linux/serio.h`; not defined in `include/linux/mod_devicetable.h` |
+| uinput kernel-side state: `struct uinput_device`, `struct uinput_request` | `drivers/input/misc/uinput.c` | there is no include/linux/uinput.h in this tree; the only uinput header is `include/uapi/linux/uinput.h` |
+| Touchscreen overlay helpers, such as `touch_overlay_map()` and `touch_overlay_process_contact()` | `drivers/input/touch-overlay.c`, `include/linux/input/touch-overlay.h` | separate from `drivers/input/touchscreen.c`; the only driver that includes the header is `drivers/input/touchscreen/st1232.c` |
+| What `input-core.o` contains | `input-core-y` in `drivers/input/Makefile` | seven objects: `input.o`, `input-compat.o`, `input-mt.o`, `input-poller.o`, `ff-core.o`, `touchscreen.o`, `touch-overlay.o`; none has a Kconfig symbol of its own, all are built with `CONFIG_INPUT` |
+| Declarations private to the input core | `drivers/input/input-core-private.h` | declares `input_mt_release_slots()` and `input_handle_event()`; included only by `drivers/input/input.c` and `drivers/input/input-mt.c` |
+| Compat conversion of `struct input_event` (both directions) and `struct ff_effect` (from user only) | `drivers/input/input-compat.c`, `drivers/input/input-compat.h` | also defines `input_bits_to_string()`; the header is included by `drivers/input/input.c`, `drivers/input/evdev.c` and `drivers/input/misc/uinput.c` |
+| Vivaldi function-row map helper | `drivers/input/vivaldi-fmap.c`, `include/linux/input/vivaldi-fmap.h` | built under `CONFIG_INPUT_VIVALDIFMAP`, beside the sparse and matrix keymap libraries |

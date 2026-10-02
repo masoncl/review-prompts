@@ -1,0 +1,5 @@
+# The kernel tree every guide in this directory was built from and checked
+# against: the release it is based on and the commit. Written by
+# kernel/scripts/build-guides.py --record; do not edit by hand.
+kernel: v7.3-rc5
+sha: 72d3fcf802c45d00b300f25b848a93c3a2bd7c7e

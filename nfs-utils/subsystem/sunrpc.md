@@ -127,7 +127,7 @@ decision. When reviewing a change to a `xdr_*` routine or its callers:
 
 ## Cross-references
 
-- `../../kernel/subsystem/sunrpc.md` — kernel-side transport, slot, and GSS
+- `../../kernel/subsystem/build/linus/sunrpc.md` — kernel-side transport, slot, and GSS
   invariants (when the kernel prompt set is installed).
 - `statd.md` — the NSM service built on this machinery.
 - `export.md` — the MOUNT service and the cache upcall loop that

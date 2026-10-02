@@ -1,0 +1,8 @@
+| Job | File | Easy to miss |
+|---|---|---|
+| Definition of `struct i2c_device_id` | `include/linux/device-id/i2c.h` | Not in `include/linux/mod_devicetable.h`, which gets it only through its `#include "device-id/i2c.h"`. `include/linux/i2c.h` includes `<linux/device-id/i2c.h>` directly and has no include of `mod_devicetable.h`. `I2C_NAME_SIZE` and `I2C_MODULE_PREFIX` are defined in the same file. |
+| SMBus alert, creating the ARA client | `drivers/i2c/i2c-core-smbus.c` | `i2c_new_smbus_alert_device()` is here and is built into `i2c-core.o` unconditionally. `i2c_setup_smbus_alert()` is here too, under `IS_ENABLED(CONFIG_I2C_SMBUS)`. |
+| SMBus alert, the "smbus_alert" driver and `i2c_handle_smbus_alert()` | `drivers/i2c/i2c-smbus.c` | Built by `CONFIG_I2C_SMBUS`. |
+| SPD handling | `drivers/i2c/i2c-smbus.c` | Under `IS_ENABLED(CONFIG_DMI)`, in a file built by `CONFIG_I2C_SMBUS`. `i2c_register_spd()` is `static` and takes `bool write_disabled`. Callers use `i2c_register_spd_write_disable()` or `i2c_register_spd_write_enable()`. |
+| Component prober | `drivers/i2c/i2c-core-of-prober.c` | Linked into `i2c-core.o` by `CONFIG_OF_DYNAMIC`. `include/linux/i2c-of-prober.h` declares the functions only under `IS_ENABLED(CONFIG_OF_DYNAMIC)` and has no stubs for the other case. |
+| Core's internal helpers | `drivers/i2c/i2c-core.h` | Not included by `drivers/i2c/i2c-core-of-prober.c`; included by `drivers/i2c/i2c-boardinfo.c`. `i2c_check_7bit_addr_validity_strict()` and `i2c_dev_irq_from_resources()` are not exported, so code outside `i2c-core.o` that is built as a module cannot call them. |

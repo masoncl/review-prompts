@@ -90,8 +90,8 @@ long-running root daemon.
 ## Relationship to the Kernel Prompts
 
 Several changes here pair with a kernel change. When the kernel prompt set is
-also installed, `../kernel/subsystem/nfsd.md` and
-`../kernel/subsystem/sunrpc.md` hold the kernel-side invariants — useful for
+also installed, `../kernel/subsystem/build/linus/nfsd.md` and
+`../kernel/subsystem/build/linus/sunrpc.md` hold the kernel-side invariants — useful for
 `nfsdctl` netlink work and export cache upcalls. These prompts do not depend
 on the kernel set being present.
 

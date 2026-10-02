@@ -26,12 +26,13 @@ the Netlink and the Export rows.
 ## Cross-Tree References
 
 When a patch pairs with a kernel-side change, the kernel invariants live in
-the kernel prompt set (installed separately):
+the kernel prompt set (installed separately). `build/linus/` holds the guides
+built from the most recent tree of Linus's that was scanned:
 
-- `../../kernel/subsystem/nfsd.md` — nfsd file layout, trust boundaries, XDR
+- `../../kernel/subsystem/build/linus/nfsd.md` — nfsd file layout, trust boundaries, XDR
   codec, file handle and stateid lifecycles, the nfsd netlink interface,
   re-export.
-- `../../kernel/subsystem/sunrpc.md` — SunRPC client and server transport
+- `../../kernel/subsystem/build/linus/sunrpc.md` — SunRPC client and server transport
   invariants, GSS patterns.
 
 These are useful context for "does the userspace side match what the kernel

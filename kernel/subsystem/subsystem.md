@@ -1,97 +1,165 @@
 # Subsystem Guide Index
 
-Load subsystem guides from the prompt directory based on what the code
-touches. Each guide contains subsystem-specific invariants, API
-contracts, and common bug patterns. Each subsystem guide may reference
-additional pattern files to load conditionally.
+A subsystem guide lists where this kernel tree differs from what you are
+likely to believe:
 
-A change can match multiple rows. Load **every** matching guide, not
-just the deepest or most specific. For example, code touching
-`arch/arm64/kvm/hyp/` matches the ARM64, KVM, ARM64 KVM (EL1/Host),
-and ARM64 Hyp (EL2) rows — all four guides apply.
+- names that are gone, and what does the job now
+- what a function requires, returns and locks
+- `**Unsafe usage**:` and `**Potentially unsafe usage**:` rules, each with the
+  safe usage beside it
 
-The triggers column below includes both path names, function calls,
-and symbols regexes.
+A guide does not explain its subsystem. Where a guide says nothing, what you
+already know is probably right.
 
 ## Subsystem Guides
 
-> **Path resolution:** every filename in the "File" column below — and in the
-> "Optional Patterns" section — is relative to **this file's directory**:
-> `review-prompts/kernel/subsystem/`. For example,
-> `networking-core.md` resolves to
-> `review-prompts/kernel/subsystem/networking-core.md`.
+### Find the build directory
+
+The built guides are in build directories, in `build/` beside this file. There
+can be several. One of them is always there:
+
+```
+review-prompts/kernel/subsystem/build/linus/
+```
+
+Each build directory holds the guides built from one kernel tree,
+`subsystem-guide-index.txt`, and `kernel-version.yaml`. The line `kernel:` in
+that file is the release of the tree, and the line `sha:` is its commit.
+
+| Directory | Which tree its guides are from |
+|---|---|
+| `build/linus/` | the most recent tree of Linus Torvalds's that was scanned. `linus` is not a release, and the directory is rebuilt as that tree moves on |
+| any other, such as `build/v6.18.y/` | a tree of the series that its name gives. `v6.18.y` is the stable series of `v6.18`: `v6.18` itself, `v6.18.1`, `v6.18.2` and so on |
+
+If the prompt that started this review names a build, use that directory.
+Otherwise choose one:
+
+1. Find the release of the tree under review. The first lines of its
+   `Makefile` give it:
+
+   ```
+   VERSION = 7
+   PATCHLEVEL = 3
+   SUBLEVEL = 0
+   EXTRAVERSION = -rc5
+   ```
+
+   That tree is at `v7.3-rc5`.
+
+   | `SUBLEVEL` | `EXTRAVERSION` | The release |
+   |---|---|---|
+   | 0 | `-rc5` | `v7.3-rc5` |
+   | 0 | empty | `v7.3` |
+   | 2 | empty | `v7.3.2` |
+
+2. List the directories in `build/`, and read `kernel-version.yaml` in each.
+3. Choose the directory whose kernel best suits the tree under review. For
+   example, `build/v6.18.y/` suits a tree at `v6.18.7`.
+4. Say which one you chose, by the name of the directory:
+
+   ```
+   Build directory: linus, built from v7.3-rc5; tree under review: v7.3-rc5
+   ```
+
+A guide describes the tree it was built from. If that release is not the
+release of the tree under review, look up each name in the tree before you
+rely on what a guide says about it.
+
+> **Path resolution:** `subsystem-guide-index.txt` and every guide named below
+> are in **the build directory you chose**. For example, with `build/linus/`,
+> `subsystem-guide-index.txt` resolves to
+> `review-prompts/kernel/subsystem/build/linus/subsystem-guide-index.txt`.
+> The guides under "Guides written by hand" and `subjective-review.md` are
+> beside this file, and `callstack.md` is in `review-prompts/kernel/`.
+
+### Search the index for what the patch touches
+
+A guide is a list of answers, and each answer has a title.
+`subsystem-guide-index.txt` has one line for each answer of every guide:
+
+```
+## <section> ### <title>, <guide>:<line>, <source file>, <symbols>
+```
+
+| Part of the line | What it holds |
+|---|---|
+| `<section>` and `<title>` | the section and the title that the answer is under in its guide |
+| `<guide>:<line>` | the guide, and the line where the answer starts |
+| `<source file>` | the kernel file that the answer is mostly about |
+| `<symbols>` | every function, macro, structure, field and option that the answer names |
+
+A few lines have no source file or no symbols, and a title can contain a
+comma.
+
+The index is long. Search it, and read only the lines that match.
+
+1. List the symbols that the patch touches:
+   - each function that it changes
+   - each function, macro, structure and field on a line that it adds or
+     removes
+2. Search the index for every symbol on your list. For example:
+
+   ```
+   grep -n -w -F -e 'walk_pmd_range' -e 'walk_pud_range' -e 'ACTION_AGAIN' subsystem-guide-index.txt
+   ```
+
+   `-w` matches whole names only, so that `list_for_each_entry` does not also
+   find `list_for_each_entry_rcu`.
+
+   If the search finds no answer about the code that the patch changes, search
+   for each file that the patch changes:
+
+   ```
+   grep -n -w -F -e 'mm/pagewalk.c' subsystem-guide-index.txt
+   ```
+
+3. Read the section and the title of each line that matches. Keep the lines
+   whose answer is about code that the patch changes or calls.
+4. Read each answer that you kept. Open the guide at `<line>` and read to the
+   next title, which is the next line that starts with `**` or with `#`.
+
+A search for `walk_pmd_range` finds lines like these. They are shown here
+without their line numbers, source file and symbols:
+
+```
+## The callback walker ### Walker callbacks, mm-pagetable.md:<line>, ...
+## The callback walker ### PMD callbacks and huge entries, mm-pagetable.md:<line>, ...
+## The callback walker ### Retrying from a callback, mm-pagetable.md:<line>, ...
+```
+
+| The search finds | Do this |
+|---|---|
+| no line | Go on with the review. The guides say nothing about that code, so what you know is probably right |
+| a few lines | Read each answer |
+| many lines for one symbol | The symbol is a common helper. Choose by section and title, or search for a second symbol from the patch |
+
+### Guides to load whole
+
+A search of the index can miss what these guides say, since each applies to a
+kind of file or a kind of bug. Load the whole guide when its row matches. A
+change can match more than one row: load every guide that matches.
 
 | Subsystem | Triggers | File |
 |-----------|----------|------|
-| Networking Core | net/, skb_, sockets, xfrm, dst_, sock_put, release_sock, pskb_may_pull, SNMP_*_STATS | networking-core.md |
-| Networking Drivers | drivers/net/, ethtool_ops, net_device_ops | networking-drivers.md |
-| Netlink | `genl_`, `nla_`, `NLA_`, `NLM_F_`, `nlmsg_`, `netlink_callback`, Documentation/netlink/specs/, files marked `YNL-GEN` | netlink.md |
-| MM Page Tables | `pte_*`, `pmd_*`, `pud_*`, `set_pte`, `ptep_*`, `tlb_*`, `page_vma_mapped_walk`, `walk_page_range`, `zap_pte_range`, mm/memory.c, mm/mprotect.c, mm/pagewalk.c | mm-pagetable.md |
-| Alignment Helpers | `ALIGN`, `ALIGN_DOWN`, `IS_ALIGNED`, `PAGE_ALIGN`, `PAGE_ALIGN_DOWN`, `PAGE_ALIGNED`, `pageblock_align`, `pageblock_aligned`, `pageblock_start_pfn`, `pageblock_end_pfn` | alignment.md |
-| MM Folio/Page Cache | `folio_*`, `page_folio`, `compound_head`, `filemap_*`, `xa_*`, `xas_*`, `page_cache_*`, mm/filemap.c, mm/folio.c, mm/truncate.c | mm-folio.md |
-| MM Large Folios/THP/Hugetlb | `huge_memory`, `hugetlb`, `split_huge_*`, `folio_test_large`, `hstate`, PMD sharing, mm/huge_memory.c, mm/hugetlb.c, mm/memory-failure.c | mm-largepage.md |
-| MM VMA Operations | `vma_*`, `mmap_*`, `vm_area_struct`, `vm_flags`, `anon_vma`, `maple_tree`, mm/vma.c, mm/mmap.c, mm/mmap_lock.c | mm-vma.md |
-| MM Allocation | `alloc_pages`, `__GFP_*`, `kmalloc`, `kzalloc`, `kmem_cache_*`, `slub`, `vmalloc`, `zone_watermark`, `mempool`, `memblock`, `__get_free_page`, `__get_free_pages`, `get_zeroed_page`, `free_page`, `free_pages`, `ARCH_KMALLOC_MINALIGN`, `KMALLOC_MAX_CACHE_SIZE`, mm/page_alloc.c, mm/slub.c, mm/slab_common.c, mm/vmalloc.c | mm-alloc.md |
-| MM Reclaim/Swap/Migration | `vmscan`, `shrink_*`, `lru_*`, `swap_*`, `shmem_*`, `mem_cgroup_*`, `writeback`, `migrate_*`, mm/vmscan.c, mm/swap_state.c, mm/migrate.c, mm/memcontrol.c | mm-reclaim.md |
-| VFS | inode, dentry, vfs_, fs/*.c | vfs.md |
-| LEDs | drivers/leds/, include/linux/leds.h, led_classdev_register, devm_led_classdev_register | leds.md |
-| Locking | spin_lock*, mutex_*, rwsem*, seqlock*, *seqcount* | locking.md |
-| Scheduler | kernel/sched/, sched_, schedule, *wakeup* | scheduler.md |
-| Timers | timer_list, timer_setup, mod_timer, del_timer, hrtimer, delayed_work | timers.md |
-| BPF | kernel/bpf/, tools/lib/bpf/, tools/testing/selftests/bpf, bpf, verifier | bpf.md |
-| BTF Fields | `map_check_btf`, `check_and_init_map_value`, `bpf_obj_free_fields`, `BPF_SPIN_LOCK`, `BPF_TIMER`, `BPF_KPTR` | btf.md |
-| Libbpf API | tools/lib/bpf/, `LIBBPF_API`, `libbpf_err`, `libbpf_err_ptr` | libbpf.md |
-| RCU | rcu*, call_rcu, synchronize_rcu, kfree_rcu, kvfree_call_rcu | rcu.md |
-| Encryption | crypto, fscrypt_ | fscrypt.md |
-| Tracing | trace_, tracepoints | tracing.md |
-| Workqueue | kernel/workqueue.c, work_struct | workqueue.md |
-| Syscalls | `SYSCALL_DEFINE`, `copy_from_user`, `copy_to_user`, `get_user`, `put_user`, any change to syscall parameter validation | syscall.md |
-| btrfs | fs/btrfs/ | btrfs.md |
-| DAX | dax operations | dax.md |
-| Block/NVMe | block layer, nvme | block.md |
-| Boot Parameters | `__setup("`, `early_param("`, `module_param(`, `module_param_named(`, `core_param(`, `boot parameter`, `cmdline`, `command-line` | boot-params.md |
-| DRM/GPU | drivers/gpu/drm/, drm_atomic_, drm_crtc_, hwseq, hw_sequencer | drm.md |
-| Media/V4L2 | drivers/media/, include/media/, v4l2_subdev_, V4L2_SUBDEV_, MEDIA_BUS_FMT_ | media.md |
-| NFSD | fs/nfsd/*, fs/lockd/* | nfsd.md |
-| SunRPC | net/sunrpc/* | sunrpc.md |
-| io_uring | io_uring/, io_uring_, io_ring_, io_sq_, io_cq_, io_wq_, IORING_ | io_uring.md |
-| FUSE | fs/fuse/, fuse_uring_, fuse_chan_, fuse_dev_, FUSE_IO_URING, FUSE_OVER_IO_URING | fuse.md |
-| Cleanup API | `__free`, `guard(`, `scoped_guard`, `DEFINE_FREE`, `DEFINE_GUARD`, `no_free_ptr`, `return_ptr` | cleanup.md |
-| RCU lifecycle | `call_rcu(`, `kfree_rcu(`, `synchronize_rcu(`, `rhashtable_*` + `call_rcu`, `hlist_del_rcu` + `call_rcu`, `list_del_rcu` + `call_rcu` | rcu.md |
-| Power Domains | drivers/pmdomain/, pm_genpd_, of_genpd_, exynos_pd_ | pmdomain.md |
-| PM Runtime | include/linux/pm_runtime.h, pm_runtime_, __pm_runtime_, rpm_idle, rpm_suspend, rpm_resume | pm.md |
-| Sysfs | fs/sysfs/, sysfs_create_group, sysfs_update_group, attribute_group, is_visible | sysfs.md |
-| CXL | drivers/cxl/, cxl_, hmat_get_extended_linear_cache_size | cxl.md |
-| Bluetooth | net/bluetooth/, hci_, HCI_LE_ADV, adv_instances, cur_adv_instance | bluetooth.md |
-| TTY/Serial | drivers/tty/, uart_add_one_port, uart_ops, serial_core | tty.md |
-| PCI | drivers/pci/, pci_epc_, pci_epf_, pci_ep_ | pci.md |
-| SMB/ksmbd | fs/smb/server/, ksmbd_, smb_direct_ | smb-ksmbd.md |
-| Open Firmware (DT) | drivers/of/, of_node, of_find_, of_get_, of_parse_, for_each_child_of_node, for_each_available_child_of_node, of_node_put, of_node_get | of.md |
-| Perf Tools | tools/perf/, openat, fdopendir, closedir | perf.md |
-| Multi-Function Devices (MFD) | drivers/mfd/, include/linux/mfd/, mfd_add_devices, devm_mfd_add_devices, mfd_cell, mfd_remove_devices | mfd.md |
-| MIPS | arch/mips/, tlb_probe, tlb_read, tlb_write_indexed, write_c0_entryhi, read_c0_index, TLBP, TLBR, TLBWI | mips.md |
-| hwmon | drivers/hwmon/, hwmon_*, asus-ec-sensors, ec_board_info | hwmon.md |
-| Wireless/mac80211 | drivers/net/wireless/, net/mac80211/, BSS_CHANGED_, vif_cfg_changed, link_info_changed, bss_info_changed | wireless.md |
+| Race tracing | any suspected race or use-after-free against asynchronous work; loaded on demand by `callstack.md` | races.md |
 | Selftests | tools/testing/selftests/, TEST_PROGS, TEST_FILES, TEST_GEN_FILES | selftests.md |
-| DT Bindings | Documentation/devicetree/bindings/, *.yaml in devicetree | dt-bindings.md |
-| USB Storage | drivers/usb/storage/, unusual_devs.h, UNUSUAL_DEV, USB_SC_, USB_PR_ | usb-storage.md |
-| ATA/libata | drivers/ata/, ata_dev_, ata_port_, ata_read_log_, ATA_QUIRK_ | ata.md |
-| I/O Accessors | writesl, readsl, writesw, readsw, writesb, readsb, __raw_writel, __raw_readl, FIFO | io-accessors.md |
-| Kconfig | Kconfig, `config `, `select `, `depends on `, `tristate `, `bool ` | kconfig.md |
-| Build System | Kbuild, Makefile, scripts/, tools/, `gnu11`, `-funsigned-char`, `-fno-strict-aliasing` | build.md |
-| I2C | drivers/i2c/, i2c_*, include/linux/i2c.h, i2c_transfer, i2c_master_send, i2c_master_recv, i2c_smbus_, i2c_get_dma_safe_msg_buf | i2c.md |
-| HID | drivers/hid/, include/linux/hid.h, hid_device, hid_driver, hid_register_driver, hid_hw_start, hid_hw_stop, hid_input_report, hid_safe_input_report | hid.md |
-| Input | drivers/input/, include/linux/input.h, include/linux/input/, input_dev, input_handler, input_register_, input_report_  | input.md |
-| GPIO | drivers/gpio/, include/linux/gpio/, linux/gpio.h, gpio_chip, gpiochip_, gpio_get_value, gpio_set_value, gpiod_get_raw_value, gpiod_set_raw_value, GPIO_GENERIC, GPIO_REGMAP | gpio.md |
-| Objtool | tools/objtool/, INSN_BUG, INSN_TRAP, decode.c | objtool.md |
-| KHO (Kexec Handover) | lib/test_kho.c, kho_, kho_is_enabled, kho_retrieve_subtree, kho_preserve_folio, kho_add_subtree, register_kho_notifier | kho.md |
+| Kconfig | a Kconfig file, and in one: `config `, `select `, `depends on `, `tristate `, `bool ` | kconfig.md |
+| Build System | Kbuild, Makefile, scripts/, tools/, `gnu11`, `-funsigned-char`, `-fno-strict-aliasing`, and code built with its own flags: arch/*/boot/, drivers/firmware/efi/libstub/, realmode, purgatory, vdso | build.md |
 | Rust | any Rust code | rust.md |
-| KVM | virt/kvm/, include/linux/kvm*, kvm_ | kvm.md |
-| ARM64 | arch/arm64/, sysreg | arm64.md |
-| ARM64 KVM (EL1/Host) | arch/arm64/kvm/ | kvm-arm64.md |
-| ARM64 Hyp (EL2) | arch/arm64/kvm/hyp/, __hyp_, arch/arm64/include/asm/kvm.*\.h, drivers/iommu/arm/arm-smmu-v3/pkvm/ | hyp-arm64.md |
-| ARM GICv3/v4 | drivers/irqchip/irq-gic-v3, drivers/irqchip/irq-gic-v4, vgic-v3, vgic-v4, vgic-its, vgic-mmio, arm-gic-v3\.h, arm-gic-v4\.h, `\bGICD_`, `\bGICR_`, `\bGITS_`, `ICH_LR`, `ICC_SGI1R`, `its_vpe`, `vgic_its` | gic-v3.md |
-| ARM GICv5 | drivers/irqchip/irq-gic-v5, vgic-v5, arm-gic-v5\.h, gicv5_, GICV5_, ICC_PPI_, ICH_PPI_, ICC_ICSR, ICC_IAFFIDR, ICH_CONTEXTR_EL2, IRS_IDR, FEAT_GCIE, GCIE_LEGACY, gsb_sys, gsb_ack | gic-v5.md |
+
+### Guides written by hand
+
+These guides have no questions yet, so no build makes them and no index covers
+them. They are beside this file, not in a build directory. Load the whole
+guide when its row matches.
+
+| Subsystem | Triggers | File |
+|-----------|----------|------|
+| FUSE | fs/fuse/, fuse_uring_, fuse_chan_, fuse_dev_, FUSE_IO_URING, FUSE_OVER_IO_URING | fuse.md |
+| hwmon | drivers/hwmon/, hwmon_*, asus-ec-sensors, ec_board_info | hwmon.md |
+| LEDs | drivers/leds/, include/linux/leds.h, led_classdev_register, devm_led_classdev_register | leds.md |
+| Media/V4L2 | drivers/media/, include/media/, v4l2_subdev_, V4L2_SUBDEV_, MEDIA_BUS_FMT_ | media.md |
+| Multi-Function Devices (MFD) | drivers/mfd/, include/linux/mfd/, mfd_add_devices, devm_mfd_add_devices, mfd_cell, mfd_remove_devices | mfd.md |
 
 ## Optional Patterns
 

@@ -91,21 +91,34 @@ Callees of crash function: <list>
 
 ## Phase 3: Load subsystem guides
 
-Read `<prompt_dir>/subsystem/subsystem.md` and check every row in the trigger
-table against the crash trace functions, types, file paths, and symbols.
-A subsystem matches if any of its triggers appear.
+Read `<prompt_dir>/subsystem/subsystem.md` and follow it. `<build_dir>` is the
+build directory that it tells you to choose, one of the directories in
+`<prompt_dir>/subsystem/build/`.
+
+1. Search `<build_dir>/subsystem-guide-index.txt` for the functions, types and
+   symbols of the crash trace. Keep each line whose answer is about them.
+2. Check every row in the table of `subsystem.md` against the crash trace
+   functions, types, file paths, and symbols. A row matches if any of its
+   triggers appear.
 
 ```
+Subsystem index search:
+  [symbol]: [guide]:[line] [title] -> reading | not about this patch
+  [symbol]: no line
+  ... (every symbol searched)
 Subsystem trigger scan:
   [subsystem]: [MATCHED trigger] -> loading [file] | no match
   ... (every row)
+Answers to read: [list]
 Guides to load: [list]
 ```
 
-Load ALL matched guides in a single parallel Read, along with:
+Read ALL kept answers and load ALL matched guides in a single parallel Read,
+along with:
 - `<prompt_dir>/technical-patterns.md`
 - `<prompt_dir>/callstack.md`
-- `<prompt_dir>/subsystem/locking.md` (if any locking is involved)
+- `<build_dir>/locking.md` (if any locking is involved)
+- `<build_dir>/races.md` (if a race is suspected: the tracing method)
 
 ### Subsystem intersection analysis
 
@@ -122,8 +135,8 @@ The reverse direction catches the most dangerous bugs. When the crash
 involves unexpected state, the guide's rules tell you what other code
 assumed about that state. Load and check that code.
 
-Extract every function explicitly named in guide text (rules, "See X()",
-"REPORT as bugs" directives, examples). For each, determine whether it
+Extract every function explicitly named in guide text (statements, "see `x()`",
+`**Unsafe usage**:` and `**Potentially unsafe usage**:` statements and the usages listed under them). For each, determine whether it
 appears in the crash path or interacts with code in the crash path. If
 so, load its definition.
 
@@ -152,8 +165,14 @@ technical-patterns.md, check the crash path against subsystem-specific
 invariants, API contracts, and known bug patterns before starting
 callstack analysis.
 
-Subsystem guide directives are authoritative. When a guide says "Do NOT
-dismiss X" or "REPORT as bugs", follow that directive.
+A subsystem guide is authoritative about the tree it was built from. It does not
+explain the subsystem: every line in it is a place where the code differs from
+what you would assume, checked against the source (`subsystem/README.md` says how
+to read one). Where a guide contradicts your assumption, go with the guide. A
+usage it marks `**Unsafe usage**:` is a bug when the code does it and none of the
+correct forms listed under it applies; do not reason it away. A usage it marks
+`**Potentially unsafe usage**:` is a bug only in the unsafe case it describes:
+work out from the code which case this is.
 
 ### 4b. Callstack analysis
 

@@ -48,7 +48,7 @@ Other gssd points:
 
 - The context blob handed to the kernel has a fixed wire layout. A field
   added on one side without the other silently misparses. Check the kernel
-  side (`../../kernel/subsystem/sunrpc.md`, GSS patterns) when the layout
+  side (`../../kernel/subsystem/build/linus/sunrpc.md`, GSS patterns) when the layout
   changes.
 - Credential cache selection (`krb5_util.c`) picks a ccache by uid and by
   file mtime. Changes to that selection change *which* principal a mount

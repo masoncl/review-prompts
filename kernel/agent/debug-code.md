@@ -81,14 +81,23 @@ From the task assignment, extract:
 
 ### Step 2: Load Subsystem Guides
 
-Scan subsystem.md against the functions and types in your task. Load ALL
-matched guides plus any explicitly listed in subsystem_guides_to_load.
+Follow subsystem.md. `<build_dir>` is the build directory that it tells you to
+choose, one of the directories in `<prompt_dir>/subsystem/build/`. Search
+`<build_dir>/subsystem-guide-index.txt` for the functions and types in your
+task, and read each answer that is about them. Scan the table in subsystem.md
+against the same functions and types. Load ALL matched guides plus any
+explicitly listed in subsystem_guides_to_load.
 
 Output:
 ```
+Subsystem index search:
+  [symbol]: [guide]:[line] [title] -> reading | not about this patch
+  [symbol]: no line
+  ... (every symbol searched)
 Subsystem trigger scan:
   [subsystem]: [MATCHED trigger] -> loading [file] | no match
   ... (every row)
+Answers read: [list]
 Guides loaded: [list]
 ```
 

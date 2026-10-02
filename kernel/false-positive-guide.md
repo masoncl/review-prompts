@@ -171,7 +171,8 @@ the dismissal is invalid. Report the race.
 ### 8.2. Race reference budget (MANDATORY)
 For any suspected use-after-free where the other side is asynchronous work, an
 RCU callback or a workqueue item, apply "Step 5: Check Object Lifetime" in
-`subsystem/locking.md`, loading it if it is not already loaded.
+`races.md`, loading it if it is not already loaded. It is in the build
+directory that `subsystem/subsystem.md` tells you to choose.
 
 Required output: the `budget:` line defined there. If analysis already
 produced one, check it against the code again rather than copying it.
@@ -208,10 +209,12 @@ redzone padding up to the cache alignment.
   allocation is only guaranteed `UART_XMIT_SIZE` alignment, while `foo()`
   masks the low `PAGE_SHIFT` bits of the address."
 
-See "kmalloc Alignment Guarantees" in `subsystem/mm-alloc.md` for the full
-rules, and "Suitability of kmalloc Memory" for the constraints on kmalloc
-memory that are real (`struct page` requirements, silently-ignored
-`__GFP_DMA32`).
+See "kmalloc alignment", under "kmalloc memory" in `mm-alloc.md` in the build
+directory, for
+where the alignment rules differ from what you would assume, and "Pages behind
+kmalloc memory" and "Zone bits passed to kmalloc" in the same section for the
+constraints on kmalloc memory that are real (a page whose reference count
+cannot be taken, zone bits that are dropped or warned about).
 
 ### 10. Intentional backwards compatibility
 - Leaving stub sysfs or procfs files is not required, and also not a regression
@@ -318,8 +321,12 @@ the violation itself is treated as factually correct.
 NOTHING else. Do NOT apply sections 1-14. Do NOT apply TASK POSITIVE.1.**
 
 1. **Does the cited guide rule exist?** Re-read the subsystem guide and confirm
-   the quoted directive actually appears in the guide text. If the agent
-   fabricated or misquoted the rule, eliminate the issue.
+   the quoted `**Unsafe usage**:` or `**Potentially unsafe usage**:` statement
+   actually appears in the guide text, under that label. If the agent
+   fabricated or misquoted the rule, eliminate the issue. For a
+   `**Potentially unsafe usage**:` statement, also confirm the agent said which
+   of its two cases the code is in; if the code is in the safe case, eliminate
+   the issue.
 
 2. **Does the cited code exist?** Confirm the function, variable, or code
    pattern the agent cited is real. Use `find_function` or read the file. If
@@ -327,8 +334,8 @@ NOTHING else. Do NOT apply sections 1-14. Do NOT apply TASK POSITIVE.1.**
    fabricated code path), eliminate the issue.
 
 3. **Does the code actually violate the guide rule?** Read the cited code and
-   the guide rule side by side. Confirm the code does the thing the guide says
-   not to do (or fails to do the thing the guide requires). If the agent
+   the guide rule side by side. Confirm the code does the thing the guide marks
+   unsafe, and is not one of the correct usages the guide lists under it. If the agent
    mismatched rule to code — e.g., the guide prohibits pattern X but the code
    does pattern Y, or the guide requires lock L but the code already holds
    lock L — eliminate the issue.

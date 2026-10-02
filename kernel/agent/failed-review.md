@@ -1,6 +1,6 @@
 ---
 name: failed-review
-description: Reads review-failed.md and updates subsystem guides with generic knowledge that would have caught the missed bugs
+description: Reads review-failed.md and adds or sharpens the questions subsystem guides are built from, so that a rebuilt guide would have caught the missed bugs
 tools: Read, Write, Glob, Bash
 model: sonnet
 ---
@@ -21,14 +21,17 @@ You will be given:
 Read the following files:
 
 1. `./review-failed.md` — the failure report
-2. `<prompt_dir>/subsystem/subsystem-template.md` — the format specification
-   for subsystem guides
-3. `<prompt_dir>/subsystem/subsystem.md` — the trigger table mapping
-   subsystems to guide files
+2. `<prompt_dir>/subsystem/README.md` and the sections "Question files" and
+   "Writing a good question" of `<prompt_dir>/docs/subsystem-questions.md` —
+   what a guide is, and how the questions it is built from are written
+3. `<prompt_dir>/subsystem/subsystem.md` — how a review finds what the guides
+   say about a patch, and how it chooses the build directory. `<build_dir>`
+   below is that directory, one of those in `<prompt_dir>/subsystem/build/`
 4. `<prompt_dir>/technical-patterns.md` — cross-subsystem patterns (to avoid
    duplicating knowledge that belongs there)
-5. `<prompt_dir>/subsystem/locking.md` — locking subsystem guide (many missed
-   bugs involve locking; read this to avoid duplicating its content)
+5. `<build_dir>/locking.md` and `<build_dir>/races.md` —
+   the locking reference and the race-tracing method (many missed bugs involve
+   locking; read these to avoid duplicating their content)
 
 Extract from `review-failed.md`:
 - The list of missed bugs
@@ -43,78 +46,84 @@ For each missed bug, route based on classification:
 
 | Classification | Action |
 |----------------|--------|
-| **missing subsystem knowledge** | Proceed to Step 3 (update subsystem guide) |
+| **missing subsystem knowledge** | Proceed to Step 3 (add or sharpen a question) |
 | **process error** | Record in report only (Step 4) |
 | **other** | Record in report only (Step 4) |
 
 If NO bugs are classified as `missing subsystem knowledge`, skip to Step 4.
 
-## Step 3: Update Subsystem Guides
+## Step 3: Add or Sharpen a Question
+
+The guides in `<prompt_dir>/subsystem/*.md` are build output. **Never edit one.**
+Each is built from the questions in `<prompt_dir>/subsystem/questions/<guide>.md`,
+answered against a kernel tree: a builder asks several models each question from
+memory and writes down only where they are wrong or silent. So knowledge that was
+missing from a guide is a question that was never asked, or one that asked for
+too little. Your job is to fix the question file; the maintainer rebuilds the
+guide.
 
 For each bug classified as `missing subsystem knowledge`:
 
-### 3a: Identify the target subsystem guide
+### 3a: Identify the target question file
 
-From the bug's file path (e.g., `drivers/gpu/drm/xe/xe_oa.c`), determine
-which subsystem guide applies using `<prompt_dir>/subsystem/subsystem.md`.
+From the bug's file path (e.g., `drivers/gpu/drm/xe/xe_oa.c`) and the functions
+it involves, determine which guide applies: search
+`<build_dir>/subsystem-guide-index.txt` for them, and read the names of the
+files under `<prompt_dir>/subsystem/questions/`. Then open
+`<prompt_dir>/subsystem/questions/<guide>.md` beside the built guide,
+`<build_dir>/<guide>.md`.
 
-- If a matching guide exists, read it.
-- If no guide exists, create a new one following `subsystem-template.md`.
-  Use the title format `# <Name> Subsystem Details`. Add an entry to the
-  trigger table in `subsystem.md`.
+- If no guide covers the code, do not create one: a new guide needs a
+  measurement run first (`<prompt_dir>/docs/convert-guide-agent.md`). Record it
+  in the report as "no guide covers this".
 
-### 3b: Draft the new knowledge
+### 3b: Find out why the guide was silent
 
-Extract the core invariant, API contract, or bug pattern from the
-`review-failed.md` suggestions. Rewrite it to be **as generic as possible**:
+Read the subject of the built guide that the bug belongs to, and the questions
+under the same `# Part` in the question file. One of three things is true:
 
-- **Remove all commit SHAs, dates, and author names.** The knowledge must
-  stand on its own without reference to specific commits.
-- **Remove the specific bug instance.** Describe the class of bug, not the
-  one example.
-- **Name functions, types, and fields with backticks.** Follow the style in
-  `subsystem-template.md`.
-- **Open with a consequence paragraph.** State what goes wrong (deadlock,
-  NULL deref, UAF, data corruption, etc.) if the rule is violated.
-- **Include CORRECT / WRONG code examples** only when the pattern is
-  non-obvious. Keep examples minimal — 3-6 lines each.
-- **Do not add workflow steps, checklists, or TodoWrite instructions.**
-  Subsystem guides are knowledge references, not procedures.
-- **Do not duplicate knowledge from `technical-patterns.md` or `locking.md`.**
-  These files already explain general concepts (sleeping in atomic context,
-  lock ordering, refcount lifecycle, error path cleanup, etc.). A subsystem
-  guide should never re-explain WHY a general rule matters or WHAT to do
-  instead — that knowledge already exists.
+- **A question already asks for it and the answer says it.** The review had the
+  knowledge and did not use it: this is a `process error`, not missing knowledge.
+  Record it as such and change nothing.
+- **A question is close but does not ask for it.** Sharpen that question.
+- **Nothing asks about it.** Add a question under the subject whose code it is
+  about.
 
-  **What subsystem guides ADD is the subsystem-specific fact** that makes the
-  general rule apply. Examples:
-  - General rule: "sleeping in atomic context causes deadlock" (already known)
-  - Subsystem fact to add: "`dcn20_optimize_timing_for_fsft()` runs in atomic
-    commit context — no sleeping allowed"
-  - General rule: "check return values for NULL" (already known)
-  - Subsystem fact to add: "`xe_device_get_gt()` can return NULL; use
-    `xe_root_mmio_gt()` when gt 0 is needed and NULL is not acceptable"
+If the missed bug is entirely explained by general knowledge in
+`technical-patterns.md`, `locking.md` or `races.md` and there is no
+subsystem-specific fact behind it, change nothing and say so in the report.
 
-  If the missed bug is entirely explained by existing general knowledge and
-  there is no subsystem-specific fact to add, skip the subsystem update and
-  note this in the report.
+### 3c: Write or sharpen the question
 
-### 3c: Insert into the guide
+Follow "Writing a good question" in `docs/subsystem-questions.md`. In short:
 
-- If the guide already has a section covering the same concept, append the
-  new rules to that section.
-- If not, add a new `## Section` before the `## Quick Checks` section (or
-  at the end if there is no Quick Checks section).
-- Do not reorganize or rewrite existing content. Only add new material.
+- Ask in one of three forms, and ask two or three things, not nine.
+  *Hazard:* what usage of X is unsafe, and what that looks similar is correct?
+  *Contract:* what does X guarantee, return and lock; what must a caller have
+  done first? *Orientation:* where does X live and what does this tree call it?
+- **Ask about the class of bug, not the instance.** No commit SHAs, dates, author
+  names or "since v6.x". Do not describe the patch that was missed.
+- **Never put the answer in the question.** The question is a probe of what
+  models believe; if it states the fact, every model gets it right and the guide
+  will say nothing.
+- Never ask for an inventory (which fields, which callers, which options).
+- Give it `## <prefix>.<id>: <Title>` with a title that names the thing in two to
+  five plain words, `- section:` equal to the name of the `# Part` it sits in,
+  `- relevance: N - <why a reviewer needs it>`, and a "Start from `name()`"
+  pointer to a function or file that exists in the tree.
+- When sharpening, keep the question's id and change as little of its text as
+  will make it ask for the missing thing.
 
-### 3d: Validate the edit
+### 3d: Validate
 
-After editing, re-read the modified file and verify:
-- The new section follows `subsystem-template.md` format
-- No commit SHAs, dates, or instance-specific details leaked in
-- The consequence paragraph exists and states a concrete failure mode
-- All function/type/field names use backticks
-- No workflow steps or checklists were added
+- `<prompt_dir>/scripts/lint-questions.py <prompt_dir>/subsystem/questions/<guide>.md`
+  must exit 0.
+- The built guide `<prompt_dir>/subsystem/<guide>.md` is unchanged.
+- Nothing in the question names a commit, a model or a local path.
+
+The guide does not change until it is rebuilt with
+`<prompt_dir>/scripts/rebuild-guides.sh --tree <linux> <guide>`. Do not run that:
+say in the report which guides need rebuilding.
 
 ## Step 4: Write Report
 
@@ -134,7 +143,7 @@ After editing, re-read the modified file and verify:
 <For each such bug:>
 
 #### Bug N: <short description>
-- **Subsystem guide**: <path to guide file> (created | updated)
+- **Question file**: <path to question file> (question `<id>` added | sharpened); guide needs rebuilding
 - **Section**: <section title added or appended to>
 - **Summary**: <1-2 sentence description of the knowledge added>
 
@@ -176,12 +185,12 @@ FAILED-REVIEW COMPLETE
 
 Reviewed commit: <sha> <subject>
 Total missed bugs: <count>
-  missing subsystem knowledge: <count> (guides updated)
+  missing subsystem knowledge: <count> (questions added or sharpened)
   process error: <count> (no changes)
   other: <count> (no changes)
 
 Guide changes:
-  <path>: <section added/updated> | "no guide changes"
+  <path>: <question id added/sharpened> | "no question changes"
 
 Report: ./failed-review-report.md
 ================================================================================

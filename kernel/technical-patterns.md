@@ -55,9 +55,43 @@
   they introduce larger logic bugs
 - READ_ONCE() is not required when the data structure being read is protected by a lock we're currently holding
 
+### Language and Toolchain Baseline
+
+These hold for every C file built as part of the kernel and every script in the
+tree. Do not report what they permit.
+
+- **GNU C11**: the kernel is built with `-std=gnu11`
+  (`Documentation/process/programming-language.rst`). Statement expressions,
+  `typeof`, case ranges, zero-length arrays and other GNU extensions are not
+  defects.
+- **`char` is unsigned** on every architecture (`-funsigned-char` in the
+  top-level `Makefile`). A test such as `c < 0` on a plain `char` is dead code
+  or wrong logic; do not reason about sign extension of plain `char`.
+- **No strict aliasing** (`-fno-strict-aliasing`): type punning and casts between
+  pointer types are not undefined behaviour in kernel code. Likewise signed
+  overflow wraps (`-fno-strict-overflow`) and the compiler does not delete a NULL
+  check that follows a dereference (`-fno-delete-null-pointer-checks`).
+- **Python 3**: every `.py` under `scripts/`, `tools/` and `Documentation/` is
+  Python 3. Do not report Python 2 incompatibilities (annotations, `print()`,
+  f-strings).
+- **Tool versions**: the minimum versions of the compilers, binutils, make and
+  the rest are the ones in `Documentation/process/changes.rst` and
+  `scripts/min-tool-version.sh`. Do not assume an older or a newer one is
+  required.
+- **Where the baseline does not hold**: code that builds with its own flag set
+  gets none of the compiler guarantees above unless its makefile adds them: the
+  decompressors, the x86 EFI stub, real-mode code, purgatory, the arm64 32-bit
+  vDSO. `tools/` inherits nothing either: each makefile there sets its own
+  flags, most leave the compiler's defaults, and perf adds `-funsigned-char` and
+  `-fno-strict-aliasing` itself. When a patch touches any of these, load
+  `build.md` and read "Code built with its own flags" and "The tools
+  directory". It is in the build directory that `subsystem/subsystem.md` tells
+  you to choose.
+
 ### RCU Mandatory Check
 - **CRITICAL**: When you see `call_rcu()`, `synchronize_rcu()`, or `kfree_rcu()`:
-  - IMMEDIATELY load `subsystem/rcu.md`
+  - IMMEDIATELY load `rcu.md` from the build directory that
+    `subsystem/subsystem.md` tells you to choose
   - Check: does removal from any data structure happen BEFORE or AFTER the call_rcu()?
   - If removal is in the RCU callback → this is the WRONG pattern, flag as use-after-free
 - The correct order is: **remove from data structure FIRST**, then call_rcu() or synchronize_rcu(), then free in callback

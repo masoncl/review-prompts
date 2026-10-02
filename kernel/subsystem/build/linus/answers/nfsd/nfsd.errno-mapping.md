@@ -1,0 +1,3 @@
+- `nfserrno()` is defined in `fs/nfsd/vfs.c`.
+- `-EBADF` maps to `nfserr_stale`.
+- `-ETIMEDOUT` maps to `nfserr_jukebox`.

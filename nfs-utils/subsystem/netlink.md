@@ -195,7 +195,7 @@ to a local rpcbind. Points to check:
 
 ## Cross-references
 
-- `../../kernel/subsystem/nfsd.md`, "Netlink Interface" — the kernel side of
+- `../../kernel/subsystem/build/linus/nfsd.md`, "Netlink Interface" — the kernel side of
   these commands (when the kernel prompt set is installed).
 - `config.md` — `nfs.conf` options that disable netlink and force the `/proc`
   fallback (`mountd`/`exportd` `no-netlink`).

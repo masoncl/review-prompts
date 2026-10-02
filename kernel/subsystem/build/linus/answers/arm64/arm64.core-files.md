@@ -1,0 +1,9 @@
+| Job | File in this tree | Not in this tree / easy to miss |
+|---|---|---|
+| FP/SIMD, SVE, SME low-level save and restore | `arch/arm64/include/asm/fpsimd.h`: `static inline` functions with inline asm, e.g. `fpsimd_save_state()`, `sve_save_state()`, `sme_save_state()` | There is no entry-fpsimd.S and no fpsimdmacros.h. `arch/arm64/kvm/hyp/` has no fpsimd.S either; KVM calls the same FPSIMD and SVE inlines |
+| FP/SIMD, SVE, SME state | `arch/arm64/kernel/fpsimd.c` | There is no sve_set_vector_length(); `vec_set_vector_length()` does that job |
+| Exception entry in C | `arch/arm64/kernel/entry-common.c` holds the arm64 wrappers, e.g. `arm64_enter_from_user_mode()`, `arm64_exit_to_kernel_mode()` | `enter_from_user_mode()` and the `irqentry_` helpers they call are generic: `include/linux/irq-entry-common.h`, `kernel/entry/common.c`. `arch/arm64/Kconfig` selects `GENERIC_IRQ_ENTRY`, not `GENERIC_ENTRY` or `GENERIC_SYSCALL`. Arch hooks: `arch/arm64/include/asm/entry-common.h` |
+| MTE swap tag storage | `arch/arm64/mm/mteswap.c` | Holds swap save/restore; synchronous tag check faults are handled by `do_tag_check_fault()` in `arch/arm64/mm/fault.c` |
+| TLB invalidation | `arch/arm64/include/asm/tlbflush.h` | Out of line: under `CONFIG_ARM64_ERRATUM_4193714` and with `ARM64_WORKAROUND_4193714`, `__tlbi_sync_s1ish()` reaches `sme_do_dvmsync()` in `arch/arm64/kernel/fpsimd.c` |
+| Early position-independent boot code | `arch/arm64/kernel/pi/` | `arch/arm64/kernel/pi/relacheck.c` is a host program, not kernel code. Symbols get a `__pi_` prefix from objcopy in `arch/arm64/kernel/pi/Makefile`: `arch/arm64/kernel/head.S` calls `__pi_early_map_kernel`, defined as `early_map_kernel()`. `PI_EXPORT_SYM()` in `arch/arm64/kernel/image-vars.h` makes a kernel symbol visible to PI code, for example `swapper_pg_dir` |
+| Instruction patching header | `arch/arm64/include/asm/text-patching.h` | |

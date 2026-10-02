@@ -18,21 +18,26 @@ Run the setup script from the root of this repository to
 install the kernel skill and slash commands:
 
 ```bash
-../setup.sh <agent> <project>
+./setup.sh <agent> kernel
 ```
 
-Where `<agent>` is one of available agents and `<project>` is one of available
-projects that are explicitly stated in the usage message when the script is
-executed with `-h|--help` option.
+Where `<agent>` is one of the available agents, which are stated in the usage
+message when the script is executed with `-h|--help` option.
 
-This installs:
+For Claude Code this installs the files below.  Other agents get the same
+files in their own directories.
 - **Kernel skill** (`~/.claude/skills/kernel/SKILL.md`) - Automatically loads
   kernel-specific context when working in kernel trees
 - **Slash commands** (`~/.claude/commands/`) - Quick access to common operations:
   - `/kreview` - Review a single commit for regressions
   - `/kseries` - Review an entire patch series (git range) commit-by-commit
+  - `/korcreview` - Review a single commit with the work split across
+    several agents, following agent/orc.md
   - `/kdebug` - Debug kernel crashes and warnings
   - `/kverify` - Verify findings against false positive patterns
+  - `/kslop` - Run only the subjective pass of a review: code quality, and
+    signs of machine-written code
+  - `/cocci` - Generate a Coccinelle semantic patch
 
 The skill and commands reference the prompts directory where you cloned this
 repository, so don't move it after installation.
@@ -42,7 +47,7 @@ repository, so don't move it after installation.
 Put these prompts somewhere, and then tell the agent to use them:
 
 ```
-> Using the prompt ../review-prompts/review-core.md run a deep dive regression analysis of the top commit
+> Using the prompt ../review-prompts/kernel/review-core.md run a deep dive regression analysis of the top commit
 ```
 
 The agent has an internal definition of what "reviewing" code means, so if we
@@ -71,7 +76,7 @@ sample.txt has examples of regressions.
 ## False positives
 
 Many of the false positives are just AI not understanding the kernel,
-which is why there are per-subsystem context files.  We'll never get down
+which is why there are subsystem guides.  We'll never get down
 to zero false positives, but the goal is to build up enough knowledge that
 AI tools can lead us in the right direction.
 
@@ -81,6 +86,49 @@ The false positive rate is improving, currently at ~10%
 
 review-core.md sets the checklist and also tells AI which prompts to
 conditionally load.  Start reading there.
+
+| Prompt | When a review reads it |
+|---|---|
+| technical-patterns.md | always |
+| subsystem/subsystem.md | always.  It says how to find what the subsystem guides say about the patch |
+| callstack.md | for a patch that is not trivial |
+| lore-thread.md | when semcode has the lore archives |
+| fixes-tag.md, missing-fixes-tag.md | when the review checks Fixes: tags |
+| false-positive-guide.md | only after the review suspects a regression |
+| inline-template.md | when it writes review-inline.txt |
+
+## Subsystem guides
+
+A subsystem guide lists where the kernel tree differs from what the models
+believe about it: names that are gone, what a function requires, and rules
+about unsafe usage.
+
+Newer models actually understand the kernel pretty well, but they are always a
+little bit out of date. A guide does not explain its subsystem, instead it
+explains what the models are most likely to have wrong.
+
+- The guides are built, not written by hand.  Each one comes from a file of
+  plainly worded questions, subsystem/questions/<guide>.md, answered against
+  a kernel tree and checked against it.
+- The built guides are in subsystem/build/linus/.  They are built from the
+  most recent tree of Linus's that was scanned, and kernel-version.yaml in
+  that directory says which release and commit that was.
+- subsystem/build/ can hold other builds beside linus, such as one for a
+  stable series.  A review chooses the one that best suits the tree under
+  review.
+- A review does not load whole guides.  It searches
+  subsystem-guide-index.txt in the directory it chose for the symbols the
+  patch touches, and reads the answers that the search finds.
+- A few guides are loaded whole, since they apply to a kind of file or a kind
+  of bug: races, selftests, Kconfig, the build system and Rust.
+- Five guides are still written by hand and are loaded whole: fuse, hwmon,
+  leds, media and mfd.  They are in subsystem/, and have no questions yet.
+
+| To learn | Read |
+|---|---|
+| how to read a guide, and what is in subsystem/ | subsystem/README.md |
+| what a review does with the guides | subsystem/subsystem.md |
+| how the guides are built and rebuilt | docs/subsystem-questions.md |
 
 ## Using agents to review the reviews
 
@@ -94,28 +142,23 @@ happen.  These really help nail things down.
 
 The existing prompts catch a wide variety of bugs, and most subsystems won't
 need special instructions.  If you're finding false positives or missed bugs,
-it can help to add a few notes to help AI get the review right.
-subsystem/block.md and subsystem/libbpf.md are two examples where we fill
-in extra details that you can use as a guide.
+it can help to tell the AI what it is getting wrong about your code.
+The subsystem guides do exactly that.  To add to one, you add a plainly worded
+question to subsystem/questions/<guide>.md and the guide is rebuilt against a
+kernel tree.  Never edit a built guide: the next build would undo the edit.
+subsystem/questions/block.md and subsystem/questions/libbpf.md are small
+examples, and agent/failed-review.md is the prompt that turns a missed bug
+into a question.
 
 The basic structure of the prompts continues to change, and should decrease in
-complexity now that we have a good baseline.  But subsystem specific prompts
-usually just add a few specific details, and can be very short.
+complexity now that we have a good baseline.
 
 ### Structure of existing prompts
 
 technical-patterns.md includes most individual patterns, and
-review-core.md includes subsystem specific prompts.  This lets us
-limit tokens spent to only the prompts that are relevant to the patch.
-
-Beyond that, the existing prompts are structured to try and make sure
-AI actually follows the steps.  The basic idea:
-
-- Explain when to run this prompt
-- Add additional knowledge about code or data structures
-- Put a series of steps into a TodoWrite
-- Gather context needed to review the code
-- Make AI produce output at each step to prove it is following instructions
+review-core.md sends the review to subsystem/subsystem.md for what is
+specific to a subsystem.  A review reads only the answers that its search of
+the index finds, which limits tokens spent to what is relevant to the patch.
 
 ## review-stat.md
 

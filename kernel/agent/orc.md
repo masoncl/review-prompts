@@ -519,11 +519,13 @@ Analyze patch file /path/to/patch.diff
 ├── callstack.md
 ├── subsystem/
 │   ├── subsystem.md
-│   ├── networking-core.md
-│   ├── networking-drivers.md
-│   ├── mm.md
-│   ├── locking.md
-│   └── ...
+│   └── build/linus/
+│       ├── subsystem-guide-index.txt
+│       ├── networking-core.md
+│       ├── networking-drivers.md
+│       ├── locking.md
+│       ├── races.md
+│       └── ...
 ├── false-positive-guide.md
 ├── inline-template.md
 └── technical-patterns.md

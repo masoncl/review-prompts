@@ -1,0 +1,12 @@
+| Job | File | Easy to miss |
+|---|---|---|
+| spinlock and rwlock API layers | `include/linux/spinlock.h` and the headers it includes | `include/linux/spinlock_api.h`, `include/linux/mutex_api.h`, `include/linux/seqlock_api.h` and `include/linux/lockdep_api.h` are each a single `#include` of the main header, not a layer. UP rwlock API has no file of its own: it is in `include/linux/spinlock_api_up.h`. |
+| queued spinlock | `kernel/locking/qspinlock.c`, `kernel/locking/qspinlock.h` | `qspinlock.c` includes itself under `CONFIG_PARAVIRT_SPINLOCKS` to build `__pv_queued_spin_lock_slowpath()`, so the slowpath body is compiled twice. |
+| rtmutex | `kernel/locking/rtmutex.c` | Not an object in `kernel/locking/Makefile`. It is `#include`d by `kernel/locking/rtmutex_api.c`, `kernel/locking/spinlock_rt.c`, `kernel/locking/ww_rt_mutex.c` and the `CONFIG_PREEMPT_RT` half of `kernel/locking/rwsem.c`; each defines `RT_MUTEX_BUILD_MUTEX` or `RT_MUTEX_BUILD_SPINLOCKS` first. |
+| PREEMPT_RT `spinlock_t` and `rwlock_t` | `kernel/locking/spinlock_rt.c` | `kernel/locking/rwbase_rt.c` is not an object either: it is `#include`d by `spinlock_rt.c` and `rwsem.c`. |
+| PREEMPT_RT `struct mutex` | no file of its own: the `#ifdef CONFIG_PREEMPT_RT` part of `kernel/locking/rtmutex_api.c` | The lock code in `kernel/locking/mutex.c` is inside `#ifndef CONFIG_PREEMPT_RT`. |
+| PREEMPT_RT `struct rw_semaphore` | no file of its own: the `#else` half of `kernel/locking/rwsem.c` | Not in `kernel/locking/rtmutex_api.c`. |
+| PREEMPT_RT `struct ww_mutex` | `kernel/locking/ww_rt_mutex.c` | It defines `WW_RT`, which makes `rtmutex.c` include `kernel/locking/ww_mutex.h`. |
+| scope-based guard macros | `include/linux/cleanup.h`; per-lock definitions in the lock's header | `rwlock_t` guards are in `include/linux/spinlock.h`, not `include/linux/rwlock.h`. `include/linux/ww_mutex.h` and `include/linux/rtmutex.h` define no guards. |
+| compiler lock annotations | `include/linux/compiler-context-analysis.h` | `__acquires()`, `__releases()`, `__must_hold()` and `__guarded_by()` are defined here; `include/linux/compiler_types.h` only includes it. They expand to nothing unless `WARN_CONTEXT_ANALYSIS` is defined, and to nothing under `__CHECKER__`. |
+| compiler lock annotations: build switch | `scripts/Makefile.context-analysis`, `scripts/Makefile.lib`, `CONFIG_WARN_CONTEXT_ANALYSIS` in `lib/Kconfig.debug` | Opt-in per object or per directory, for example `CONTEXT_ANALYSIS_mutex.o := y` in `kernel/locking/Makefile`. Test in `lib/test_context-analysis.c`. |

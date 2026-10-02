@@ -35,12 +35,15 @@ correct - otherwise report them as regressions.
 ## FILE LOADING INSTRUCTIONS
 
 ### Core Files (ALWAYS LOAD FIRST)
-1. `technical-patterns.md` - Consolidated guide to kernel topics
-2. `subsystem/build.md` - Baseline build system and toolchain expectations
+1. `technical-patterns.md` - Consolidated guide to kernel topics, including the
+   language and toolchain baseline every review assumes
 
-### Subsystem Guides MUST be loaded
+### Subsystem guides MUST be searched
 
-Read `subsystem/subsystem.md` and load all matching subsystem guides and critical patterns.
+Read `subsystem/subsystem.md` and follow it: choose the build directory, search
+its `subsystem-guide-index.txt` for the symbols that the patch touches, read
+each answer that the search finds, and load each guide whose row in the table
+matches.
 
 ### Commit Message Tags (load if subjective reviews are requested in prompt)
 
@@ -54,8 +57,10 @@ These default to off
 
 ## PATTERN DETECTION (check BEFORE Task 0)
 
-Scan the diff against all triggers in `subsystem/subsystem.md` and load matching files
-IMMEDIATELY.
+Search the `subsystem-guide-index.txt` of the build directory for the symbols
+in the diff, as `subsystem/subsystem.md` says, and read the answers that the
+search finds IMMEDIATELY. Scan the diff against all triggers in the table of
+`subsystem/subsystem.md` and load matching files IMMEDIATELY.
 
 ## Task 0: CONTEXT MANAGEMENT
 - Discard non-essential details after each task to manage token limits
