@@ -35,9 +35,25 @@ entirely. Do not rewrite bot evidence into neutral wording.
 
 ## Step 1: Find All Versions
 
-Use `dig` to find emails related to the commit:
+Use `lore_search` to find patch emails matching the commit subject and author
+(do NOT use `dig` or `show_thread=true`, as they return excessive thread data):
 ```
-dig(commit="HEAD", show_all=true)
+lore_search(
+  subject_patterns=["<commit subject without [PATCH vN] prefix>"],
+  from_patterns=["<Author Name>"],
+  show_thread=false,
+  verbose=false
+)
+```
+
+For each patch email Message-ID found, list its replies:
+```
+lore_search(
+  message_id="<patch-message-id>",
+  show_replies=true,
+  show_thread=false,
+  verbose=false
+)
 ```
 
 From the results, identify:
@@ -53,7 +69,7 @@ Lore threads can be very large. Do NOT fetch entire threads with `show_thread=tr
 
 ### Correct approach:
 
-1. **List human reviewer reply Message-IDs** from the dig results
+1. **List human reviewer reply Message-IDs** from the search results
    - Look for "Re:" emails from people other than the patch author
    - Exclude all quarantined automated review comments
    - Note the Message-ID for each reviewer comment

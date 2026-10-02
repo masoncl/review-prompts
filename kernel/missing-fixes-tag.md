@@ -18,8 +18,6 @@ Fixes: tags make it harder to:
 **Risk**: Lost attribution, incomplete stable backports, poor git
 archaeology
 
-```
-
 ## Finding the Fixed Commit
 
 If this is a bug fix, search git history, either with semcode or git log, find
@@ -61,4 +59,3 @@ Output:
 ```
 Fixes: tag missing (y/n) [Fixes: line if discovered]
 ```
-

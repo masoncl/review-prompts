@@ -7,6 +7,8 @@ model: sonnet
 
 # Overview Analyzer Agent
 
+> **NOTE**: This agent is optional and currently disabled by default in `orc.md`.
+
 You perform holistic analysis of the entire diff as a single unit. Your role is
 to find issues that span multiple hunks or functions — things that per-file
 review.md agents miss because they only see one CHANGE at a time.
