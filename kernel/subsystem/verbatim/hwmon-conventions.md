@@ -13,8 +13,8 @@ them, so they are kept by hand and inserted as they are.
 - If the main functionality of a chip is not hardware monitoring (such as
   network interface controllers, DRM controllers, or platform specific
   multi-function devices), its hardware monitoring functionality should be
-  implemented as an auxiliary device driver, and that hardware monitoring
-  driver should reside in `drivers/hwmon/`.
+  implemented as an auxiliary device driver. That hardware monitoring driver
+  should reside in `drivers/hwmon/`.
 - A hardware monitoring device that supports secondary functionality (such as
   GPIO or LED) should be implemented as a hardware monitoring driver. The
   secondary functionality should be implemented as an auxiliary device, with

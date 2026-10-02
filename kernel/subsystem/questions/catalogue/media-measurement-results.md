@@ -48,9 +48,9 @@ sentence says "the check found".
   `CONFIG_MEDIA_CONTROLLER` anywhere. `drivers/media/Makefile` builds
   `drivers/media/mc/` only when the symbol is `y`. All three described stubs
   or empty macros for the entity functions.
-- **A NULL fwnode gives `-EPROBE_DEFER`.** It is the first test of
-  `__v4l2_fwnode_endpoint_parse()`. The readers said `-EINVAL`, or that the
-  pointer is dereferenced.
+- **A NULL fwnode gives `-EPROBE_DEFER`.** The test for a NULL fwnode is the
+  first test of `__v4l2_fwnode_endpoint_parse()`. The readers said `-EINVAL`,
+  or that the pointer is dereferenced.
 - **`v4l2_subdev_routing_validate()` returns `-ENXIO`** for a table that
   breaks a restriction. All three said `-EINVAL`.
 - **`match_fwnode()` looks at `async_subdev_endpoint_list` first.** When that
@@ -64,14 +64,14 @@ sentence says "the check found".
   `q->streaming` is set.
 - **`media_devnode_unregister()` clears the minor and sets
   `devnode->media_dev` to NULL.** `media_devnode_release()` only calls
-  `devnode->release` and frees the devnode, and `devnode->release` is
+  `devnode->release` and frees the devnode. `devnode->release` is
   `media_device_release()`, which only prints a debug line. The readers put the
   clearing of the minor in `media_devnode_release()`, and said that an open
   file still reaches the `struct media_device` through the devnode.
 - **The core zeroes the fields after a named field only for the ioctls that
   carry `INFO_FL_CLEAR`.** `VIDIOC_G_FMT`, `VIDIOC_S_FMT` and
-  `VIDIOC_TRY_FMT` do not carry it, and their handlers clear for themselves.
-  All three said that a driver always sees zeroed reserved fields.
+  `VIDIOC_TRY_FMT` do not carry it, and their handlers clear the fields
+  themselves. All three said that a driver always sees zeroed reserved fields.
 - **Allocations use `kzalloc_obj()`.** All three wrote kzalloc(), for example
   for the `struct media_devnode` or for the `struct v4l2_fh` that
   `v4l2_fh_open()` allocates.
@@ -103,9 +103,9 @@ sentence says "the check found".
   `__v4l2_subdev_state_get_format()` returns from the `state->pads` branch
   before it reaches `lockdep_assert_held()`. It returns NULL with no warning
   for a pad out of range and for a stream other than 0. Both readers said that
-  every accessor asserts the lock, and reader B that a wrong pad warns. Reader
-  A had this right, and missed that `__v4l2_subdev_state_get_interval()`
-  asserts the lock first.
+  every accessor asserts the lock, and reader B said that an accessor warns
+  for a wrong pad. Reader A had this right, and missed that
+  `__v4l2_subdev_state_get_interval()` asserts the lock first.
 - **`__v4l2_ctrl_handler_setup()` calls `s_ctrl` directly.** It does not go
   through `try_or_set_cluster()`. It skips buttons and read-only controls, and
   does not test for volatile controls.
@@ -147,8 +147,8 @@ sentence says "the check found".
 ### Reader A
 
 - `v4l2_ioctl_get_lock()` has no case for `VIDIOC_DQEVENT`, so the ioctl runs
-  under `vdev->lock`, and `v4l2_event_dequeue()` drops that lock while it
-  waits. Reader A said the ioctl runs with no lock.
+  under `vdev->lock`. `v4l2_event_dequeue()` drops that lock while it waits.
+  Reader A said the ioctl runs with no lock.
 - `v4l2_ioctl_get_lock()` has no `#if`. Reader A said the branch for
   `q_lock` is compiled only with the memory-to-memory framework.
 - `v4l2_subdev_lock_states()` locks two states. Reader A did not remember such
@@ -188,8 +188,8 @@ sentence says "the check found".
   does not call the driver. It also turns an error from a stop into 0. Reader C
   said `-EALREADY`, and that the error from a stop reaches the caller.
 - **`v4l2_disable_ioctl()` sets a bit.** `determine_valid_ioctls()` inverts
-  the set, so the check found that a call after registration enables the
-  ioctl. Reader C said the function clears a bit.
+  the set. The check found that a call after registration therefore enables
+  the ioctl. Reader C said the function clears a bit.
 - **`v4l2_device_register()` takes a reference on the parent device** with
   `get_device()`. The check found that `v4l2_device_unregister()` does not end
   with `v4l2_device_put()`.
@@ -242,7 +242,8 @@ sentence says "the check found".
   and what `v4l2_ctrl_handler_free()` returns for a handler whose
   initialisation failed.
 - Reader B was not sure whether unregistering a sub-device removes the
-  controls it gave to the parent. The check found that it does not.
+  controls that the sub-device gave to the parent. The check found that
+  unregistering does not remove them.
 - Reader C was not sure how `v4l2_subdev_call()` reaches the wrappers, where
   `buf_init` is called, or whether a notifier may get a connection after it
   is registered.
@@ -268,8 +269,8 @@ sentence says "the check found".
 
 ## Where the hand-written guide is stale
 
-No statement in `media.md` was found wrong. Each of these was confirmed in
-`drivers/media/v4l2-core/v4l2-subdev.c`:
+No statement in the hand-written guide, `media.md`, was found wrong. Each of
+these was confirmed in `drivers/media/v4l2-core/v4l2-subdev.c`:
 
 - `call_enum_mbus_code()` calls `check_state()` before the operation of the
   driver.
@@ -301,9 +302,9 @@ About half of the guide tells a reviewer what to do: the four numbered steps
 to take before dismissing a NULL dereference, the two paragraphs after them
 about keeping a concern, and the four quick checks. A built guide says how the
 tree is and holds no instruction, so the build set has no question for them.
-The facts those instructions rest on are asked by `media.subdev-wrappers`,
-`media.subdev-call-paths`, `media.subdev-argument-checks` and
-`media.subdev-state-accessors`.
+`media.subdev-wrappers`, `media.subdev-call-paths`,
+`media.subdev-argument-checks` and `media.subdev-state-accessors` ask for the
+facts that those instructions depend on.
 
 The guide holds no convention of the maintainers that the code does not
 state, such as a subject prefix or a coding style. So the build set has no
@@ -501,11 +502,18 @@ answers everything about a subject:
 The two videobuf2 sections of the measurement set are one part, since both
 ask whether the queue lock is optional.
 
-Three questions have new wording. Every other question has the text that was
-measured.
+Three questions ask something different from what was measured. Every other
+question asks what was measured.
 
 | Question | What changed | Why |
 |---|---|---|
 | `media.subdev-wrappers` | it no longer asks what each wrapper checks | `media.subdev-argument-checks` asks that in the same part |
 | `media.vb2-queue-init` | it asks for the requirements for the queue, not for the fields a driver must set | a question does not ask for a list of fields |
 | `media.vb2-requests` | it asks for the requirements for a queue that uses requests, not for the fields that say so | a question does not ask for a list of fields |
+
+## Wording after the measurement
+
+After the measurement, the wording of some questions was made clearer in both
+sets: a sentence that asked three things became two sentences, and a pronoun
+became the name it stood for. What each question asks did not change, so the
+numbers above still describe the questions.

@@ -7,12 +7,12 @@ A wide set of questions about the MFD core in `drivers/mfd/mfd-core.c` and
 `include/linux/mfd/core.h`, and about the helpers that MFD drivers share: the
 platform devices that cells become, firmware nodes for children, regmap and
 the regmap interrupt controller as parent drivers use them, the system
-controller helper, and the `simple-mfd` compatible. It is used to measure what
-a model already knows before deciding what the built guide should hold. The
-questions are about the core and about what every parent and child driver has
-to do. They are not about one chip. The hand-written guide that the built
-guide will replace is 902 words, and it was never checked against current
-sources. Format: `../../../docs/subsystem-questions.md`.
+controller helper, and the `simple-mfd` compatible. The set is used to measure
+what a model already knows, before anyone decides what the built guide should
+hold. The questions are about the core and about what every parent and child
+driver has to do. They are not about one chip. The hand-written guide that the
+built guide will replace is 902 words, and it was never checked against
+current sources. Format: `../../../docs/subsystem-questions.md`.
 
 # Where to look
 
@@ -27,7 +27,7 @@ I2C parent driver, and the code that creates devices for the children of a
 `simple-mfd` node? Which header declares the core API? Start from
 `drivers/mfd/Makefile`.
 
-## mfd.docs: Documentation
+## mfd.docs: Documentation files
 
 - section: Finding your way
 - relevance: 3 - says whether a rule can be looked up or lives only in the code
@@ -42,8 +42,8 @@ a document for the core under `Documentation/driver-api/`? Start from
 - section: Finding your way
 - relevance: 3 - a new parent driver that gets this wrong fails to link
 
-Which Kconfig symbols build the MFD core and the system controller helper, how
-does a driver get each of them built, and what does the core symbol select?
+Which Kconfig symbols build the MFD core and the system controller helper, and
+how does a driver get each of them built? What does the core symbol select?
 What does the whole MFD menu depend on? Start from `drivers/mfd/Kconfig`.
 
 ## mfd.outside-callers: Callers outside the directory
@@ -98,8 +98,8 @@ and which one is used in which case? Start from `include/linux/mfd/core.h`.
 - section: Objects and API
 - relevance: 3 - a change to registration has to keep the list consistent
 
-What global state does the MFD core keep, which lock protects that state, and
-when are entries added and removed? Start from `drivers/mfd/mfd-core.c`.
+What global state does the MFD core keep, and which lock protects that state?
+When are entries added and removed? Start from `drivers/mfd/mfd-core.c`.
 
 ## mfd.device-type: Device type of children
 
@@ -116,11 +116,11 @@ that mark? Start from `mfd_remove_devices_fn()`.
 - section: Cell contents
 - relevance: 5 - decides whether a cell built on the stack or changed later is a bug
 
-What does the core keep of a cell after `mfd_add_devices()` returns, what does
-a child see through `mfd_get_cell()`, and who frees it? What are the
-requirements for the storage of a cell array, and of the data that its members
-point to, in order to assure safe usage? Start from `mfd_add_device()` and
-`platform_device_release()`.
+What does the core keep of a cell after `mfd_add_devices()` returns, and who
+frees what the core keeps? What does a child see through `mfd_get_cell()`?
+What are the requirements for the storage of a cell array, and of the data
+that its members point to, in order to assure safe usage? Start from
+`mfd_add_device()` and `platform_device_release()`.
 
 ## mfd.cell-written: Cells written at probe
 
@@ -246,9 +246,9 @@ resource? Start from `drivers/mfd/ocelot-core.c`.
 - section: Resource translation
 - relevance: 3 - confined to parents with an ACPI companion
 
-When does the core check a child resource for a conflict, against what, and
-what happens to the registration when the check finds one? How does a cell
-turn the check off? Start from `acpi_check_resource_conflict()`.
+When does the core check a child resource for a conflict, and against what?
+What happens to the registration when the check finds a conflict? How does a
+cell turn the check off? Start from `acpi_check_resource_conflict()`.
 
 ## mfd.child-irq-lookup: Interrupt lookup in a child
 
@@ -276,7 +276,7 @@ child, and is each one copied or shared? Start from `mfd_add_device()`.
 - relevance: 5 - decides which child gets which node
 
 How does the core choose the device tree node of a child from
-`of_compatible`, which nodes does the core search, and what stops two cells
+`of_compatible`, and which nodes does the core search? What stops two cells
 from getting the same node? Start from `mfd_match_of_node_to_dev()`.
 
 ## mfd.of-reg: Matching by address
@@ -413,7 +413,7 @@ the first cell of the call?
 - section: Registration and removal
 - relevance: 5 - removal is by parent, and a reviewer has to know what that covers
 
-Which devices does `mfd_remove_devices()` remove, in what order, and how does
+Which devices does `mfd_remove_devices()` remove, and in what order? How does
 the function tell those devices from the other children of the parent? What
 does the function undo for each device besides unregistering it? Start from
 `mfd_remove_devices_fn()`.
@@ -434,8 +434,8 @@ sets `MFD_DEP_LEVEL_HIGH` in a cell, in order to assure safe usage? Start from
 - section: Registration and removal
 - relevance: 5 - most parent drivers use it
 
-What does `devm_mfd_add_devices()` register for release, on which device, and
-when does the release run relative to the other managed resources of the
+What does `devm_mfd_add_devices()` register for release, and on which device?
+When does the release run relative to the other managed resources of the
 parent? What are the requirements for the device passed as the first argument,
 in order to assure safe usage?
 
@@ -546,8 +546,8 @@ what does the chip then do with the primary interrupt? Start from
 - relevance: 5 - decides who owns the regmap and when the regmap exists
 
 Does this tree have a platform driver that binds to nodes with the `syscon`
-compatible? When is the regmap of a system controller created, which device
-owns the regmap, and is the regmap ever freed? Start from
+compatible? When is the regmap of a system controller created, and which
+device owns the regmap? Is the regmap ever freed? Start from
 `of_syscon_register()`.
 
 ## mfd.syscon-lookups: Syscon lookup functions
@@ -576,8 +576,8 @@ safe usage?
 - section: Syscon helper
 - relevance: 4 - the order against the first lookup matters
 
-What does `of_syscon_register_regmap()` do, what does it return when the node
-already has a regmap, and can a registration be undone? What are the
+What does `of_syscon_register_regmap()` do, and what does it return when the
+node already has a regmap? Can a registration be undone? What are the
 requirements for when a driver calls the function, and for the lifetime of the
 regmap and of the node, in order to assure safe usage?
 
@@ -587,9 +587,9 @@ regmap and of the node, in order to assure safe usage?
 - relevance: 3 - decides which accesses the regmap accepts
 
 Which properties of the device tree node shape the regmap that the syscon code
-creates, what is the register width when the node gives none, and how is the
-highest register set? What does the code do when the node names a hardware
-spinlock? Start from `of_syscon_register()`.
+creates? What is the register width when the node gives none, and how does the
+code set the highest register? What does the code do when the node names a
+hardware spinlock? Start from `of_syscon_register()`.
 
 ## mfd.syscon-locking: Syscon list locking
 
@@ -655,10 +655,10 @@ and what removes those children?
 - section: Populating from the device tree
 - relevance: 3 - the place for a chip that needs no code of its own
 
-What does the driver in `drivers/mfd/simple-mfd-i2c.c` do for a device, how
-does the driver choose between cells and device tree children, and which
-regmap configuration does it use when the match data names none? What does
-adding a new device to the driver take?
+What does the driver in `drivers/mfd/simple-mfd-i2c.c` do for a device, and
+how does the driver choose between cells and device tree children? Which
+regmap configuration does the driver use when the match data names none? What
+does adding a new device to the driver take?
 
 ## mfd.binding-layout: Binding conventions
 

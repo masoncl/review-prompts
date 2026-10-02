@@ -10,11 +10,12 @@ videobuf2, the memory-to-memory framework, the media controller, requests and
 events, under `drivers/media/v4l2-core/`, `drivers/media/mc/`,
 `drivers/media/common/videobuf2/` and `include/media/`. It is used to measure
 what a model already knows before deciding what the built guide should hold.
-The hand-written guide it will replace is 568 words and is only about the
-checks the core makes before it calls a sub-device pad operation, so most of
-what is asked here was never in that guide. Single drivers, DVB, CEC and remote
-controls are not covered. The trimmed set a guide is built from is
-`../media.md`. Format: `../../../docs/subsystem-questions.md`.
+The hand-written guide that the built guide will replace is 568 words. The
+hand-written guide is only about the checks the core makes before it calls a
+sub-device pad operation, so most of what is asked here was never in that
+guide. Single drivers, DVB, CEC and remote controls are not covered. The
+trimmed set a guide is built from is `../media.md`. Format:
+`../../../docs/subsystem-questions.md`.
 
 # Where to look
 
@@ -68,7 +69,7 @@ bus formats? Start from `include/uapi/linux/videodev2.h` and
 
 Which drivers under `drivers/media/test-drivers/` exercise the core without
 hardware, and which part of the core does each one exercise? Which compliance
-tools does the subsystem expect a driver to pass, and where does the tree say
+tools do the maintainers expect a driver to pass, and where does the tree say
 so? Start from `Documentation/driver-api/media/maintainer-entry-profile.rst`.
 
 ## media.config-symbols: Configuration symbols
@@ -150,18 +151,18 @@ callback run? What do `v4l2_device_register()`, `v4l2_device_disconnect()` and
 - section: File handles
 - relevance: 5 - decides whether the private data of a file can be trusted
 
-Is a driver required to use `struct v4l2_fh`, and what does the core do when a
-device node is opened by a driver that does not? Start from `v4l2_open()` and
-`v4l2_fh_init()`.
+Is a driver required to use `struct v4l2_fh`, and what does the core do when
+userspace opens a device node of a driver that does not use `struct v4l2_fh`?
+Start from `v4l2_open()` and `v4l2_fh_init()`.
 
 ## media.fh-lifecycle: File handle lifecycle
 
 - section: File handles
 - relevance: 4 - the signatures are easy to get wrong from memory
 
-Which functions create, add, remove and free a `struct v4l2_fh`, what
-arguments does each take, and in what order must an `open` and a `release`
-file operation call them? Start from `v4l2_fh_open()` and `v4l2_fh_release()`.
+Which functions create, add, remove and free a `struct v4l2_fh`, and what
+arguments does each take? In what order must an `open` and a `release` file
+operation call them? Start from `v4l2_fh_open()` and `v4l2_fh_release()`.
 
 ## media.ioctl-priv-argument: Callback arguments
 
@@ -219,9 +220,10 @@ structure do there? Start from `v4l2_compat_ioctl32()` and
 - relevance: 5 - the order decides what a callback may find uninitialised
 
 In what order must a driver initialise a `struct v4l2_subdev`, its pads, its
-control handler and its active state before it registers the sub-device, and
-what must it undo, in what order, on removal? Start from `v4l2_subdev_init()`,
-`media_entity_pads_init()` and `v4l2_subdev_init_finalize()`.
+control handler and its active state before it registers the sub-device? What
+must the driver undo on removal, and in what order? Start from
+`v4l2_subdev_init()`, `media_entity_pads_init()` and
+`v4l2_subdev_init_finalize()`.
 
 ## media.subdev-register: Registering with a parent
 
@@ -249,8 +251,8 @@ usage? Start from `v4l2_device_unregister_subdev()` and
 - section: Subdev registration
 - relevance: 3 - decides which operations userspace can reach
 
-How does a sub-device get a device node, who allocates and frees the
-`struct video_device` behind it, and which ioctls does a read-only node refuse?
+How does a sub-device get a device node, and who allocates and frees the
+`struct video_device` behind it? Which ioctls does a read-only node refuse?
 Start from `__v4l2_device_register_subdev_nodes()` and
 `V4L2_FL_SUBDEV_RO_DEVNODE`.
 
@@ -309,8 +311,8 @@ from `check_state()`, `check_pad()` and `check_format()`.
 - section: Subdev state
 - relevance: 5 - nothing about pad operations makes sense without it
 
-What is a `struct v4l2_subdev_state`, who allocates and frees the active state
-and the try state, and when does the core call the `init_state` operation?
+What is a `struct v4l2_subdev_state`, and who allocates and frees the active
+state and the try state? When does the core call the `init_state` operation?
 Which sub-devices have no active state? Start from
 `__v4l2_subdev_state_alloc()` and `subdev_fh_init()`.
 
@@ -330,9 +332,9 @@ Which lock must the caller hold? Start from
 - section: Subdev state
 - relevance: 4 - lockdep catches part of it, and only when the path runs
 
-Which helpers lock and unlock a sub-device state, which helpers return the
-active state, and what does each assert about the lock? How can a driver make
-the state, the controls and its own data share one lock? Start from
+Which helpers lock and unlock a sub-device state, and which helpers return the
+active state? What does each helper assert about the lock? How can a driver
+make the state, the controls and its own data share one lock? Start from
 `v4l2_subdev_lock_and_get_active_state()` and the `state_lock` field of
 `struct v4l2_subdev`.
 
@@ -342,8 +344,8 @@ the state, the controls and its own data share one lock? Start from
 - relevance: 4 - old and new drivers spell these differently
 
 Which group in `struct v4l2_subdev_ops` holds the operations that get and set
-a frame interval, what arguments do they take, and how does the core choose the
-value of `which` for them? Start from `call_get_frame_interval()` and
+a frame interval, and what arguments do they take? How does the core choose
+the value of `which` for them? Start from `call_get_frame_interval()` and
 `V4L2_SUBDEV_CLIENT_CAP_INTERVAL_USES_WHICH`.
 
 ## media.subdev-streams-enabled: Streams API availability
@@ -393,9 +395,10 @@ Start from `v4l2_subdev_collect_streams()`.
 - relevance: 4 - unbalanced calls are common in bridge drivers
 
 What does the core do when `s_stream` is called to start a sub-device that is
-already started, and what does it do with an error that the driver returns
-when it stops? What does `v4l2_subdev_is_streaming()` report, and under which
-lock? Start from `call_s_stream()`.
+already started, and what does the core do with an error that the driver
+returns when `s_stream` is called to stop the sub-device? What does
+`v4l2_subdev_is_streaming()` report, and under which lock? Start from
+`call_s_stream()`.
 
 # Async registration and firmware
 
@@ -407,8 +410,8 @@ lock? Start from `call_s_stream()`.
 What does this tree call the structure that describes one connection a
 notifier waits for, and the functions that initialise a notifier, add a
 connection to it, register it, unregister it and clean it up? Which list of a
-notifier holds a connection before and after it is bound? Start from
-`include/media/v4l2-async.h`.
+notifier holds a connection before and after the connection is bound? Start
+from `include/media/v4l2-async.h`.
 
 ## media.async-notifier-lifecycle: Notifier lifecycle
 
@@ -447,9 +450,10 @@ and `v4l2_async_nf_try_complete()`.
 - relevance: 4 - every camera sensor driver calls it
 
 What does `v4l2_async_register_subdev_sensor()` do that
-`v4l2_async_register_subdev()` does not, and who frees what it allocates? Which
-links, if any, does the core create by itself when a sub-device is bound? Start
-from `__v4l2_async_register_subdev_sensor()` and
+`v4l2_async_register_subdev()` does not, and who frees what
+`v4l2_async_register_subdev_sensor()` allocates? Which links, if any, does the
+core create by itself when a sub-device is bound? Start from
+`__v4l2_async_register_subdev_sensor()` and
 `v4l2_async_create_ancillary_links()`.
 
 ## media.fwnode-endpoint: Parsing an endpoint
@@ -468,7 +472,7 @@ NULL fwnode and for a bus type that does not match? Start from
 - section: Firmware and sensors
 - relevance: 3 - receivers size their timing from the result
 
-What arguments does `v4l2_get_link_freq()` take, where does it look for the
+What arguments does `v4l2_get_link_freq()` take? Where does it look for the
 link frequency, and in what order? What does `v4l2_link_freq_to_bitmap()`
 return when firmware lists no frequency or when no frequency matches?
 
@@ -500,10 +504,11 @@ must a new driver leave unimplemented? Start from
 - section: Control framework
 - relevance: 5 - nearly every driver has this sequence in probe
 
-How does a driver initialise a `struct v4l2_ctrl_handler`, add controls and
-find out that adding a control failed? What does `v4l2_ctrl_handler_free()`
-return, and may it be called on a handler whose initialisation failed? Start
-from `v4l2_ctrl_handler_init_class()` and `handler_set_err()`.
+How does a driver initialise a `struct v4l2_ctrl_handler` and add controls?
+How does the driver find out that adding a control failed? What does
+`v4l2_ctrl_handler_free()` return, and may it be called on a handler whose
+initialisation failed? Start from `v4l2_ctrl_handler_init_class()` and
+`handler_set_err()`.
 
 ## media.ctrl-locking: Handler lock
 
@@ -520,28 +525,27 @@ require the caller to hold it? Start from `v4l2_ctrl_lock()`,
 - section: Control framework
 - relevance: 4 - says which value a callback must read
 
-What do the `s_ctrl`, `try_ctrl` and `g_volatile_ctrl` operations receive,
-where does each read or write the value, and when does the core skip the call
-to `s_ctrl`? Start from `try_or_set_cluster()` and `cluster_changed()`.
+What do the `s_ctrl`, `try_ctrl` and `g_volatile_ctrl` operations receive, and
+where does each read or write the value? When does the core skip the call to
+`s_ctrl`? Start from `try_or_set_cluster()` and `cluster_changed()`.
 
 ## media.ctrl-clusters: Control clusters
 
 - section: Control framework
 - relevance: 3 - the callback sees one control of several
 
-What is a control cluster, which control of a cluster do the operations
-receive, and what does `v4l2_ctrl_auto_cluster()` add? What are the
-requirements for the array passed to `v4l2_ctrl_cluster()` in order to assure
-safe usage?
+What is a control cluster, and which control of a cluster do the operations
+receive? What does `v4l2_ctrl_auto_cluster()` add? What are the requirements
+for the array passed to `v4l2_ctrl_cluster()` in order to assure safe usage?
 
 ## media.ctrl-handler-setup: Applying control values
 
 - section: Control framework
 - relevance: 4 - it writes to hardware that may be powered off
 
-What does `v4l2_ctrl_handler_setup()` do, which controls does it skip, and what
-are the requirements for calling it from a power management callback in order
-to assure safe usage? Start from `__v4l2_ctrl_handler_setup()` and
+What does `v4l2_ctrl_handler_setup()` do, and which controls does it skip?
+What are the requirements for calling it from a power management callback in
+order to assure safe usage? Start from `__v4l2_ctrl_handler_setup()` and
 `Documentation/driver-api/media/camera-sensor.rst`.
 
 ## media.ctrl-inheritance: Controls shared between handlers
@@ -549,10 +553,9 @@ to assure safe usage? Start from `__v4l2_ctrl_handler_setup()` and
 - section: Control framework
 - relevance: 4 - decides who may free a control
 
-How do the controls of a sub-device become visible on a video device node,
-which controls are left out, and who owns a control that two handlers refer
-to? Start from `v4l2_ctrl_add_handler()` and
-`__v4l2_device_register_subdev()`.
+How do the controls of a sub-device become visible on a video device node, and
+which controls are left out? Who owns a control that two handlers refer to?
+Start from `v4l2_ctrl_add_handler()` and `__v4l2_device_register_subdev()`.
 
 ## media.ctrl-driver-access: Control access from a driver
 
@@ -560,9 +563,9 @@ to? Start from `v4l2_ctrl_add_handler()` and
 - relevance: 3 - the helpers differ by control type
 
 Which helpers does a driver use to read and to set the value of a control from
-kernel code, which control types does each accept, and what does each do for a
-type it does not accept? Which helper changes the range of a control? Start
-from `v4l2_ctrl_g_ctrl()` and `__v4l2_ctrl_modify_range()`.
+kernel code? Which control types does each helper accept, and what does each
+do for a type it does not accept? Which helper changes the range of a control?
+Start from `v4l2_ctrl_g_ctrl()` and `__v4l2_ctrl_modify_range()`.
 
 ## media.ctrl-requests: Controls in a request
 
@@ -631,9 +634,9 @@ already allocated? Start from `__prepare_dmabuf()` and `__prepare_userptr()`.
 - section: Buffers and streaming
 - relevance: 5 - every buffer bug is a wrong belief about who owns it
 
-Which states can a `struct vb2_buffer` be in, which state says that the driver
-owns the buffer, and which transitions does the core make without calling the
-driver? Start from `enum vb2_buffer_state` and `__enqueue_in_driver()`.
+Which states can a `struct vb2_buffer` be in, and which state says that the
+driver owns the buffer? Which transitions does the core make without calling
+the driver? Start from `enum vb2_buffer_state` and `__enqueue_in_driver()`.
 
 ## media.vb2-callback-order: Order of queue operations
 
@@ -693,7 +696,7 @@ while it waits, and does a driver supply operations for that? Start from
 - relevance: 4 - a driver that writes its own ioctl must repeat the test
 
 How do the ioctl helpers and the file operation helpers of videobuf2 decide
-which open file owns a queue, which calls does a file that is not the owner
+which open file owns a queue? Which calls does a file that is not the owner
 get refused, and when is the ownership dropped? Start from
 `vb2_queue_is_busy()` and `vb2_ioctl_reqbufs()`.
 
@@ -714,7 +717,7 @@ safe usage?
 - relevance: 3 - confined to codec and a few camera drivers
 
 Which fields of `struct vb2_queue` say that a queue supports or requires
-requests, which operations must such a queue implement, and what does the core
+requests, and which operations must such a queue implement? What does the core
 refuse when buffers are queued both directly and through a request? Start from
 `vb2_core_qbuf()` and `vb2_request_validate()`.
 
@@ -725,7 +728,7 @@ refuse when buffers are queued both directly and through a request? Start from
 - section: Mem2mem framework
 - relevance: 4 - the return convention is tested in every open
 
-What are `struct v4l2_m2m_dev` and `struct v4l2_m2m_ctx`, which functions
+What are `struct v4l2_m2m_dev` and `struct v4l2_m2m_ctx`? Which functions
 create and free each, and what do those functions return on failure? Where
 does the core find the context of an open file? Start from `v4l2_m2m_init()`,
 `v4l2_m2m_ctx_init()` and `v4l2_m2m_ioctl_reqbufs()`.
@@ -736,9 +739,9 @@ does the core find the context of an open file? Start from `v4l2_m2m_init()`,
 - relevance: 5 - says what `device_run` may assume and may do
 
 Which conditions must hold before the core runs a job for a context, and in
-which context does it call `device_run`? From which contexts may a driver call
-`v4l2_m2m_try_schedule()`? Start from `__v4l2_m2m_try_queue()` and
-`v4l2_m2m_try_run()`.
+which execution context does it call `device_run`? From which execution
+contexts may a driver call `v4l2_m2m_try_schedule()`? Start from
+`__v4l2_m2m_try_queue()` and `v4l2_m2m_try_run()`.
 
 ## media.m2m-job-finish: Finishing and aborting a job
 
@@ -799,8 +802,8 @@ does `media_device_unregister_entity()` remove besides the entity? Start from
 - section: Graph objects
 - relevance: 5 - a loop over the list reads fields of every link
 
-Which kinds of link can the `links` list of an entity hold, which fields of
-`struct media_link` are valid for each kind, and what are the requirements for
+Which kinds of link can the `links` list of an entity hold, and which fields
+of `struct media_link` are valid for each kind? What are the requirements for
 walking that list in order to assure safe usage? Start from
 `media_create_pad_link()`, `media_create_ancillary_link()` and
 `for_each_media_entity_data_link()`.
@@ -821,9 +824,9 @@ matches?
 - section: Graph objects
 - relevance: 4 - userspace can ask for it while a pipeline runs
 
-Under which conditions does the core refuse to enable or disable a link, which
-callbacks does it call and in what order, and what does it undo when a callback
-fails? Start from `__media_entity_setup_link()` and
+Under which conditions does the core refuse to enable or disable a link? Which
+callbacks does it call and in what order, and what does it undo when a
+callback fails? Start from `__media_entity_setup_link()` and
 `__media_entity_setup_link_notify()`.
 
 ## media.mc-graph-mutex: Graph mutex
@@ -831,9 +834,9 @@ fails? Start from `__media_entity_setup_link()` and
 - section: Graph objects
 - relevance: 4 - half of the graph functions have a locked variant
 
-What does the `graph_mutex` of `struct media_device` protect, which functions
-take it themselves and which require the caller to hold it? Which ioctls of the
-media device node run under it? Start from `media_device_ioctl()` and
+What does the `graph_mutex` of `struct media_device` protect? Which functions
+take it themselves, and which require the caller to hold it? Which ioctls of
+the media device node run under it? Start from `media_device_ioctl()` and
 `__media_pipeline_start()`.
 
 ## media.mc-pipeline-start: Starting a pipeline
@@ -841,8 +844,8 @@ media device node run under it? Start from `media_device_ioctl()` and
 - section: Pipelines
 - relevance: 5 - the arguments and the bookkeeping have changed
 
-What does `media_pipeline_start()` take as its starting point, which pads does
-it add to the pipeline, and where does it record that a pad belongs to a
+What does `media_pipeline_start()` take as its starting point, and which pads
+does it add to the pipeline? Where does it record that a pad belongs to a
 pipeline? What does a second start of the same pipeline do? Start from
 `__media_pipeline_start()` and `media_pipeline_explore_next_link()`.
 
@@ -851,8 +854,8 @@ pipeline? What does a second start of the same pipeline do? Start from
 - section: Pipelines
 - relevance: 5 - it is the last check before the hardware streams
 
-Which links does the core validate when a pipeline starts, on which entity
-does it call `link_validate`, and what does it return for a pad that is busy or
+Which links does the core validate when a pipeline starts, and on which entity
+does it call `link_validate`? What does it return for a pad that is busy or
 that has `MEDIA_PAD_FL_MUST_CONNECT` set? What does it undo when validation
 fails? Start from `__media_pipeline_start()`.
 
@@ -861,8 +864,8 @@ fails? Start from `__media_pipeline_start()`.
 - section: Pipelines
 - relevance: 5 - it decides which format mismatches reach the hardware
 
-What does `v4l2_subdev_link_validate()` check, which states does it lock, and
-what does it do when the source of the link is a video device? What does it do
+What does `v4l2_subdev_link_validate()` check, and which states does it lock?
+What does it do when the source of the link is a video device? What does it do
 with a stream whose format it cannot read? Start from
 `v4l2_subdev_link_validate_locked()` and
 `v4l2_subdev_link_validate_default()`.
@@ -874,8 +877,8 @@ with a stream whose format it cannot read? Start from
 - section: Requests
 - relevance: 4 - every access to a request depends on its state
 
-Which states can a `struct media_request` be in, which function makes each
-transition, and what must a driver hold or call before it reads or changes the
+Which states can a `struct media_request` be in, and which function makes each
+transition? What must a driver hold or call before it reads or changes the
 objects of a request? Start from `media_request_ioctl_queue()`,
 `media_request_lock_for_update()` and `media_request_lock_for_access()`.
 
@@ -894,8 +897,8 @@ request become complete? Start from `media_request_object_bind()`,
 - section: Requests
 - relevance: 3 - confined to drivers that finish a request late
 
-Does this tree let a driver complete a request by hand, and if so, which
-functions does the driver call and what do they require? Start from
+Does this tree let a driver complete a request by hand? If so, which functions
+does the driver call, and what do they require? Start from
 `media_request_manual_complete()`. If the tree has no such function, say so
 and stop.
 
@@ -904,10 +907,10 @@ and stop.
 - section: Events
 - relevance: 3 - events are queued from interrupt handlers
 
-Which lock protects the event lists of a `struct v4l2_fh`, from which contexts
-may a driver call `v4l2_event_queue()`, and what does the core do when the
-queue of a subscription is full? What does `v4l2_event_dequeue()` do with the
-lock of the video device while it waits? Start from
+Which lock protects the event lists of a `struct v4l2_fh`, and from which
+contexts may a driver call `v4l2_event_queue()`? What does the core do when
+the queue of a subscription is full? What does `v4l2_event_dequeue()` do with
+the lock of the video device while it waits? Start from
 `__v4l2_event_queue_fh()`.
 
 # What a change must preserve

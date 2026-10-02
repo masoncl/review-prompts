@@ -147,7 +147,7 @@
   `drivers/leds/Makefile`; the entries of `drivers/leds/Kconfig` are not in
   alphabetical order.
 
-**Documentation**
+**Authoritative documentation**
 
 - Trigger ABI files: only `sysfs-class-led-trigger-netdev`,
   `sysfs-class-led-trigger-oneshot`, `sysfs-class-led-trigger-pattern`,

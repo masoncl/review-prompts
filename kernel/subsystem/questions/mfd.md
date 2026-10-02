@@ -40,7 +40,7 @@ I2C parent driver, and the code that creates devices for the children of a
 `simple-mfd` node? Which header declares the core API? Start from
 `drivers/mfd/Makefile`.
 
-## mfd.docs: Documentation
+## mfd.docs: Documentation files
 
 - section: Finding your way
 - relevance: 3 - says whether a rule can be looked up or lives only in the code
@@ -55,8 +55,8 @@ a document for the core under `Documentation/driver-api/`? Start from
 - section: Finding your way
 - relevance: 3 - a new parent driver that gets this wrong fails to link
 
-Which Kconfig symbols build the MFD core and the system controller helper, how
-does a driver get each of them built, and what does the core symbol select?
+Which Kconfig symbols build the MFD core and the system controller helper, and
+how does a driver get each of them built? What does the core symbol select?
 What does the whole MFD menu depend on? Start from `drivers/mfd/Kconfig`.
 
 ## mfd.outside-callers: Callers outside the directory
@@ -109,11 +109,11 @@ not create, and what does code in this tree use the function for?
 - section: Cells
 - relevance: 5 - decides whether a cell built on the stack or changed later is a bug
 
-What does the core keep of a cell after `mfd_add_devices()` returns, what does
-a child see through `mfd_get_cell()`, and who frees it? What are the
-requirements for the storage of a cell array, and of the data that its members
-point to, in order to assure safe usage? Start from `mfd_add_device()` and
-`platform_device_release()`.
+What does the core keep of a cell after `mfd_add_devices()` returns, and who
+frees what the core keeps? What does a child see through `mfd_get_cell()`?
+What are the requirements for the storage of a cell array, and of the data
+that its members point to, in order to assure safe usage? Start from
+`mfd_add_device()` and `platform_device_release()`.
 
 ## mfd.platform-data: Platform data of a child
 
@@ -242,8 +242,8 @@ child, and is each one copied or shared? Start from `mfd_add_device()`.
 - section: Firmware nodes of a child
 - relevance: 3 - a change to registration has to keep the list consistent
 
-What global state does the MFD core keep, which lock protects that state, and
-when are entries added and removed? Start from `drivers/mfd/mfd-core.c`.
+What global state does the MFD core keep, and which lock protects that state?
+When are entries added and removed? Start from `drivers/mfd/mfd-core.c`.
 
 ## mfd.of-matching: Device tree node matching
 
@@ -251,7 +251,7 @@ when are entries added and removed? Start from `drivers/mfd/mfd-core.c`.
 - relevance: 5 - decides which child gets which node
 
 How does the core choose the device tree node of a child from
-`of_compatible`, which nodes does the core search, and what stops two cells
+`of_compatible`, and which nodes does the core search? What stops two cells
 from getting the same node? Start from `mfd_match_of_node_to_dev()`.
 
 ## mfd.of-reg: Matching by address
@@ -376,7 +376,7 @@ the first cell of the call?
 - section: Registration and removal
 - relevance: 5 - removal is by parent, and a reviewer has to know what that covers
 
-Which devices does `mfd_remove_devices()` remove, in what order, and how does
+Which devices does `mfd_remove_devices()` remove, and in what order? How does
 the function tell those devices from the other children of the parent? What
 does the function undo for each device besides unregistering it? Start from
 `mfd_remove_devices_fn()`.
@@ -397,8 +397,8 @@ sets `MFD_DEP_LEVEL_HIGH` in a cell, in order to assure safe usage? Start from
 - section: Registration and removal
 - relevance: 5 - most parent drivers use it
 
-What does `devm_mfd_add_devices()` register for release, on which device, and
-when does the release run relative to the other managed resources of the
+What does `devm_mfd_add_devices()` register for release, and on which device?
+When does the release run relative to the other managed resources of the
 parent? What are the requirements for the device passed as the first argument,
 in order to assure safe usage?
 
@@ -500,8 +500,8 @@ what does the chip then do with the primary interrupt? Start from
 - relevance: 5 - decides who owns the regmap and when the regmap exists
 
 Does this tree have a platform driver that binds to nodes with the `syscon`
-compatible? When is the regmap of a system controller created, which device
-owns the regmap, and is the regmap ever freed? Start from
+compatible? When is the regmap of a system controller created, and which
+device owns the regmap? Is the regmap ever freed? Start from
 `of_syscon_register()`.
 
 ## mfd.syscon-lookups: Syscon lookup functions
@@ -531,8 +531,8 @@ safe usage?
 - relevance: 3 - decides which accesses the regmap accepts
 
 What is the register width of the regmap that the syscon code creates when the
-device tree node gives none, and how is the highest register set? What does
-the code do when the node names a hardware spinlock? Start from
+device tree node gives none, and how does the code set the highest register?
+What does the code do when the node names a hardware spinlock? Start from
 `of_syscon_register()`.
 
 ## mfd.syscon-locking: Syscon list locking
@@ -568,8 +568,8 @@ compatible added? Start from
 - section: System controllers
 - relevance: 4 - the order against the first lookup matters
 
-What does `of_syscon_register_regmap()` do, what does it return when the node
-already has a regmap, and can a registration be undone? What are the
+What does `of_syscon_register_regmap()` do, and what does it return when the
+node already has a regmap? Can a registration be undone? What are the
 requirements for when a driver calls the function, and for the lifetime of the
 regmap and of the node, in order to assure safe usage?
 

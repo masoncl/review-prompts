@@ -3,15 +3,16 @@
 - guide: leds.md
 - title: LED Subsystem
 
-A wide set of questions about the LED core and what it expects from every
-driver that registers an LED: the class device and its callbacks, registration
-and removal, setting brightness, blinking, triggers, hardware control,
-patterns, the multicolor and flash classes, consumers of an LED, suspend and
-shutdown, the device tree bindings and the user-space LED driver. It is used to
-measure what a model already knows before deciding what the built guide should
-hold. The hand-written guide it will replace is 539 words and was never checked
-against current sources. The inside of individual LED controller drivers is
-left out. Format: `../../../docs/subsystem-questions.md`.
+This file holds a wide set of questions about the LED core and what it requires
+of every driver that registers an LED: the class device and its callbacks,
+registration and removal, setting brightness, blinking, triggers, hardware
+control, patterns, the multicolor and flash classes, consumers of an LED,
+suspend and shutdown, the device tree bindings and the user-space LED driver. A
+measurement run uses the set to measure what a model already knows, before
+anyone decides what the built guide should hold. The hand-written guide that
+the built guide will replace is 539 words, and the hand-written guide was never
+checked against current sources. The inside of individual LED controller
+drivers is left out. Format: `../../../docs/subsystem-questions.md`.
 
 # The subsystem
 
@@ -44,7 +45,7 @@ PHY layer, of the V4L2 flash wrapper and of the sound core? Start from
 `drivers/net/phy/phy_device.c`, `drivers/media/v4l2-core/v4l2-flash-led-class.c`
 and `sound/core/control_led.c`.
 
-## leds.docs: Documentation
+## leds.docs: Authoritative documentation
 
 - section: Finding your way
 - relevance: 3 - some contracts are written only there, and some text is out of date
@@ -59,8 +60,8 @@ that this tree does not define? Start from `Documentation/leds/leds-class.rst`.
 - section: Finding your way
 - relevance: 2 - a core change is expected to keep the test passing
 
-What tests and user-space tools does the tree carry for the LED core, how is
-each built and run, and what do the tests cover? Start from
+What tests and user-space tools does the tree carry for the LED core, and how
+is each built and run? What do the tests cover? Start from
 `drivers/leds/led-test.c` and `tools/leds/`.
 
 ## leds.kconfig: Configuration symbols
@@ -91,10 +92,10 @@ which have none? What does that require of a caller that can be built without
 - section: Class device
 - relevance: 5 - every other answer refers to it
 
-What does `struct led_classdev` represent, who allocates it, and which parts
+What does `struct led_classdev` represent, and who allocates it? Which parts
 does the driver fill and which parts does the core fill? How does a driver get
-from it to its own private data and to the `struct device` that the class
-created?
+from the structure to its own private data and to the `struct device` that the
+class created?
 
 ## leds.classdev-flags: Flags word
 
@@ -111,8 +112,8 @@ driver-chosen flag change in the core? Is any lock held when the core changes
 - section: Class device
 - relevance: 3 - private to the core, yet some triggers touch it
 
-What is the `work_flags` member of `struct led_classdev` for, how is it
-accessed compared with `flags`, and who may set and clear its bits? Start from
+What is the `work_flags` member of `struct led_classdev` for, and how is it
+accessed compared with `flags`? Who may set and clear its bits? Start from
 `LED_BLINK_SW`.
 
 ## leds.name-fields: Name after registration
@@ -139,8 +140,8 @@ both or neither? Start from `led_set_brightness_nopm()`.
 - section: Class device
 - relevance: 3 - it is called earlier than drivers expect
 
-When does the core call a driver's `brightness_get` callback, what may the
-callback return, and which lock is held around the call? Start from
+When does the core call a driver's `brightness_get` callback, and what may the
+callback return? Which lock is held around the call? Start from
 `led_update_brightness()`.
 
 ## leds.max-brightness: Maximum brightness
@@ -149,8 +150,9 @@ callback return, and which lock is held around the call? Start from
 - relevance: 4 - the driver's value is not always the final one
 
 How is the `max_brightness` of an LED decided: what does the core do when the
-driver leaves it zero, which inputs other than the driver can change it during
-registration, and where does the core limit a requested brightness to it?
+driver leaves it zero, and which inputs other than the driver can change it
+during registration? Where does the core limit a requested brightness to
+`max_brightness`?
 
 ## leds.brightness-type: Brightness type and constants
 
@@ -166,9 +168,9 @@ what is the status of `enum led_brightness` and of constants such as
 - section: Class device
 - relevance: 4 - the user-space contract of every LED
 
-Which sysfs attributes does the LED class create for every LED, which lock
-does each handler take, and what does a write to `brightness` do to the trigger
-of the LED and to a blink in progress? Start from `brightness_store()`.
+Which sysfs attributes does the LED class create for every LED, and which lock
+does each handler take? What does a write to `brightness` do to the trigger of
+the LED and to a blink in progress? Start from `brightness_store()`.
 
 ## leds.driver-attributes: Driver sysfs attributes
 
@@ -185,8 +187,8 @@ such an attribute reach the driver's data? Start from the `groups` member of
 - section: Class device
 - relevance: 3 - only some handlers honour it
 
-What do `led_sysfs_disable()` and `led_sysfs_enable()` do, which lock must the
-caller hold, and which attribute handlers honour the disabled state? Start from
+What do `led_sysfs_disable()` and `led_sysfs_enable()` do, and which lock must
+the caller hold? Which attribute handlers honour the disabled state? Start from
 `led_sysfs_is_disabled()`.
 
 ## leds.hw-changed: Hardware brightness changes
@@ -197,8 +199,8 @@ caller hold, and which attribute handlers honour the disabled state? Start from
 What are the requirements for calling
 `led_classdev_notify_brightness_hw_changed()` in order to assure safe usage:
 what must the driver have set before registration, and which configuration
-symbol must be on? What does the attribute return before the first
-notification?
+symbol must be on? What does the sysfs attribute that reports a hardware
+brightness change return before the first notification?
 
 # Registration and removal
 
@@ -208,7 +210,7 @@ notification?
 - relevance: 4 - several wrappers end in one function
 
 Which functions register an LED class device, a multicolor LED and a flash
-LED, which of them are managed, and which one function do the others all call?
+LED, and which of them are managed? Which one function do the others all call?
 When does a driver need the variant that takes a `struct led_init_data`?
 
 ## leds.register-steps: Registration steps
@@ -247,16 +249,16 @@ are left for the driver to parse? Start from `led_classdev_register_ext()` and
 
 How does `led_compose_name()` build the name of an LED from the `label`,
 `color`, `function` and `function-enumerator` properties and from
-`struct led_init_data`, which source is used when several are present, and
-when does it fail?
+`struct led_init_data`, and which source is used when several are present?
+When does `led_compose_name()` fail?
 
 ## leds.name-collision: Name collisions
 
 - section: Registering an LED
 - relevance: 3 - the default outcome surprises drivers that match by name
 
-What does registration do when another LED already has the requested name, how
-can a driver choose a different outcome, and what does `devname_mandatory` in
+What does registration do when another LED already has the requested name, and
+how can a driver choose a different outcome? What does `devname_mandatory` in
 `struct led_init_data` require of the caller?
 
 ## leds.naming-rules: Naming rules
@@ -264,9 +266,9 @@ can a driver choose a different outcome, and what does `devname_mandatory` in
 - section: Registering an LED
 - relevance: 4 - user space finds LEDs by name
 
-Which form does the class documentation give for the name of an LED, what
-should the device name part refer to, and which rules does it give for keyboard
-backlights? Start from `Documentation/leds/leds-class.rst`.
+Which form does the class documentation give for the name of an LED, and what
+should the device name part refer to? Which rules does the class documentation
+give for keyboard backlights? Start from `Documentation/leds/leds-class.rst`.
 
 ## leds.child-node-refs: Child node references
 
@@ -314,9 +316,9 @@ work while the LED is being unregistered? Start from
 - section: Removing an LED
 - relevance: 2 - rarely needed, and it warns when misused
 
-When does a driver need `devm_led_classdev_unregister()`, which device must be
-passed to it, and what does it do if the LED was not registered with the
-managed call? Start from `drivers/leds/uleds.c`.
+When does a driver need `devm_led_classdev_unregister()`, and which device must
+be passed to it? What does `devm_led_classdev_unregister()` do if the LED was
+not registered with the managed call? Start from `drivers/leds/uleds.c`.
 
 ## leds.hot-unplug-errors: Errors after unplug
 
@@ -335,9 +337,9 @@ removable device use for that? Start from
 - section: Brightness
 - relevance: 5 - choosing the wrong one sleeps in atomic context or loses a change
 
-Which functions set the brightness of an LED from kernel code, which of them
-may sleep, and which are private to the LED core and its triggers? Start from
-`led_set_brightness()`, `led_set_brightness_sync()` and
+Which functions set the brightness of an LED from kernel code, and which of
+them may sleep? Which of them are private to the LED core and its triggers?
+Start from `led_set_brightness()`, `led_set_brightness_sync()` and
 `led_set_brightness_nosleep()`.
 
 ## leds.set-brightness-blinking: Brightness while blinking
@@ -355,8 +357,8 @@ hardware?
 - relevance: 4 - ordering of two quick changes depends on it
 
 How does the core deliver a brightness change to a driver whose callback may
-sleep: which work item does it use, what is guaranteed when two changes are
-requested before the work runs, and what happens to an error that the callback
+sleep: which work item does it use, and what is guaranteed when two changes
+are requested before the work runs? What happens to an error that the callback
 returns? Start from `set_brightness_delayed()`.
 
 ## leds.workqueue: LED workqueue
@@ -364,8 +366,8 @@ returns? Start from `set_brightness_delayed()`.
 - section: Brightness
 - relevance: 3 - one slow callback can delay other LEDs
 
-What kind of workqueue runs the deferred brightness work, is it shared between
-LEDs, and what does that mean for a callback that blocks for a long time?
+What kind of workqueue runs the deferred brightness work, and is it shared
+between LEDs? What does that mean for a callback that blocks for a long time?
 Start from `leds_init()`.
 
 ## leds.set-brightness-sync: Synchronous brightness setting
@@ -381,9 +383,9 @@ the driver has no blocking callback, and when the LED is suspended?
 - section: Brightness
 - relevance: 3 - drivers and triggers read it without a lock
 
-What does the `brightness` member of `struct led_classdev` hold, who writes it,
-and is any lock held when the core writes it? Can it differ from what the
-hardware shows?
+What does the `brightness` member of `struct led_classdev` hold, and who writes
+it? Is any lock held when the core writes it? Can that member differ from what
+the hardware shows?
 
 # Blinking
 
@@ -392,8 +394,8 @@ hardware shows?
 - section: Blink
 - relevance: 4 - one of them may sleep and the others are called from atomic context
 
-Which functions start blinking on an LED, which of them may sleep, and what do
-zero delays mean to each? Start from `led_blink_set()`,
+Which functions start blinking on an LED, and which of them may sleep? What do
+zero delays mean to each of them? Start from `led_blink_set()`,
 `led_blink_set_nosleep()` and `led_blink_set_oneshot()`.
 
 ## leds.blink-set-callback: Hardware blink callback
@@ -402,16 +404,16 @@ zero delays mean to each? Start from `led_blink_set()`,
 - relevance: 4 - the rule on sleeping depends on another callback
 
 What are the requirements for a driver's `blink_set` callback in order to
-assure safe usage: when may it sleep, what must it do with the delay values it
-is given, and how is hardware blinking turned off again?
+assure safe usage: when may it sleep, and what must it do with the delay values
+it is given? How is hardware blinking turned off again?
 
 ## leds.software-blink: Software blink fallback
 
 - section: Blink
 - relevance: 4 - the return value of the driver selects it
 
-When does the core blink an LED in software, which timer and which members of
-`struct led_classdev` carry the state, and at what brightness does the LED
+When does the core blink an LED in software, and which timer and which members
+of `struct led_classdev` carry the state? At what brightness does the LED
 blink? Start from `led_blink_setup()` and `led_timer_function()`.
 
 ## leds.blink-stop: Stopping a blink
@@ -420,9 +422,9 @@ blink? Start from `led_blink_setup()` and `led_timer_function()`.
 - relevance: 4 - a timer left running touches a freed LED
 
 What are the requirements for stopping software and hardware blinking in order
-to assure safe usage: which calls stop each, from which context may they be
-made, and what does a direct call to the driver's `brightness_set` do to a
-blink in progress? Start from `led_stop_software_blink()`.
+to assure safe usage: which calls stop each, and from which context may they be
+made? What does a direct call to the driver's `brightness_set` do to a blink in
+progress? Start from `led_stop_software_blink()`.
 
 ## leds.oneshot-blink: One-shot blink
 
@@ -430,7 +432,7 @@ blink in progress? Start from `led_stop_software_blink()`.
 - relevance: 3 - activity triggers call it at a high rate
 
 What does `led_blink_set_oneshot()` do when a one-shot blink is already
-running, what does its `invert` argument change, and does a one-shot blink
+running, and what does its `invert` argument change? Does a one-shot blink
 ever use the driver's `blink_set`?
 
 ## leds.own-timer-triggers: Triggers with their own timer
@@ -450,17 +452,17 @@ of `work_flags` must it set, test and clear, and when? Start from
 - section: Trigger core
 - relevance: 4 - the two kinds of trigger have different rules
 
-What does `struct led_trigger` represent, what is the difference between a
-trigger with `activate` and `deactivate` callbacks and one without, and how
-many LEDs can one trigger drive at once?
+What does `struct led_trigger` represent, and what is the difference between a
+trigger with `activate` and `deactivate` callbacks and one without? How many
+LEDs can one trigger drive at once?
 
 ## leds.trigger-register: Trigger registration
 
 - section: Trigger core
 - relevance: 4 - registration attaches the trigger to existing LEDs at once
 
-Which functions register a trigger, what does registration do to LEDs that
-already exist, and when does registration fail? Start from
+Which functions register a trigger, and what does registration do to LEDs that
+already exist? When does registration fail? Start from
 `led_trigger_register()`, `devm_led_trigger_register()` and
 `module_led_trigger()`.
 
@@ -470,8 +472,8 @@ already exist, and when does registration fail? Start from
 - relevance: 4 - the precondition is not checked in every case
 
 What are the requirements for calling `led_trigger_unregister()` in order to
-assure safe usage: what does it do to LEDs that use the trigger, what state
-must the trigger structure be in before the call, and what may the caller free
+assure safe usage: what does it do to LEDs that use the trigger, and what state
+must the trigger structure be in before the call? What may the caller free
 afterwards?
 
 ## leds.simple-trigger: Simple triggers
@@ -480,7 +482,7 @@ afterwards?
 - relevance: 4 - failure is reported through the pointer, not a return value
 
 What do `led_trigger_register_simple()` and `led_trigger_unregister_simple()`
-allocate and free, how does a caller learn that registration failed, and what
+allocate and free, and how does a caller learn that registration failed? What
 do `led_trigger_event()` and `led_trigger_blink_oneshot()` do when they are
 given a NULL trigger?
 
@@ -490,8 +492,8 @@ given a NULL trigger?
 - relevance: 5 - events arrive from interrupt handlers
 
 From which contexts may `led_trigger_event()`, `led_trigger_blink()` and
-`led_trigger_blink_oneshot()` be called, how do they walk the LEDs of a
-trigger, and what does that require of the functions they call for each LED?
+`led_trigger_blink_oneshot()` be called, and how do they walk the LEDs of a
+trigger? What does that require of the functions they call for each LED?
 
 ## leds.trigger-set: Attaching a trigger
 
@@ -499,7 +501,7 @@ trigger, and what does that require of the functions they call for each LED?
 - relevance: 5 - the order of its steps is what a change must preserve
 
 What does `led_trigger_set()` do, in order, when it replaces one trigger with
-another, which lock must the caller hold, and in what state is the LED left
+another, and which lock must the caller hold? In what state is the LED left
 when the `activate` callback of the new trigger fails?
 
 ## leds.trigger-file: Trigger file
@@ -507,18 +509,18 @@ when the `activate` callback of the new trigger fails?
 - section: Trigger core
 - relevance: 3 - it is a binary attribute for a reason the code states
 
-How is the `trigger` file of an LED implemented, what do the words none and
-default do when written to it, and which triggers does a read list for a given
-LED? Start from `led_trigger_read()` and `led_trigger_write()`.
+How is the `trigger` file of an LED implemented, and what do the words none and
+default do when written to it? Which triggers does a read of that file list
+for a given LED? Start from `led_trigger_read()` and `led_trigger_write()`.
 
 ## leds.default-trigger: Default trigger
 
 - section: Trigger core
 - relevance: 4 - the trigger may be registered after the LED
 
-How does an LED get its default trigger: who sets `default_trigger`, what
-happens when the named trigger is not registered yet, and how is a trigger
-module loaded on demand? Start from `led_trigger_set_default()`.
+How does an LED get its default trigger: who sets `default_trigger`, and what
+happens when the named trigger is not registered yet? How is a trigger module
+loaded on demand? Start from `led_trigger_set_default()`.
 
 ## leds.trigger-locks: Trigger locks and their order
 
@@ -526,8 +528,8 @@ module loaded on demand? Start from `led_trigger_set_default()`.
 - relevance: 5 - a new path that nests them the other way deadlocks
 
 Which locks protect the list of triggers, the list of LEDs and the trigger of
-one LED, in what order do they nest with each other and with `led_access`, and
-which list is walked under RCU? Start from `triggers_list_lock`,
+one LED, and in what order do they nest with each other and with `led_access`?
+Which list is walked under RCU? Start from `triggers_list_lock`,
 `leds_list_lock` and `trigger_lock`.
 
 ## leds.trigger-uevent: Trigger change events
@@ -535,8 +537,8 @@ which list is walked under RCU? Start from `triggers_list_lock`,
 - section: Trigger core
 - relevance: 2 - user space depends on it, and few know that it exists
 
-What does the core tell user space when the trigger of an LED changes, through
-which mechanism, and what happens when sending fails?
+What does the core tell user space when the trigger of an LED changes, and
+through which mechanism? What happens when sending fails?
 
 ## leds.trigger-callbacks: Activate and deactivate callbacks
 
@@ -544,8 +546,8 @@ which mechanism, and what happens when sending fails?
 - relevance: 5 - what deactivate leaves running is a use after free
 
 What are the requirements for the `activate` and `deactivate` callbacks of a
-trigger in order to assure safe usage: which locks are held when they run, may
-they sleep, and what must `deactivate` have stopped before it frees the data of
+trigger in order to assure safe usage: which locks are held when they run, and
+may they sleep? What must `deactivate` have stopped before it frees the data of
 the trigger?
 
 ## leds.trigger-data: Trigger data for each LED
@@ -553,8 +555,8 @@ the trigger?
 - section: Writing a trigger
 - relevance: 4 - a handler that runs at the wrong moment reads a stale pointer
 
-How does a trigger keep data for each LED it is attached to, which accessors
-read that data in a sysfs handler, and at which points of attaching and
+How does a trigger keep data for each LED it is attached to, and which
+accessors read that data in a sysfs handler? At which points of attaching and
 detaching is the data valid? Start from `led_set_trigger_data()` and
 `led_trigger_get_drvdata()`.
 
@@ -563,17 +565,17 @@ detaching is the data valid? Start from `led_set_trigger_data()` and
 - section: Writing a trigger
 - relevance: 4 - the order against activate and deactivate is the whole contract
 
-How does a trigger add sysfs attributes to the LEDs it is attached to, on which
-device do they appear, and in what order are they created and removed relative
-to `activate` and `deactivate`? Start from the `groups` member of
-`struct led_trigger`.
+How does a trigger add sysfs attributes to the LEDs it is attached to, and on
+which device do they appear? In what order are those attributes created and
+removed relative to `activate` and `deactivate`? Start from the `groups` member
+of `struct led_trigger`.
 
 ## leds.default-pattern-init: Default pattern at activation
 
 - section: Writing a trigger
 - relevance: 2 - used by a few triggers and one driver
 
-What is `LED_INIT_DEFAULT_TRIGGER` for, who sets it and who clears it, and who
+What is `LED_INIT_DEFAULT_TRIGGER` for? Who sets it and who clears it? Who
 frees the array that `led_get_default_pattern()` returns?
 
 ## leds.private-trigger: Private triggers
@@ -581,8 +583,8 @@ frees the array that `led_get_default_pattern()` returns?
 - section: Writing a trigger
 - relevance: 4 - decides which LEDs may select a trigger
 
-What is `struct led_hw_trigger_type` for, how do the `trigger_type` members of
-an LED and of a trigger decide which triggers an LED may use, and what does the
+What is `struct led_hw_trigger_type` for, and how do the `trigger_type` members
+of an LED and of a trigger decide which triggers an LED may use? What does the
 class return for a read of `brightness` while such a trigger is active? Start
 from `trigger_relevant()`.
 
@@ -591,8 +593,8 @@ from `trigger_relevant()`.
 - section: Writing a trigger
 - relevance: 3 - it bypasses every lock of the trigger core
 
-How does the panic trigger take over LEDs when the kernel panics, which LEDs
-does it take, and what does that require of the brightness callback of an LED
+How does the panic trigger take over LEDs when the kernel panics, and which
+LEDs does it take? What does that require of the brightness callback of an LED
 that is marked as a panic indicator? Start from
 `drivers/leds/trigger/ledtrig-panic.c`.
 
@@ -602,9 +604,9 @@ that is marked as a panic indicator? Start from
 - relevance: 3 - they are called from hot paths
 
 Which functions do other subsystems call to report disk, MTD, CPU and camera
-activity to the built-in triggers, what do the calls compile to when the
-trigger is configured out, and from which contexts are they called? Start from
-`ledtrig_disk_activity()` and `ledtrig_cpu()`.
+activity to the built-in triggers, and what do the calls compile to when the
+trigger is configured out? From which contexts are those functions called?
+Start from `ledtrig_disk_activity()` and `ledtrig_cpu()`.
 
 # Hardware control
 
@@ -615,7 +617,7 @@ trigger is configured out, and from which contexts are they called? Start from
 
 What are the requirements for an LED driver that offers hardware control in
 order to assure safe usage: which callbacks and which field must it set
-together, what must a callback return when a mode is not supported, and how is
+together, and what must a callback return when a mode is not supported? How is
 hardware control turned off? Start from `hw_control_trigger` in
 `include/linux/leds.h`.
 
@@ -625,7 +627,7 @@ hardware control turned off? Start from `hw_control_trigger` in
 - relevance: 4 - the only trigger that uses hardware control
 
 How does the netdev trigger decide between hardware control and software
-blinking, which conditions must all hold for hardware control, and what does a
+blinking, and which conditions must all hold for hardware control? What does a
 write return to user space when neither is possible? Start from
 `can_hw_control()` in `drivers/leds/trigger/ledtrig-netdev.c`.
 
@@ -634,7 +636,7 @@ write return to user space when neither is possible? Start from
 - section: Offload to hardware
 - relevance: 3 - it nests networking locks around its own
 
-Which locks does the netdev trigger take, in what order, and which of its
+Which locks does the netdev trigger take, and in what order? Which of its
 paths run with the RTNL lock already held? Start from `set_device_name()` and
 `netdev_trig_notify()`.
 
@@ -656,16 +658,16 @@ layer fills in the callbacks on behalf of a network PHY driver? Start from
 
 What are the requirements for a driver's `pattern_set` and `pattern_clear`
 callbacks in order to assure safe usage: what does the pattern trigger do when
-only one of them is set, what do the entries of `struct led_pattern` and the
-repeat count mean, and when is each callback called?
+only one of them is set, and what do the entries of `struct led_pattern` and
+the repeat count mean? When is each callback called?
 
 ## leds.pattern-trigger: Pattern trigger
 
 - section: Pattern support
 - relevance: 2 - one file, with three kinds of pattern
 
-Which kinds of pattern does the pattern trigger run, which timer drives each,
-and how many entries does a software pattern need? Start from
+Which kinds of pattern does the pattern trigger run, and which timer drives
+each? How many entries does a software pattern need? Start from
 `drivers/leds/trigger/ledtrig-pattern.c`.
 
 # The multicolor class
@@ -675,8 +677,8 @@ and how many entries does a software pattern need? Start from
 - section: Multicolor
 - relevance: 4 - three similar fields of a sub-LED mean different things
 
-What do `struct led_classdev_mc` and `struct mc_subled` hold, who allocates the
-array of sub-LEDs, and what do the `intensity`, `brightness` and
+What do `struct led_classdev_mc` and `struct mc_subled` hold, and who allocates
+the array of sub-LEDs? What do the `intensity`, `brightness` and
 `max_intensity` members of a sub-LED each mean?
 
 ## leds.mc-register: Multicolor registration
@@ -685,8 +687,8 @@ array of sub-LEDs, and what do the `intensity`, `brightness` and
 - relevance: 4 - it overwrites a field that the driver may have set
 
 What does `led_classdev_multicolor_register_ext()` check and set before it
-registers the LED, which members of the embedded `struct led_classdev` does it
-overwrite, and how can the driver of a multicolor LED add sysfs attributes of
+registers the LED, and which members of the embedded `struct led_classdev` does
+it overwrite? How can the driver of a multicolor LED add sysfs attributes of
 its own?
 
 ## leds.mc-calc: Component calculation
@@ -694,7 +696,7 @@ its own?
 - section: Multicolor
 - relevance: 4 - the core never calls it for the driver
 
-What does `led_mc_calc_color_components()` compute, from which fields, and who
+What does `led_mc_calc_color_components()` compute, and from which fields? Who
 is expected to call it, and when?
 
 ## leds.mc-sysfs: Multicolor sysfs files
@@ -702,9 +704,9 @@ is expected to call it, and when?
 - section: Multicolor
 - relevance: 3 - a write changes the hardware only in some states
 
-Which sysfs files does the multicolor class add, what does a write to the
-intensity file do to the hardware, and how is a written value limited? Start
-from `multi_intensity_store()`.
+Which sysfs files does the multicolor class add, and what does a write to the
+intensity file do to the hardware? How is a written value limited? Start from
+`multi_intensity_store()`.
 
 ## leds.mc-kernel-set: Multicolor from kernel code
 
@@ -720,8 +722,8 @@ multicolor or the number of colors does not match?
 - section: Multicolor
 - relevance: 3 - three places have to change together
 
-Where are the LED color identifiers defined, which table turns them into
-names, and what must change together when a color is added? Start from
+Where are the LED color identifiers defined, and which table turns them into
+names? What must change together when a color is added? Start from
 `LED_COLOR_ID_MAX`.
 
 # The flash class
@@ -731,9 +733,9 @@ names, and what must change together when a color is added? Start from
 - section: Flash
 - relevance: 3 - units and mandatory operations are easy to guess wrong
 
-What do `struct led_classdev_flash` and `struct led_flash_ops` hold, which
-operations must a driver supply, and in which units are flash brightness and
-flash timeout expressed?
+What do `struct led_classdev_flash` and `struct led_flash_ops` hold, and which
+operations must a driver supply? In which units are flash brightness and flash
+timeout expressed?
 
 ## leds.flash-register: Flash registration
 
@@ -741,8 +743,8 @@ flash timeout expressed?
 - relevance: 4 - the checks apply only when a flag is set
 
 What does `led_classdev_flash_register_ext()` require of the LED before it
-registers it, what does `LED_DEV_CAP_FLASH` select, and how are the flash sysfs
-groups chosen?
+registers the LED, and what does `LED_DEV_CAP_FLASH` select? How are the flash
+sysfs groups chosen?
 
 ## leds.flash-settings: Flash setting helpers
 
@@ -750,8 +752,8 @@ groups chosen?
 - relevance: 3 - the stored value is not always the value passed in
 
 What do `led_set_flash_brightness()` and `led_set_flash_timeout()` do with a
-value that is outside the limits or between two steps, what do they do when the
-LED is suspended, and what do they return when the driver lacks the operation?
+value that is outside the limits or between two steps, and what do they do when
+the LED is suspended? What do they return when the driver lacks the operation?
 Start from `led_clamp_align()`.
 
 ## leds.flash-strobe: Flash strobe helpers
@@ -770,9 +772,9 @@ handlers hold around them?
 - relevance: 3 - it takes the LED away from sysfs while it is open
 
 How does the V4L2 flash wrapper use a flash LED: which functions create and
-release it, what does it do to the sysfs interface and to the trigger of the
-LED while the sub-device is open, and which brightness function does it call?
-Start from `v4l2_flash_init()`.
+release the wrapper, and what does the wrapper do to the sysfs interface and to
+the trigger of the LED while the sub-device is open? Which brightness function
+does the wrapper call? Start from `v4l2_flash_init()`.
 
 # LED consumers
 
@@ -781,9 +783,9 @@ Start from `v4l2_flash_init()`.
 - section: Consumers
 - relevance: 3 - the return value for a missing LED decides probe deferral
 
-Which functions let a driver obtain an LED that another driver registered, how
-does each find the LED, and what do they return when the LED is described in
-firmware and is not registered yet? Start from `led_get()` and
+Which functions let a driver obtain an LED that another driver registered, and
+how does each find the LED? What do those functions return when the LED is
+described in firmware and is not registered yet? Start from `led_get()` and
 `devm_of_led_get()`.
 
 ## leds.consumer-refs: Consumer references
@@ -791,7 +793,7 @@ firmware and is not registered yet? Start from `led_get()` and
 - section: Consumers
 - relevance: 3 - two references are taken, and both must be dropped
 
-Which references does getting an LED take, which function drops them, and what
+Which references does getting an LED take, and which function drops them? What
 keeps the driver that provides the LED from being unloaded while a consumer
 holds the LED? Start from `led_put()`.
 
@@ -800,7 +802,7 @@ holds the LED? Start from `led_put()`.
 - section: Consumers
 - relevance: 2 - used on systems without a firmware description
 
-What is `struct led_lookup_data` for, how are its entries matched, and what are
+What is `struct led_lookup_data` for, and how are its entries matched? What are
 the requirements for the lifetime of an entry passed to `led_add_lookup()` in
 order to assure safe usage?
 
@@ -812,17 +814,17 @@ order to assure safe usage?
 - relevance: 4 - a change made while suspended is kept, not applied
 
 What do `led_classdev_suspend()` and `led_classdev_resume()` do to the hardware
-and to the cached brightness, when does the class call them by itself, and
-what happens to a brightness that is set while the LED is suspended?
+and to the cached brightness, and when does the class call them by itself?
+What happens to a brightness that is set while the LED is suspended?
 
 ## leds.shutdown-state: State at shutdown
 
 - section: Suspend and shutdown
 - relevance: 3 - the core and the driver each handle part of it
 
-What does `LED_RETAIN_AT_SHUTDOWN` change in the core, which firmware property
-sets it, and what is left to the shutdown callback of the driver? Start from
-`drivers/leds/leds-gpio.c`.
+What does `LED_RETAIN_AT_SHUTDOWN` change in the core, and which firmware
+property sets it? What is left to the shutdown callback of the driver? Start
+from `drivers/leds/leds-gpio.c`.
 
 # Firmware description
 
@@ -831,8 +833,8 @@ sets it, and what is left to the shutdown callback of the driver? Start from
 - section: Device tree
 - relevance: 4 - every LED binding refers to it
 
-Which file defines the properties common to all LED nodes, which of those
-properties does it mark as deprecated, and how does the binding of one LED
+Which file defines the properties common to all LED nodes, and which of those
+properties does it mark as deprecated? How does the binding of one LED
 controller include the common properties? Start from
 `Documentation/devicetree/bindings/leds/common.yaml`.
 
@@ -842,8 +844,9 @@ controller include the common properties? Start from
 - relevance: 3 - a made-up string defeats the naming scheme
 
 Where are constants such as `LED_FUNCTION_STATUS` and `LED_COLOR_ID_RED`
-defined, which type does each of the two properties take in a device tree, and
-what does the tree say to do when no existing constant fits?
+defined, and which type does each of the `function` and `color` properties
+take in a device tree? What does the tree say to do when no existing constant
+fits?
 
 ## leds.dt-multicolor: Multicolor binding
 
@@ -871,6 +874,6 @@ uses an LED, and which code in the tree reads each? Start from
 - section: LEDs made by user space
 - relevance: 2 - one small driver with a user-space interface
 
-How does user space create an LED through the `uleds` driver, what does the
-driver check in the name it is given, and how does user space learn of a
-brightness change? Start from `drivers/leds/uleds.c`.
+How does user space create an LED through the `uleds` driver, and what does the
+driver check in the name it is given? How does user space learn of a brightness
+change? Start from `drivers/leds/uleds.c`.

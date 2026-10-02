@@ -287,6 +287,13 @@ have none, and how are the target-mode functions and their source file guarded? 
 and tracepoint headers depend on the structures in `include/linux/i2c.h`? Write configuration
 symbols in full.
 
+# Conventions
+
+## i2c.conventions: Conventions for new code
+
+- section: Conventions
+- verbatim: ../verbatim/i2c-conventions.md
+
 # Model gaps
 
 ## i2c.model-gaps: Other mistakes models make

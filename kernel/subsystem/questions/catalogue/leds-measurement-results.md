@@ -4,11 +4,11 @@ Three models were asked the 88 questions in `leds-measurement.md` with no
 sources, and a checker that had the sources then corrected each answer against
 a mainline tree (kernel 7.3.0-rc5). The readers are labelled A, B and C; which
 models they were does not matter here. Reader A needed the least rewriting and
-reader C the most: the checker rewrote 40% or more of 58 of reader C's 88
-answers. All three assumed a kernel near 6.12, and reader A sometimes one as
-late as 6.17. The hand-written guide was never checked against current
-sources, so differences between it and the built guide are expected and are
-noted below.
+reader C the most. In 58 of reader C's 88 answers, the checker rewrote 40% or
+more of the answer. All three assumed a kernel near 6.12, and reader A
+sometimes assumed one as late as 6.17. The hand-written guide was never checked
+against current sources, so differences between it and the built guide are
+expected. The differences are noted below.
 
 ## What all three readers got wrong
 
@@ -18,18 +18,19 @@ Names and layouts that changed:
   `of_parse_phandle()` and `class_find_device_by_of_node()`. The tree has no
   of_led_get(). The static `fwnode_led_get()` in `drivers/leds/led-class.c`
   uses `fwnode_find_reference()` and `class_find_device_by_fwnode()`.
-  `led_get()` calls it first and searches `leds_lookup_list` only when it
-  returns `-ENOENT`.
+  `led_get()` calls `fwnode_led_get()` first, and searches `leds_lookup_list`
+  only when that call returns `-ENOENT`.
 - **Driver directories.** All three listed drivers/leds/simple/. The directory
   is `drivers/leds/simatic/`.
 - **Allocation.** All three wrote `kzalloc()` for the trigger and for the data
   of a trigger. `led_trigger_register_simple()` and the triggers under
   `drivers/leds/trigger/` use `kzalloc_obj()`.
 - **Multicolor limits.** None listed the `multi_max_intensity` attribute.
-  Readers A and B said `struct mc_subled` has no `max_intensity` member and
-  that a written intensity is not limited. `multi_intensity_store()` limits
-  each value to what `led_mc_get_max_intensity()` returns, and calls
-  `led_set_brightness()` only while `LED_BLINK_SW` is clear.
+  Readers A and B said that `struct mc_subled` has no `max_intensity` member.
+  They also said that a written intensity is not limited.
+  `multi_intensity_store()` limits each value to what
+  `led_mc_get_max_intensity()` returns, and calls `led_set_brightness()` only
+  while `LED_BLINK_SW` is clear.
 - **Flash duration.** None knew the `duration` setting of
   `struct led_classdev_flash`, the `duration_set` operation or
   `led_set_flash_duration()`.
@@ -37,8 +38,8 @@ Names and layouts that changed:
   `led_compose_name()`, the name of a software node.
 - **Multicolor node name.** All three gave the pattern without the form that
   ends in a number. `leds-class-multicolor.yaml` has
-  `^multi-led(@[0-9a-f]|-[0-9]+)?$`, accepts two `color` values and describes
-  no sub-LED nodes.
+  `^multi-led(@[0-9a-f]|-[0-9]+)?$`. That file accepts two `color` values and
+  describes no sub-LED nodes.
 - **Common properties.** All three listed `retain-state-suspended` among the
   properties of `Documentation/devicetree/bindings/leds/common.yaml`. That
   file does not define it. The bindings of single controllers do.
@@ -66,7 +67,7 @@ Facts that would change what a review concludes:
   `led_trigger_is_hw_controlled()` is true, before it calls
   `led_update_brightness()`.
 - **A driver with no brightness callback.** Readers A and B said that the work
-  logs an error, and reader C that the sysfs write fails.
+  logs an error, and reader C said that the sysfs write fails.
   `set_brightness_delayed_set_brightness()` returns with no message when both
   helpers return `-ENOTSUPP`, and `brightness_store()` returns the size.
 - **`led_set_brightness_sync()` and blinking.** Readers B and C said that it
@@ -78,11 +79,15 @@ Facts that would change what a review concludes:
   goes to `new_blink_brightness`. A zero value sets `LED_BLINK_DISABLE` and
   queues the work. The function never calls `led_stop_software_blink()`.
 - **Order of registration.** All three had the order of
-  `led_classdev_register_ext()` wrong. The function defaults `max_brightness`,
-  calls `led_update_brightness()` and `led_init_core()`, adds the LED to
-  `leds_list`, and then calls `led_trigger_set_default()`. It holds
-  `led_access` from before the device is created until after the default
-  trigger is set.
+  `led_classdev_register_ext()` wrong. The function does these steps in this
+  order:
+  1. defaults `max_brightness`
+  2. calls `led_update_brightness()` and `led_init_core()`
+  3. adds the LED to `leds_list`
+  4. calls `led_trigger_set_default()`
+
+  The function holds `led_access` from before the device is created until
+  after the default trigger is set.
 - **Order of detaching a trigger.** All three put `deactivate` before the
   removal of the sysfs groups of the trigger. `led_trigger_set()` calls
   `device_remove_groups()` first. On attach it calls `activate` and then
@@ -111,7 +116,7 @@ Facts that would change what a review concludes:
   takes or asserts a lock. The registration function checks `strobe_set` and
   `brightness_set_blocking` only when `LED_DEV_CAP_FLASH` is set.
 
-Things the readers said they did not recognise or were not sure of:
+Things the readers said they did not recognise or were unsure of:
 
 - A function that `Documentation/leds/leds-class.rst` names and the tree does
   not define (all three). The document names led_brightness_set(). The tree
@@ -139,12 +144,17 @@ Reader C, in addition:
   device name is prepended to a name made of color and function only when
   `devname_mandatory` is set.
 - **Halves of `flags`.** Reader C had them reversed, and put the blink bits in
-  `flags`. `LED_SUSPENDED` is bit 0, the settings of a driver start at bit 16,
-  and the blink bits are in `work_flags`.
-- **Order of unregistration.** `led_classdev_unregister()` detaches the
-  trigger first, then sets `LED_UNREGISTERING`, stops a software blink, writes
-  off unless `LED_RETAIN_AT_SHUTDOWN` is set, and calls `flush_work()`. Reader
-  C had the trigger last, the blink stop under the flag, and
+  `flags`. `LED_SUSPENDED` is bit 0, and the settings of a driver start at
+  bit 16. The blink bits are in `work_flags`.
+- **Order of unregistration.** `led_classdev_unregister()` does these steps in
+  this order:
+  1. detaches the trigger
+  2. sets `LED_UNREGISTERING`
+  3. stops a software blink
+  4. writes off unless `LED_RETAIN_AT_SHUTDOWN` is set
+  5. calls `flush_work()`
+
+  Reader C had the trigger last, the blink stop under the flag, and
   `cancel_work_sync()`.
 - **Lock order.** Reader C put `trigger_lock` outside `triggers_list_lock`.
   `led_trigger_write()` takes `led_access`, then `triggers_list_lock`, then
@@ -160,8 +170,8 @@ Reader C, in addition:
   phy_leds_register(), led_free_default_trigger(), uleds_device_release() and
   devm_fwnode_led_get().
 - **uleds.** Reader C said that the driver sets `brightness_set_blocking` and
-  `LED_CORE_SUSPENDRESUME` and registers with `led_classdev_register()`. It
-  sets `brightness_set`, sets no flag and calls
+  `LED_CORE_SUSPENDRESUME` and registers with `led_classdev_register()`. The
+  driver sets `brightness_set` and sets no flag. The driver calls
   `devm_led_classdev_register()`.
 - **Return types.** `led_trigger_register_simple()`, `led_mc_set_brightness()`
   and `led_mc_trigger_event()` return nothing. Reader C gave each an error
@@ -226,8 +236,8 @@ Readers A and B, and not reader C, in the same form:
 
 ## Where the hand-written guide is stale
 
-Every name in `leds.md` exists in the tree. What is stale is two rules that
-lack a condition, and what the guide leaves out.
+Every name in the hand-written guide, `leds.md`, exists in the tree. What is
+stale is two rules that lack a condition, and what the guide leaves out.
 
 - **Managed registration.** The guide says that managed registration "handles
   both error paths and driver removal safely". The devres release runs after
@@ -236,7 +246,7 @@ lack a condition, and what the guide leaves out.
   is unsafe with a managed LED too. `asus_wireless_remove()` shows the safe
   form: it calls `devm_led_classdev_unregister()` before it destroys its
   workqueue.
-- **Unmanaged registration.** The guide calls a missing managed call a
+- **Unmanaged registration.** The guide describes a missing managed call as a
   hazard. Unmanaged registration that is unregistered in the right order is
   correct, and `of_phy_led()` uses it.
 - **Trigger teardown.** The guide says to call `led_trigger_unregister()` "on
@@ -244,10 +254,11 @@ lack a condition, and what the guide leaves out.
   of the trigger is initialised and empty, as it is after an earlier
   unregistration. For a zeroed trigger that was never registered, or whose
   registration returned `-EEXIST`, it goes on to `list_del_init()`.
-- **Label.** The guide says to prefer `color` and `function` and does not say
-  what the code does when a node has both: `led_parse_fwnode_props()` reads
-  `label` and ignores the other two. `common.yaml` marks `label` as deprecated
-  only in the text of its description.
+- **Label.** The guide says to prefer `color` and `function`. The guide does
+  not say what the code does when a node also has `label`:
+  `led_parse_fwnode_props()` reads `label` and ignores the other two.
+  `common.yaml` marks `label` as deprecated only in the text of its
+  description.
 - **Conventions.** The commit subject, the names of private data, the three
   preferences and the two rules on logging are what the maintainers ask for.
   No code states them, so no question can supply them. They are kept by hand
@@ -256,11 +267,11 @@ lack a condition, and what the guide leaves out.
 - **Instructions to a reviewer.** The "Quick Checks" tell a reviewer what to
   verify. A built guide says how the tree is, so the two checks are kept as
   conventions, without the instruction.
-- **What it leaves out.** It has no map of the files and nothing on the
-  context of the brightness and blink callbacks, the deferred work, the locks
-  of the trigger core, hardware control, patterns, the multicolor and flash
-  classes, consumers of an LED, suspend and shutdown, or building with the
-  class configured out.
+- **What it leaves out.** The guide has no map of the files. It has nothing on
+  the context of the brightness and blink callbacks, the deferred work, the
+  locks of the trigger core, hardware control, patterns, the multicolor and
+  flash classes, consumers of an LED, suspend and shutdown, or building with
+  the class configured out.
 
 ## What was left out of the build set
 
@@ -276,7 +287,7 @@ Left out:
   `leds.classdev-struct`, `leds.trigger-struct`. The one mistake in them that
   matters, which fields registration overwrites from firmware, is asked by
   `leds.register-firmware-props` and `leds.max-brightness`.
-- A neighbour that is kept asks for the same facts:
+- Another question, which is kept, asks for the same facts:
   - `leds.software-blink`: `leds.work-flags` asks for the blink bits, and
     `leds.blink-variants` and `leds.blink-set-callback` ask when the core
     blinks in software.
@@ -407,15 +418,15 @@ in that answer.
 - **Moved.**
   - `leds.kconfig` and `leds.header-stubs` have a part of their own, since
     they ask what a caller needs and not where a file is.
-  - `leds.brightness-field` sits with the state of the class device.
-  - `leds.brightness-callbacks` and `leds.brightness-get` sit with setting
-    brightness.
-  - `leds.set-brightness-blinking` sits with blinking, beside
+  - `leds.brightness-field` is in the part on the state of the class device.
+  - `leds.brightness-callbacks` and `leds.brightness-get` are in the part on
+    setting brightness.
+  - `leds.set-brightness-blinking` is in the part on blinking, beside
     `leds.blink-stop`, so that one answer says what `led_set_brightness()`
     does during a blink.
-  - `leds.name-fields` sits with registration.
-  - `leds.private-trigger` sits with the trigger core.
-  - `leds.color-ids` sits with the device tree bindings, beside
+  - `leds.name-fields` is in the part on registration.
+  - `leds.private-trigger` is in the part on the trigger core.
+  - `leds.color-ids` is in the part on the device tree bindings, beside
     `leds.dt-constants`, since both ask where the color identifiers are
     defined.
 - **Reworded, same id.**
@@ -431,3 +442,10 @@ in that answer.
   relevance and the text that it has in the measurement set.
 - **Added.** `leds.overview` and `leds.model-gaps`, copied from
   `mm-pagetable.md`, and `leds.conventions`, which inserts the conventions.
+
+## Wording after the measurement
+
+After the measurement, the wording of some questions was made clearer in both
+sets: a sentence that asked three things became two sentences, and a pronoun
+became the name it stood for. What each question asks did not change, so the
+numbers above still describe the questions.

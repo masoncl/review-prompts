@@ -335,6 +335,13 @@ a revocable or devres-managed wrapper needed to hold such a resource, and how is
 accessed through one? Start from `rust/kernel/driver.rs`, `rust/kernel/devres.rs` and
 `samples/rust/rust_driver_pci.rs`.
 
+# Conventions
+
+## rust.conventions: Conventions for new code
+
+- section: Conventions
+- verbatim: ../verbatim/rust-conventions.md
+
 # Model gaps
 
 ## rust.model-gaps: Other mistakes models make

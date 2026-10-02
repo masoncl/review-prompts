@@ -120,6 +120,7 @@ Each question has this form: `## <id>: <Title>`, then `- section:`, then
 |---|---|
 | the question | asks at most three things, and has at most three question marks |
 | the question | never holds the answer |
+| each sentence of the question | follows `kernel/docs/writing-style.md`. It holds at most two ideas, so split a sentence that asks three things. Each "it" and "they" points at one thing, so name the thing where two are possible |
 | the whole file | has no commit SHAs and no "since v6.x" |
 | the title | is a topic of two to five words |
 | the title | never starts with What, Which, How, When, Where or Why |

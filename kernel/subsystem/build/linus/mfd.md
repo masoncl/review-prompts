@@ -69,7 +69,7 @@
 - `include/linux/mfd/core.h`: its header comment names
   drivers/mfd/mfd-core.h; no such file exists.
 
-**Documentation**
+**Documentation files**
 
 - `Documentation/devicetree/bindings/mfd/mfd.txt`: exists, as plain text; it
   has no YAML replacement.

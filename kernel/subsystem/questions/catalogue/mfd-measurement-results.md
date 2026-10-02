@@ -11,13 +11,16 @@ models they were does not matter here.
 | B | 6.12 to 6.14 | 252 | 24% | 9 of 68 |
 | C | 6.12 | 287 | 46% | 47 of 68 |
 
-Readers A and B know the MFD core well. Most of their corrections narrow a rule
-that they stated without its condition, or replace a name that has moved.
-Reader C describes an older core: it has the copy of the cell in the wrong
-place, names functions and members that this tree does not have, and describes
-a platform driver for `syscon` nodes that this tree does not have. The build
-set is written for reader C, since a guide is written for the weakest of its
-readers.
+Readers A and B know the MFD core well. Most of the corrections to their
+answers narrow a rule that they stated without its condition, or replace a name
+that has moved. Reader C describes an older core. Reader C:
+
+- has the copy of the cell in the wrong place
+- names functions and members that this tree does not have
+- describes a platform driver for `syscon` nodes that this tree does not have
+
+The build set is written for reader C, since a guide is written for the weakest
+of its readers.
 
 The hand-written guide was never checked against current sources, so
 differences between that guide and the built guide are expected. They are
@@ -39,15 +42,16 @@ noted near the end.
   `match_table` inside `of_platform_default_populate()`.
   `devm_of_platform_populate()` passes a NULL table to
   `of_platform_populate()`, and `__of_match_node()` returns NULL for a NULL
-  table, so that call creates devices for the direct children only.
+  table. So `devm_of_platform_populate()` creates devices for the direct
+  children only.
 - **The mark for a reused device tree node.** Every reader wrote that
   `device_set_of_node_from_dev()` sets a member of_node_reused in
   `struct device`. This tree has no such member. The helper calls
-  `dev_set_of_node_reused()`, and readers of the flag call
+  `dev_set_of_node_reused()`, and code that reads the flag calls
   `dev_of_node_reused()`.
 - **A resource of type `IORESOURCE_REG` with a `mem_base`.** Every reader said
   the core copies such a resource unchanged. `mfd_add_device()` tests the
-  flags of the resource with a bitwise AND against `IORESOURCE_MEM`, and
+  flags of the resource with a bitwise AND against `IORESOURCE_MEM`.
   `IORESOURCE_REG` is 0x300, which contains the bit of `IORESOURCE_MEM`,
   0x200. So the core copies the resource unchanged only when `mem_base` is
   NULL.
@@ -64,16 +68,17 @@ noted near the end.
   the companion of its parent (`adev ?: parent` in `mfd_acpi_add_device()`), so
   its alias starts with platform.
 - **Software nodes that several instances share.** Reader A said that the
-  in-tree parent copies the node for each instance, reader B that the node
-  must have static lifetime, and reader C that a node can belong to one device
-  at a time. In the tree the nodes that `drivers/mfd/intel-lpss-pci.c` names
-  are static and shared between instances, and the limit is one software node
-  for each device.
+  in-tree parent copies the node for each instance. Reader B said that the
+  node must have static lifetime. Reader C said that a node can belong to one
+  device at a time. In the tree the nodes that `drivers/mfd/intel-lpss-pci.c`
+  names are static and shared between instances, and the limit is one software
+  node for each device.
 - **Who calls `mfd_get_cell()`.** Reader A said a few child drivers read the
-  name or the compatible through it, reader B that many child drivers use it,
-  reader C that callers use it for platform data and for enable and disable
-  callbacks. Outside the core this tree has three callers: one reads `id`, and
-  two only test the result for NULL.
+  name or the compatible through the function. Reader B said that many child
+  drivers use the function. Reader C said that callers use the function for
+  platform data and for enable and disable callbacks. Outside the core this
+  tree has three callers: one reads `id`, and two only test the result for
+  NULL.
 - **The global state of the core.** Readers A and B said that no lock protects
   `mfd_of_node_list`. Reader C described a counter that numbers the cells,
   which does not exist. The core has `mfd_of_node_mutex` and takes that mutex
@@ -83,11 +88,13 @@ noted near the end.
   the core drops the reference on failure. `platform_device_release()` puts
   `dev.fwnode` only, and `drivers/mfd/mfd-core.c` has no of_node_put().
 - **What `Documentation/devicetree/bindings/mfd/mfd.txt` says.** Every reader
-  attributed rules to the file that the file does not state: that `simple-mfd`
-  must follow a specific compatible, that the string must not stand alone, and
-  what `ranges` means when it is empty. The only rule of that kind in the tree
-  is `minItems: 3` in `syscon-common.yaml`, for a node that has both `syscon`
-  and `simple-mfd`.
+  attributed these rules to the file, and the file states none of them:
+  - that `simple-mfd` must follow a specific compatible
+  - that the string must not stand alone
+  - what `ranges` means when it is empty
+
+  The only rule of that kind in the tree is `minItems: 3` in
+  `syscon-common.yaml`, for a node that has both `syscon` and `simple-mfd`.
 - **Rules stated without their condition.** The check relabelled many rules
   from "unsafe" to "potentially unsafe", since correct code in the tree does
   what the rule forbade. Three examples:
@@ -137,50 +144,57 @@ noted near the end.
 
 ## What only reader C got wrong
 
-- **Where the copy of the cell is.** It said that the core stores the copy as
-  platform data and that `mfd_get_cell()` returns `dev_get_platdata()`. The
-  core stores a `kmemdup()` copy in `pdev->mfd_cell`, and
-  `platform_device_release()` frees that copy.
-- **A platform driver for `syscon`.** It described a driver and a probe
-  function in `drivers/mfd/syscon.c`. The file registers no driver. It also
-  described the lock of the list as a spinlock that is dropped before a regmap
-  is created; the lock is the mutex `syscon_list_lock`, held across the search
-  and the creation.
-- **Which syscon lookup gets clocks and resets.** It had the two the wrong way
-  round. `syscon_node_to_regmap()` gets them, and `device_node_to_regmap()`
-  does not.
-- **When `pm_runtime_no_callbacks()` is applied.** It said before
-  `platform_device_add()`; the core calls it afterwards.
-- **What stops two cells from getting one node.** It named the `OF_POPULATED`
-  flag. The core uses `mfd_of_node_list`.
-- **What `of_reg` is compared with.** It said a translated address;
+- **Where the copy of the cell is.** Reader C said that the core stores the
+  copy as platform data and that `mfd_get_cell()` returns
+  `dev_get_platdata()`. The core stores a `kmemdup()` copy in
+  `pdev->mfd_cell`, and `platform_device_release()` frees that copy.
+- **A platform driver for `syscon`.** Reader C described a driver and a probe
+  function in `drivers/mfd/syscon.c`. The file registers no driver. Reader C
+  also described the lock of the list as a spinlock that is dropped before a
+  regmap is created. The lock is the mutex `syscon_list_lock`, held across the
+  search and the creation.
+- **Which syscon lookup gets clocks and resets.** Reader C had the two lookups
+  the wrong way round. `syscon_node_to_regmap()` gets clocks and resets, and
+  `device_node_to_regmap()` does not.
+- **When `pm_runtime_no_callbacks()` is applied.** Reader C said before
+  `platform_device_add()`; the core calls the function afterwards.
+- **What stops two cells from getting one node.** Reader C named the
+  `OF_POPULATED` flag. The core uses `mfd_of_node_list`.
+- **What `of_reg` is compared with.** Reader C said a translated address;
   `of_property_read_reg()` does not translate.
-- **`regmap_irq_get_virq()`.** It said the function checks the range of the
-  index. The function only tests the `mask` of the entry it is given.
-- **Which combinations `regmap_add_irq_chip_fwnode()` refuses.** Most of its
-  list was wrong, and it named members type_base and num_type_reg, which
-  `struct regmap_irq_chip` does not have.
-- **`dev_get_regmap()`.** It said that only a regmap made by a devm function
-  is found. `__regmap_init()` calls `regmap_attach_dev()` for every regmap
-  that has a device.
-- **Requesting a child interrupt.** It said that a child must pass a NULL hard
-  handler and `IRQF_ONESHOT`. A nested interrupt needs neither.
-- **Files it made up:** drivers/mfd/simple-mfd.c and
+- **`regmap_irq_get_virq()`.** Reader C said the function checks the range of
+  the index. The function only tests the `mask` of the entry it is given.
+- **Which combinations `regmap_add_irq_chip_fwnode()` refuses.** Most of the
+  list that reader C gave was wrong, and reader C named members type_base and
+  num_type_reg, which `struct regmap_irq_chip` does not have.
+- **`dev_get_regmap()`.** Reader C said that only a regmap made by a devm
+  function is found. `__regmap_init()` calls `regmap_attach_dev()` for every
+  regmap that has a device.
+- **Requesting a child interrupt.** Reader C said that a child must pass a
+  NULL hard handler and `IRQF_ONESHOT`. A nested interrupt needs neither.
+- **Files that reader C made up:** drivers/mfd/simple-mfd.c and
   drivers/mfd/intel_soc_pmic_core.c.
 
 ## What only reader A or reader B got wrong
 
-- Reader A: `platform_match()` compares a driver_override member of the
-  platform device (the code calls `device_match_driver_override()`);
-  `MFD_SIMPLE_MFD_I2C` has a prompt (it has none, so only `select` enables
-  it); the flag `mask_unmask_non_inverted` is probably gone (it exists, and
-  registration refuses both bases without it).
-- Reader B: callers of the core exist under `sound/` and `drivers/usb/` (there
-  are none); a header drivers/mfd/cros_ec_dev.h exists (it does not); an error
-  path need not call `mfd_remove_devices()` after a failed add (it is needed
-  when an earlier call added children);
-  `Documentation/devicetree/bindings/mfd/syscon.yaml` has a `select` list (it
-  has none, and reader A said the same).
+Each bullet gives what the reader said, and then in brackets what the tree
+has.
+
+- Reader A:
+  - `platform_match()` compares a driver_override member of the platform
+    device (the code calls `device_match_driver_override()`)
+  - `MFD_SIMPLE_MFD_I2C` has a prompt (it has none, so only `select` enables
+    it)
+  - the flag `mask_unmask_non_inverted` is probably gone (it exists, and
+    registration refuses both bases without it)
+- Reader B:
+  - callers of the core exist under `sound/` and `drivers/usb/` (there are
+    none)
+  - a header drivers/mfd/cros_ec_dev.h exists (it does not)
+  - an error path need not call `mfd_remove_devices()` after a failed add (the
+    call is needed when an earlier call added children)
+  - `Documentation/devicetree/bindings/mfd/syscon.yaml` has a `select` list
+    (it has none, and reader A said the same)
 
 ## What the readers said they did not know
 
@@ -190,10 +204,12 @@ noted near the end.
 - Reader B: whether a document for the core exists under
   `Documentation/driver-api/` (none does), and whether the syscon code takes a
   reference on the node (it does not).
-- Reader C: whether `mfd_remove_devices_late()` exists, which driver binds to
-  `simple-mfd` (`drivers/bus/simple-pm-bus.c` lists it), and whether an ACPI
-  document covers MFD children
-  (`Documentation/firmware-guide/acpi/enumeration.rst` does).
+- Reader C:
+  - whether `mfd_remove_devices_late()` exists
+  - which driver binds to `simple-mfd` (`drivers/bus/simple-pm-bus.c` lists
+    it)
+  - whether an ACPI document covers MFD children
+    (`Documentation/firmware-guide/acpi/enumeration.rst` does)
 
 ## What the readers already knew
 
@@ -231,12 +247,12 @@ worded:
 
 - The guide asks that a header used only by the parent and its immediate
   children stays in `drivers/mfd/`. Children in other directories cannot
-  include a header from `drivers/mfd/`: no file outside that directory does
-  so. The build set asks where headers live in `mfd.shared-headers`.
+  include a header from `drivers/mfd/`. No file outside that directory
+  includes one. In `mfd.shared-headers` the build set asks where headers live.
 - The guide names `rtc_devs` in `drivers/mfd/88pm800.c` as an array that
   cannot be `const`. The driver writes that file-scope array at probe, and the
-  check could not show the write safe for more than one instance. The build
-  set asks for the requirement in `mfd.cell-written`.
+  check could not show that the write is safe for more than one instance. In
+  `mfd.cell-written` the build set asks for the requirement.
 
 ## What was left out of the build set and why
 
@@ -244,7 +260,7 @@ The build set has 59 of the 68 measured questions, and the question for "Model
 gaps", which is not put to the readers.
 
 Nine questions were dropped. A question is dropped when every reader answers
-it, or when the answer would not change a review.
+it correctly, or when the answer would not change a review.
 
 | Question | Why it was dropped |
 |---|---|
@@ -258,8 +274,8 @@ it, or when the answer would not change a review.
 | `mfd.driver-layout` | every reader knew the layout. `mfd.driver-binding` asks how a child binds |
 | `mfd.bus-split` | the corrections were about the files of one chip, which would not change a review of another driver |
 
-Eleven questions were kept although no reader was rewritten by 40%, since at
-least one correction changes what a review concludes:
+Eleven questions were kept although no answer to them was rewritten by 40% or
+more, since at least one correction changes what a review concludes:
 
 | Question | The correction that matters |
 |---|---|
@@ -282,12 +298,12 @@ Four questions are worded differently from how they were measured:
 | Question | What changed |
 |---|---|
 | `mfd.overview` | it has the text that every build set uses for "Main structures" |
-| `mfd.cell-macros` | it no longer asks which members no macro sets, since a search gives that list |
+| `mfd.cell-macros` | it stopped asking which members no macro sets, since a search gives that list |
 | `mfd.syscon-config` | it no longer asks which properties the code reads, since a search gives that list |
 | `mfd.match-data` | it no longer asks how each driver chooses its cells, and asks only for the requirement |
 
-`mfd.core-change` asks what code outside the core relies on, where it had
-asked which code.
+In the build set `mfd.core-change` asks what code outside the core relies on.
+In the measurement set the question asks which code that is.
 
 The questions are organised by subject, and all the questions of a part share
 one section: cells; child names and driver binding; resources of a child;
@@ -392,3 +408,10 @@ mfd.binding-layout             33% ( 4)      21% ( 3)      78% ( 5)   weak: read
 mfd.driver-layout              13% ( 5)      13% ( 4)      29% ( 6)   middling
 mfd.bus-split                  15% ( 6)      45% ( 8)      56% ( 8)   weak: reader B, reader C
 ```
+
+## Wording after the measurement
+
+After the measurement, the wording of some questions was made clearer in both
+sets: a sentence that asked three things became two sentences, and a pronoun
+became the name it stood for. What each question asks did not change, so the
+numbers above still describe the questions.

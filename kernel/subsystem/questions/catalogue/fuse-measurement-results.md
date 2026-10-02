@@ -3,12 +3,18 @@
 Three models were asked the 90 questions in `fuse-measurement.md` with no
 sources, and a checker that had the sources then corrected each answer against
 a mainline tree (kernel 7.3.0-rc5). The readers are labelled A, B and C; which
-models they were does not matter here. Reader A was the most current (it
-assumed kernels 6.15 to 6.19), reader B a little behind it (6.12 to 6.18), and
-reader C the weakest (6.12 to 6.17): the check rewrote 26%, 35% and 63% of
-their answers. The hand-written guide was never checked against current
-sources, so differences between it and the built guide are expected and are
-noted near the end.
+models they were does not matter here.
+
+- Reader A was the most current. It assumed kernels 6.15 to 6.19, and the
+  check rewrote 26% of its answers.
+- Reader B was a little behind reader A. It assumed kernels 6.12 to 6.18, and
+  the check rewrote 35% of its answers.
+- Reader C was the weakest. It assumed kernels 6.12 to 6.17, and the check
+  rewrote 63% of its answers.
+
+The hand-written guide was never checked against current sources, so
+differences between it and the built guide are expected. The section "Where
+the hand-written guide is stale" lists them.
 
 All three readers know the design of FUSE: the connection, the device queues,
 lookup counts and FORGET, the interrupt protocol, the attribute version, the
@@ -30,8 +36,9 @@ knows.
   `minor`, `max_write` and `max_pages`. Its locks are `fch->lock` and
   `fch->bg_lock`. `struct fuse_conn` keeps `chan`, and `congestion_threshold`,
   which no lock protects. Readers A and B said they did not recognise the
-  structure. Reader C guessed at it and put the processing queues in it; those
-  are in the `struct fuse_pqueue` of each `struct fuse_dev`.
+  structure. Reader C guessed at the structure and put the processing queues
+  in it. Those queues are in the `struct fuse_pqueue` of each
+  `struct fuse_dev`.
 - **Names that are gone.** Every reader used each of these names, and used
   the first two in about a dozen answers:
 
@@ -63,7 +70,7 @@ knows.
   `fs/fuse/fuse_i.h`. Every reader doubted that `fs/fuse/dev.h` and
   `fs/fuse/args.h` exist.
 - **The device object.** `fuse_dev_open()` allocates the `struct fuse_dev` and
-  stores it in `file->private_data`. What is published later is `fud->chan`:
+  stores it in `file->private_data`. What is published later is `fud->chan`.
   `fuse_dev_install_with_pq()` sets it with `cmpxchg()`, and
   `fuse_dev_release()` replaces it with `FUSE_DEV_CHAN_DISCONNECTED` by
   `xchg()`. `fuse_get_dev()` reads it with `smp_load_acquire()` and returns
@@ -75,7 +82,7 @@ knows.
   parsed and sets `ctx->fud = fuse_dev_grab(file)`. `fuse_get_tree()` creates
   the channel with `fuse_dev_chan_new()` and does no `fget()`.
   `fuse_fill_super_common()` calls `fuse_dev_install()` last, under
-  `fuse_mutex`, after it has set `sb->s_root`. There is no fudptr field, and
+  `fuse_mutex`, after it has set `sb->s_root`. There is no fudptr field.
   `fuse_fill_super_common()` allocates no device.
 - **The `end` callback takes two arguments.** `struct fuse_args` declares
   `void (*end)(struct fuse_args *args, int error)`. Every reader wrote
@@ -87,8 +94,8 @@ knows.
 - **Which RELEASE is synchronous.** `fuse_file_release()` calls
   `fuse_file_put(ff, ff->fm->fc->auto_submounts)`, and only
   `fs/fuse/virtio_fs.c` sets `auto_submounts`. Readers A and B said the test is
-  `fc->destroy`, which is fuseblk, and reader C did not know the test. The
-  comment above the call still names fuseblk. With `fc->no_open` a regular
+  `fc->destroy`, which is fuseblk. Reader C did not know the test. The comment
+  above the call still names fuseblk. With `fc->no_open` a regular
   file keeps `ff->args`, and `fuse_file_put()` calls `fuse_release_end()`
   without sending. `ff->args` is NULL only for a directory with
   `fc->no_opendir`.
@@ -97,17 +104,17 @@ knows.
   when `fuse_invalid_attr()` or `invalid_nodeid()` rejects the reply. A FORGET
   is queued only when `fuse_iget()` returns NULL. The readdirplus path does
   send one. Every reader stated a rule that a FORGET must follow each reply
-  that carries a node id. The checks of the three runs did not agree on
-  whether the difference is intended, so the build set asks for the
-  requirement and does not state the behaviour.
-- **`nocreds` does not leave the pid unset.** `fuse_fill_creds()` sets
+  that carries a node id. The checks of the three runs disagreed on whether
+  the difference is intended, so the build set asks for the requirement and
+  does not state the behaviour.
+- **With `nocreds` the pid is still set.** `fuse_fill_creds()` sets
   `args->pid` before it tests `force` and `nocreds`. `-ECONNREFUSED` and
   `-EOVERFLOW` come from `fuse_req_prep()` and `fuse_fill_creds()`, before the
   allocation. `fuse_get_req()` returns only `-EINTR`, `-ENOTCONN` and
   `-ENOMEM`.
 - **`may_block` does not decide whether an `end` callback may sleep.** Every
   reader stated that the callback must not sleep unless `may_block` is set.
-  `may_block` is read only in `virtio_fs_requests_done_work()`, and
+  Only `virtio_fs_requests_done_work()` reads `may_block`, and
   `fuse_release_end()` calls `iput()` without it.
 - **`FR_FORCE` is only tested in `request_wait_answer()`**, where it skips the
   killable wait. `fuse_chan_send()` does not set it when `args->abort_on_kill`
@@ -127,29 +134,29 @@ knows.
   ring made at the first REGISTER and a field fc->io_uring set by
   `process_init_reply()`.
 - **Buffer pools and zero copy.** `enum fuse_queue_payload_mode` has a mode
-  for one buffer for each entry and a mode for a pool,
+  for one buffer for each entry and a mode for a pool.
   `fuse_uring_select_buffer()` and `fuse_uring_recycle_buffer()` take and give
-  back pool buffers, and `can_zero_copy_req()` and
+  back pool buffers. `can_zero_copy_req()` and
   `fuse_uring_set_up_zero_copy()` give the server the folios of a request.
   Every reader said the tree has one way to get a buffer and no zero-copy
   path.
 - **How ring pointers are published.** `fch->ring`, `ring->queues[qid]` and
   `ring->ready` are each stored with `smp_store_release()`. The readers gave
   `WRITE_ONCE()`, a plain store or `cmpxchg()`. The loads differ by site:
-  `READ_ONCE()` for the queue pointer in most places, `smp_load_acquire()` in
-  `fuse_uring_register()`, `fuse_uring_add_queue()` and
-  `fuse_uring_add_bufpool()`, and a plain load of `fch->ring` in
-  `fuse_uring_commit_fetch()`, which runs after the `smp_load_acquire()` of
-  `fch->initialized` in `fuse_uring_cmd()`.
+  - `READ_ONCE()` for the queue pointer in most places
+  - `smp_load_acquire()` in `fuse_uring_register()`, `fuse_uring_add_queue()`
+    and `fuse_uring_add_bufpool()`
+  - a plain load of `fch->ring` in `fuse_uring_commit_fetch()`, which runs
+    after the `smp_load_acquire()` of `fch->initialized` in `fuse_uring_cmd()`
 - **A cancel frees the entry.** `fuse_uring_cancel()` unlinks the entry,
   completes the command, calls `kfree()` and drops `queue_refs`. Every reader
   said it moves the entry to another list. IO_URING_F_TASK_DEAD is not
   defined; `fuse_uring_send_in_task()` tests `tw.cancel`.
 - **The epoch.** The epoch of a dentry is `epoch` in `struct fuse_dentry`, and
-  the readdir cache compares `fi->rdc.epoch` with `fc->epoch` too. The readers
-  said only dentries compare (A, B), or that attributes might (C).
-  `fuse_dentry_tree_work()` moves expired dentries to a shrink list; it does
-  not call `d_invalidate()`.
+  the readdir cache compares `fi->rdc.epoch` with `fc->epoch` too. Readers A
+  and B said that only dentries compare themselves with the epoch. Reader C
+  said that attributes might also. `fuse_dentry_tree_work()` moves expired
+  dentries to a shrink list; it does not call `d_invalidate()`.
 
 ## What only some readers got wrong
 
@@ -162,7 +169,7 @@ Readers B and C:
   `FUSE_I_BAD`; `fuse_iget()` does the unhash itself.
 - While `FUSE_I_SIZE_UNSTABLE` is set, a reply updates everything except the
   size. `fuse_change_attributes_i()` returns before it applies anything.
-- `fuse_set_acl()` calls `posix_acl_update_mode()`. It does not; no code under
+- `fuse_set_acl()` calls `posix_acl_update_mode()`. It does not. No code under
   `fs/fuse/` does.
 - An open that conflicts with the I/O mode of the inode returns `-ETXTBSY` or
   `-EINVAL`. `fuse_file_io_open()` turns every failure into `-EIO`.
@@ -172,13 +179,14 @@ Readers B and C:
 
 Reader B only:
 
-- `fuse_get_attr_version()` increments the counter. It reads it.
+- `fuse_get_attr_version()` increments the counter. The function reads the
+  counter.
 - A reply that is older than the cached attributes marks them invalid. The
   code returns and changes nothing.
 - `fuse_dentry_revalidate()` marks a stale inode bad. It only returns invalid.
 - `fuse_read_folio()` waits for a WRITE of the same index. It does not.
 
-Reader C only. The check rewrote 40% or more of 80 of reader C's 90 answers,
+Reader C only. In 80 of reader C's 90 answers the check rewrote 40% or more,
 so this list holds only the mistakes that would change a review:
 
 - A reply header may carry an error down to -1000. The test in
@@ -203,8 +211,8 @@ so this list holds only the mistakes that would change a review:
   first.
 - `fc->handle_killpriv` means that the kernel clears the bits. It means that
   the server does.
-- `FUSE_NOWRITE` is -1 and `fuse_set_nowrite()` takes `fc->lock`. It is
-  `INT_MIN`, and the lock is `fi->lock`.
+- `FUSE_NOWRITE` is -1 and `fuse_set_nowrite()` takes `fc->lock`.
+  `FUSE_NOWRITE` is `INT_MIN`, and the lock is `fi->lock`.
 - Removing the virtio device aborts the connection. `virtio_fs_remove()` waits
   for requests in flight and aborts nothing.
 - `fuse_allow_current_process()` runs only without `default_permissions`. It
@@ -221,16 +229,24 @@ Reader A only:
 
 ## What the readers already knew
 
-Readers A and B needed little or nothing on: writing a reply to the device,
-the order in which a read of the device chooses among interrupts, forgets and
-requests, how an INTERRUPT is queued, which I/O path a read or a write takes,
-who checks permissions with and without `default_permissions`, creating and
-opening a file in one request, the lists a request moves through, the readdir
-cache (reader A), readdirplus, and fsync. Readers B and C needed little on the
-lifetime of request arguments, and readers A and C needed little on which send
-function waits. All three had the idea of the reply size check, of cloned
-devices and of the control filesystem right, and had mostly names to correct
-there.
+Readers A and B needed little or nothing on:
+
+- writing a reply to the device
+- the order in which a read of the device chooses among interrupts, forgets
+  and requests
+- how an INTERRUPT is queued
+- which I/O path a read or a write takes
+- who checks permissions with and without `default_permissions`
+- creating and opening a file in one request
+- the lists a request moves through
+- the readdir cache (reader A only)
+- readdirplus
+- fsync
+
+Readers B and C needed little on the lifetime of request arguments, and
+readers A and C needed little on which send function waits. All three had the
+idea right for the reply size check, for cloned devices and for the control
+filesystem. The check corrected mostly names there.
 
 ## Where the hand-written guide is stale
 
@@ -244,7 +260,7 @@ current name `fch->ring`, yet the tree differs from it:
   others use a plain load.
 - It covers `fch->ring` only. The same question arises for
   `ring->queues[qid]` and `ring->ready`, which are also stored with
-  `smp_store_release()` and which it does not mention.
+  `smp_store_release()`. The hand-written guide does not mention them.
 - It says fuse reads SQE fields with `READ_ONCE(cmd->sqe->...)`.
   `fuse_uring_get_iovec_from_sqe()` reads `sqe->addr` with `READ_ONCE()` and
   `sqe->len` with a plain load.
@@ -254,17 +270,18 @@ current name `fch->ring`, yet the tree differs from it:
 - It predates `FUSE_IO_URING_CMD_ADD_QUEUE`, `FUSE_IO_URING_CMD_ADD_BUFPOOL`,
   buffer pools and zero copy. `fuse_uring_cmd_index_ok()` and
   `fuse_uring_add_bufpool()` now read `cmd->sqe->buf_index` as well.
-- Still true in this tree: `fch->ring` is stored with `smp_store_release()`;
-  `io_req_sqe_copy()` copies the SQE before a request is punted; nothing under
-  `fs/fuse/` calls `io_uring_cmd_issue_blocking()`; fuse reads `cmd->sqe` only
-  in functions that `fuse_uring_cmd()` calls.
+- Still true in this tree:
+  - `fch->ring` is stored with `smp_store_release()`
+  - `io_req_sqe_copy()` copies the SQE before a request is punted
+  - nothing under `fs/fuse/` calls `io_uring_cmd_issue_blocking()`
+  - fuse reads `cmd->sqe` only in functions that `fuse_uring_cmd()` calls
 
-Each of its two sections ends in a "Not a bug" line. Such a line tells a
-reviewer what to report, and a built guide holds no such line. The two subjects
-are kept as `fuse.uring-pointer-publication` and `fuse.uring-sqe-access`, and
-neither question states what the hand-written guide says. The hand-written
-guide holds no text that a kernel tree cannot supply, so the build set has no
-verbatim item.
+Each of the two sections of the hand-written guide ends in a "Not a bug" line.
+Such a line tells a reviewer what to report, and a built guide holds no such
+line. The two subjects are kept as `fuse.uring-pointer-publication` and
+`fuse.uring-sqe-access`, and neither question states what the hand-written
+guide says. A kernel tree can supply everything that the hand-written guide
+holds, so the build set has no verbatim item.
 
 ## What was left out of the build set and why
 
@@ -283,8 +300,8 @@ one exception.
   `fuse.user-namespaces` and `fuse.argument-flags` ask.
 - `fuse.reply-size-check`: every reader had the check right. The corrections
   were about which side sees `-EINVAL` and which sees `-EIO`.
-- `fuse.device-write`: readers A and B needed one and two corrections. Reader
-  C had one number and one error value wrong.
+- `fuse.device-write`: reader A needed one correction and reader B needed two.
+  Reader C had one number and one error value wrong.
 - `fuse.device-clone`: the corrections were the names that
   `fuse.device-lifetime` asks for.
 - `fuse.control-fs`: the code is confined to `fs/fuse/control.c`, and every
@@ -295,8 +312,8 @@ one exception.
   `fuse.forget` and `fuse.reply-attribute-checks` ask what is undone on
   failure.
 
-These are kept although the check rewrote less than half of every answer,
-since the corrections would change what a review concludes:
+These questions are kept although the check rewrote less than half of every
+answer, since the corrections would change what a review concludes:
 
 - `fuse.submounts`: every reader named the wrong code as what turns submounts
   on.
@@ -312,9 +329,9 @@ says.
 
 ## The numbers
 
-Share of each from-memory answer the checker rewrote, with the number of
-corrections in brackets. Rewritten counts rewording too; the corrections are
-what count.
+The share of each answer from memory that the check rewrote, with the number
+of corrections in brackets. "Rewritten" counts rewording too, so the
+corrections are what count.
 
 ```
              corrections  rewritten  <=15%  >=40%  kernel assumed
@@ -438,8 +455,8 @@ Questions that moved to the part whose code they are about:
 | `fuse.file-locks`, `fuse.ioctl` | other file operations | open files |
 | `fuse.reclaim-and-allocation` | changing the implementation | cached I/O and writeback |
 
-Two questions were reworded, and every other question keeps the text that was
-measured:
+Two questions ask something different from what was measured. Every other
+question asks what was measured:
 
 - `fuse.notifications` no longer asks which notifications the server can send,
   since `enum fuse_notify_code` lists them. It asks in which states of the
@@ -447,3 +464,10 @@ measured:
 - `fuse.untrusted-server` asked where the tree states the requirements, which
   sends the builder to the documentation. It now asks which code enforces each
   requirement.
+
+## Wording after the measurement
+
+After the measurement, the wording of some questions was made clearer in both
+sets: a sentence that asked three things became two sentences, and a pronoun
+became the name it stood for. What each question asks did not change, so the
+numbers above still describe the questions.

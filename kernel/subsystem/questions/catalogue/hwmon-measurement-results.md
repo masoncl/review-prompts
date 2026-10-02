@@ -5,21 +5,27 @@ sources. A checker that had the sources then corrected each answer against a
 mainline tree (kernel 7.3.0-rc5). The readers are labelled A, B and C. Which
 models they were does not matter here.
 
-- Reader A needed 263 corrections, and the check rewrote 18% of its answers.
-- Reader B needed 225 corrections, and the check rewrote 25% of its answers.
-- Reader C needed 282 corrections, and the check rewrote 45% of its answers.
+- Reader A needed 263 corrections, and the checker rewrote 18% of each of its
+  answers on average.
+- Reader B needed 225 corrections, and the checker rewrote 25% of each of its
+  answers on average.
+- Reader C needed 282 corrections, and the checker rewrote 45% of each of its
+  answers on average.
 
 The hand-written guide was never checked against current sources, so
 differences between it and the built guide are expected. The section "Where
 the hand-written guide is stale" lists them.
 
-All three readers know the shape of the subsystem: the two registration
+All three readers know the basics of the subsystem: the two registration
 functions for new drivers, the channel description, the callbacks, and that
-the core creates the sysfs files. What they get wrong is the detail a review
-depends on: when the core holds its lock, which conditions switch on thermal
-zones and the `pec` attribute, what the code does with a bad name or a stray
-bit, and what the documents say as opposed to what the readers remember them
-saying.
+the core creates the sysfs files. The readers get wrong the detail that a
+review depends on:
+
+- when the core holds its lock
+- which conditions switch on thermal zones and the `pec` attribute
+- what the code does with a bad name or with a bit that has no name
+- what the documents say, as opposed to what the readers remember the
+  documents saying
 
 A kernel name in backticks exists in the tree. A kernel name without backticks
 does not.
@@ -59,9 +65,10 @@ does not.
 - **devm_hwmon_device_unregister.** Every reader named it in at least one
   answer. No such function exists in the tree. `devm_hwmon_release()` is the
   release function of the managed registration.
-- **What `hwmon_notify_event()` checks.** No reader had the first test:
-  `is_hwmon_device()` under `WARN()`, which returns `-EINVAL`. The function
-  then checks the range of the type and of the attribute, and returns 0.
+- **What `hwmon_notify_event()` checks.** No reader had the first test, which
+  is `is_hwmon_device()` under `WARN()`. The function returns `-EINVAL` when
+  that test fails. The function then checks the range of the type and of the
+  attribute, and returns 0.
 - **Names in the core that changed.** Every reader wrote `container_of()` for
   `to_sensor_dev_attr()`, and `kzalloc()` and `kcalloc()` for the allocations
   of the core. Readers A and B wrote `attrs` for the member of the attribute
@@ -73,8 +80,8 @@ does not.
   `Documentation/hwmon/sysfs-interface.rst` names only continuous settings
   such as `tempX_max` and `inX_max`, and `pwm_fan_write()` returns `-EINVAL`
   for a value out of range.
-- **What the documents say.** Every reader attributed a rule to the hwmon
-  documents that they do not hold. Readers A and B said that
+- **What the documents say.** Every reader attributed to the hwmon documents a
+  rule that the documents do not hold. Readers A and B said that
   `Documentation/hwmon/submitting-patches.rst` has a rule on the range of
   written values, and it has none. Every reader said that chip-specific values
   go in debugfs, and no document says so. Every reader said that a new
@@ -134,27 +141,29 @@ Readers A and B:
 
 Reader A only:
 
-- Requesting an interrupt after registration is unsafe. `lm90_probe()`
-  registers the hwmon device, then adds the action that stops its work, then
-  requests the interrupt, since the handler needs the hwmon device.
-- A guard that tests `CONFIG_HWMON` with the preprocessor, with no Kconfig
-  dependency, is unsafe. The guard is true only when hwmon is built in, so
-  the guard is safe.
-- lm75_probe. The function is `lm75_generic_probe()`.
-- The pattern in `MAINTAINERS` matches the context lines of a patch.
-  `scripts/get_maintainer.pl` matches it against added and removed lines.
+- Reader A said that requesting an interrupt after registration is unsafe.
+  `lm90_probe()` registers the hwmon device, then adds the action that stops
+  its work, then requests the interrupt, since the handler needs the hwmon
+  device.
+- Reader A said that a guard that tests `CONFIG_HWMON` with the preprocessor,
+  with no Kconfig dependency, is unsafe. The guard is true only when hwmon is
+  built in, so the guard is safe.
+- Reader A wrote lm75_probe. The function is `lm75_generic_probe()`.
+- Reader A said that the pattern in `MAINTAINERS` matches the context lines of
+  a patch. `scripts/get_maintainer.pl` matches the pattern against added and
+  removed lines.
 
 Reader B only:
 
-- `hwmon_device_register()` no longer exists. The function is defined,
-  exported and declared, and drivers still call it.
-- hwmon_num_attrs. The counter is `hwmon_num_channel_attrs()`.
-- The core sets the release function of the device. The tree sets
-  `dev_release` in `hwmon_class`.
-- The kernel API document tells drivers to serialize their callbacks. The
-  document says that the core serialises them.
-- The divisor of `DIV_ROUND_CLOSEST()` must be positive. The macro handles a
-  negative divisor when both types are signed.
+- Reader B said that `hwmon_device_register()` no longer exists. The function
+  is defined, exported and declared, and drivers still call it.
+- Reader B wrote hwmon_num_attrs. The counter is `hwmon_num_channel_attrs()`.
+- Reader B said that the core sets the release function of the device. The
+  tree sets `dev_release` in `hwmon_class`.
+- Reader B said that the kernel API document tells drivers to serialize their
+  callbacks. The document says that the core serialises them.
+- Reader B said that the divisor of `DIV_ROUND_CLOSEST()` must be positive.
+  The macro handles a negative divisor when both types are signed.
 
 Reader C only:
 
@@ -177,8 +186,9 @@ Reader C only:
 - **PMBus registration.** Reader C said that `pmbus_do_probe()` calls
   `devm_hwmon_device_register_with_info()`. The function calls
   `devm_hwmon_device_register_with_groups()`. Reader C also named helper
-  variants with a "_do_" prefix, which do not exist, and said that
-  `pmbus_read_word_data()` takes the lock, which the function does not.
+  variants with a "_do_" prefix, and those variants do not exist. Reader C
+  also said that `pmbus_read_word_data()` takes the lock, and the function
+  does not take the lock.
 - **`hwmon_device_unregister()`.** Reader C said that the function tests the
   class of the device and logs an error. The function tests only the result of
   `sscanf()` on the name, and logs at debug level. On failure the device stays
@@ -232,8 +242,9 @@ It is incomplete more than stale.
 - Its section "Arithmetic" tells a reviewer what to check and states no fact.
   The questions `hwmon.write-range` and `hwmon.conversion-arithmetic` ask for
   the requirements.
-- No hwmon document states its rules on lowercase enum values, on the
-  directory a driver belongs in, or on auxiliary devices. A search of
+- No hwmon document states the rules of the hand-written guide on lowercase
+  enum values, on the directory a driver belongs in, or on auxiliary devices.
+  A search of
   `Documentation/hwmon/` for "lowercase" finds nothing. Neither
   `Documentation/hwmon/submitting-patches.rst` nor
   `Documentation/hwmon/hwmon-kernel-api.rst` mentions an auxiliary device or
@@ -321,9 +332,9 @@ set.
 
 ## The numbers
 
-The share of each answer from memory that the check rewrote, with the number
-of corrections in brackets. "Rewritten" counts rewording too, so the
-corrections are what count.
+The table shows the share of each answer from memory that the checker rewrote,
+with the number of corrections in brackets. "Rewritten" counts rewording too,
+so the corrections are what count.
 
 ```
              corrections  rewritten  <=15%  >=40%  kernel assumed
@@ -399,3 +410,10 @@ hwmon.register-unwind             12% ( 5)      15% ( 4)      53% ( 6)   weak: r
 hwmon.unregister-id               20% ( 3)       8% ( 2)      44% ( 6)   weak: reader C
 hwmon.attribute-memory            15% ( 6)      33% ( 5)      54% ( 4)   weak: reader C
 ```
+
+## Wording after the measurement
+
+After the measurement, the wording of some questions was made clearer in both
+sets: a sentence that asked three things became two sentences, and a pronoun
+became the name it stood for. What each question asks did not change, so the
+numbers above still describe the questions.

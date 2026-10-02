@@ -205,13 +205,21 @@ The files live in `kernel/subsystem/verbatim/` and are kept by hand. The five
 for `gic-v3` were copied byte for byte from the hand-written guide.
 
 The same way keeps what the maintainers of a subsystem ask for and no code
-states, such as the form of a commit subject. `hwmon`, `leds` and `mfd` each
-have a file `<guide>-conventions.md`, inserted under the title "Conventions for
-new code". Such a file states each convention once, says that existing code
-may differ, and leaves out what tells a reviewer what to report.
-`kernel/subsystem/subsystem.md` has a table that sends a review to those
-answers, since a search of the index by symbol can miss them. Add a row there
-when you add such a file.
+states, such as the form of a commit subject. `hwmon`, `i2c`, `leds`, `mfd`
+and `rust` each have a file `<guide>-conventions.md`, inserted under the title
+"Conventions for new code".
+
+- Such a file states each convention once, and leaves out what tells a
+  reviewer what to report.
+- A convention that holds only for new code says so.
+- After you add or change such a file, render the guide again with
+  `--render-only`, as "Answers are kept" says, and make the index again. No
+  model runs.
+- `kernel/subsystem/subsystem.md` has a table that sends a review to these
+  answers by directory. Add a row there when a convention applies to every
+  patch in a directory, since a search of the index by symbol can miss it.
+  The convention for `i2c` names `struct i2c_device_id`, so a search finds
+  it, and a review loads `rust.md` whole. Neither needs a row.
 
 A whole guide can be kept by hand the same way. A question file whose header
 has `- verbatim: ../verbatim/races.md` and no questions builds to a copy of

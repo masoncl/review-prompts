@@ -76,10 +76,11 @@ code goes to the hwmon mailing list?
 - relevance: 4 - a wrong dependency fails to link in one configuration only
 
 What does `include/linux/hwmon.h` provide when `CONFIG_HWMON` is disabled, and
-when it is a module and the caller is built in? What are the requirements for
-the Kconfig entry and the code of a driver outside `drivers/hwmon/` that
-registers a hwmon device as an optional feature, in order to assure safe
-usage? Start from `drivers/net/phy/Kconfig` and `drivers/acpi/fan.h`.
+when hwmon is built as a module and the caller is built in? What are the
+requirements for the Kconfig entry and the code of a driver outside
+`drivers/hwmon/` that registers a hwmon device as an optional feature, in
+order to assure safe usage? Start from `drivers/net/phy/Kconfig` and
+`drivers/acpi/fan.h`.
 
 # Class device and attribute names
 
@@ -119,8 +120,8 @@ and `hwmon_attr_base()`.
 - relevance: 3 - these bits switch on core features and create no attribute of their name
 
 Which bits of the `hwmon_chip` channel description produce no sysfs attribute
-of their own on the hwmon device, and what does the core do when it sees each?
-Start from `hwmon_chip_attrs` and `__hwmon_device_register()`.
+of their own on the hwmon device, and what does the core do when each of those
+bits is set? Start from `hwmon_chip_attrs` and `__hwmon_device_register()`.
 
 # Registration
 
@@ -160,7 +161,7 @@ does the core do when the name fails the test? Start from
 
 Which device do the `read`, `write` and `read_string` callbacks receive, and
 what does `is_visible` receive in its place? How does a callback reach the
-private data of the driver and the parent device?
+parent device and the private data of the driver?
 
 ## hwmon.probe-order: State before registration
 
@@ -219,8 +220,9 @@ and `__hwmon_create_attrs()`.
 - section: Channel description
 - relevance: 3 - tells whether a stray bit fails registration
 
-What does the core do with a bit in a channel description that has no entry in
-the table of names for its sensor type? Start from `hwmon_genattrs()`.
+What does the core do with a bit in a channel description, when that bit has
+no entry in the table of names for its sensor type? Start from
+`hwmon_genattrs()`.
 
 # Driver callbacks
 
@@ -328,9 +330,9 @@ cached values, and what decides that? Start from `update_lock` in
 - section: Locking
 - relevance: 5 - a deadlock that only shows at run time
 
-What are the requirements for calling `hwmon_lock()` or the `hwmon_lock` guard
-in order to assure safe usage? From which driver functions is the lock already
-held, and from which point in probe is the lock usable?
+What are the requirements for calling `hwmon_lock()` or using the `hwmon_lock`
+guard in order to assure safe usage? Which driver functions run with the lock
+already held, and from which point in probe is the lock usable?
 
 ## hwmon.interrupt-paths: Interrupt handlers and work items
 
@@ -387,9 +389,9 @@ which build option must be enabled. Start from
 - relevance: 4 - the thermal core writes limits through the driver's write callback
 
 Which thermal zone operations does the core implement, and which driver
-callback and attribute does each call? What does each operation do when the
-driver has no `write` callback, or when the callback returns an error? Start
-from `hwmon_thermal_ops`.
+callback does each call, with which attribute? What does each operation do
+when the driver has no `write` callback, or when the callback returns an
+error? Start from `hwmon_thermal_ops`.
 
 ## hwmon.pec-attribute: PEC attribute
 
@@ -397,9 +399,10 @@ from `hwmon_thermal_ops`.
 - relevance: 3 - the core creates the attribute on a device other than the hwmon device
 
 On which device does the core create the `pec` attribute, and under which
-conditions? What does a write to it do before it changes the flags of the I2C
-client? What does registration return when `HWMON_C_PEC` is set and the parent
-is not an I2C client? Start from `hwmon_pec_register()` and `pec_store()`.
+conditions? What does a write to the attribute do before the write changes the
+flags of the I2C client? What does registration return when `HWMON_C_PEC` is
+set and the parent is not an I2C client? Start from `hwmon_pec_register()` and
+`pec_store()`.
 
 ## hwmon.notify-context: Context for notification
 
@@ -407,9 +410,10 @@ is not an I2C client? Start from `hwmon_pec_register()` and `pec_store()`.
 - relevance: 5 - a wrong calling context sleeps in an interrupt or deadlocks
 
 What are the requirements for the context that calls `hwmon_notify_event()` in
-order to assure safe usage? May a driver call it from hard interrupt context,
-and may a driver call it while it holds the lock of the hwmon core? Start from
-`hwmon_thermal_notify()` and `lm90_report_alarms()`.
+order to assure safe usage? May a driver call the function from hard interrupt
+context, and may a driver call the function while the driver holds the lock of
+the hwmon core? Start from `hwmon_thermal_notify()` and
+`lm90_report_alarms()`.
 
 # Sysfs interface
 
@@ -488,9 +492,9 @@ driver hand its description to the core? Start from `pmbus_do_probe()` and
 - section: PMBus core
 - relevance: 3 - the registration call of the PMBus core decides what the hwmon core does for its attributes
 
-Which hwmon registration function does the PMBus core call, and how does it
-create its attributes? Which symbol namespace must a PMBus chip driver import?
-Start from `drivers/hwmon/pmbus/pmbus_core.c`.
+Which hwmon registration function does the PMBus core call, and how does the
+PMBus core create its attributes? Which symbol namespace must a PMBus chip
+driver import? Start from `drivers/hwmon/pmbus/pmbus_core.c`.
 
 ## hwmon.pmbus-locking: PMBus locking
 
@@ -498,8 +502,8 @@ Start from `drivers/hwmon/pmbus/pmbus_core.c`.
 - relevance: 4 - two locks exist and only one protects PMBus access
 
 Which lock serializes chip access in the PMBus core, and how does a chip
-driver take it? Does the lock of the hwmon core play any part? Start from
-`pmbus_lock()`.
+driver take it? Does the lock of the hwmon core serialize any of that access?
+Start from `pmbus_lock()`.
 
 # Changing the core
 
@@ -519,8 +523,9 @@ registration when the enumeration and the table of names disagree? Start from
 - relevance: 4 - the error paths free through two different routes
 
 In `__hwmon_device_register()`, which function frees the hwmon device and its
-attributes on each failure path, and what changes once the function has called
-`device_register()`? Start from `hwmon_dev_release()`.
+attributes on each failure path, and what changes once
+`__hwmon_device_register()` has called `device_register()`? Start from
+`hwmon_dev_release()`.
 
 ## hwmon.unregister-id: Finding the id at removal
 
