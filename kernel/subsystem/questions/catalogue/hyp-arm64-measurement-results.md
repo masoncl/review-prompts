@@ -156,6 +156,13 @@ because they did not fit in a guide the size of the one being replaced, and
 none changes a verdict as often as what was kept; they are the first to bring
 back if the size limit is raised.
 
+Five of the last group are back in the build set, since each is a boundary
+of pKVM that a reviewer of a pKVM patch checks: `hyp.psci-relay` (how a CPU
+enters EL2), `hyp.guest-hvc` (the protected guest's own hypercalls),
+`hyp.pvm-sysregs` (the protected guest's register traps), `hyp.np-guest-ops`
+(the host's hypercalls on a non-protected guest's stage-2) and
+`hyp.share-with-hyp` (the host sharing its pages with EL2).
+
 ## The numbers
 
 Share of each from-memory answer the checker rewrote, with the number of

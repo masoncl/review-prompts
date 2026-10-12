@@ -11,8 +11,9 @@ the code requires for safe usage. A contract: what a helper guarantees, returns 
 which of several look-alikes is used when. Orientation: where something lives and what this tree
 calls it, where a reader's memory offers another name. `catalogue/hyp-arm64-measurement.md` is the
 wider set the readers were measured on and `catalogue/hyp-arm64-measurement-results.md` says what
-they got wrong. No number says how long an answer or the guide should be. Format:
-`../../docs/subsystem-questions.md`.
+they got wrong. The part "How findings are judged" is not built from a question: the build inserts
+`../verbatim/hyp-arm64-policy.md`, which is kept by hand. No number says how long an answer or the
+guide should be. Format: `../../docs/subsystem-questions.md`.
 
 # Main structures
 
@@ -296,6 +297,15 @@ What does the hypervisor refuse outright in an SMC from the host, in which order
 handlers tried, and what happens to a call none of them claims, and why? Start from
 `handle_host_smc()`.
 
+## hyp.psci-relay: PSCI relay
+
+- section: Host hypercalls and SMCs
+- relevance: 3 - CPUs coming up must enter through EL2
+
+Which PSCI calls from the host does the hypervisor intercept, and why? Which CPUs may the host
+boot, how are a CPU's entry point and argument handed to it safely, and what does a CPU run at EL2
+before entering the host? Start from `kvm_host_psci_handler()`.
+
 # Memory from the host
 
 ## hyp.memcache: Hyp memcaches
@@ -331,6 +341,15 @@ and `unmap_donated_memory()`.
 How does the host know how much memory to donate for a hyp VM and a hyp vCPU, and what follows
 for a change that adds a field to either structure? Start from
 `arch/arm64/kvm/hyp/hyp-constants.c`.
+
+## hyp.share-with-hyp: Sharing host memory with the hypervisor
+
+- section: Memory from the host
+- relevance: 3 - refcounted on the host side
+
+How does host code share one of its pages with the hypervisor and take it back? What keeps count
+of repeated shares of the same page, and what refuses an unshare at EL2? Start from
+`kvm_share_hyp()`.
 
 # Hyp VMs and vCPUs
 
@@ -620,6 +639,14 @@ entry? How does the guest's next access to that page end?
 Before a page leaves a protected guest or the hypervisor for the host, which function clears it,
 and which cache maintenance does that function do?
 
+## hyp.np-guest-ops: Non-protected guest stage-2 operations
+
+- section: Ownership transitions
+- relevance: 3 - the host no longer owns these page tables
+
+Under pKVM, which hypercalls let the host change permissions, write-protect and age pages of a
+non-protected guest? What does each check, and what happens if one is used on a protected VM?
+
 # Entering a guest
 
 ## hyp.run-path: The run hypercall
@@ -692,6 +719,26 @@ the way out, and what is each for?
 How does the nVHE hypervisor decide whether to handle a guest exit itself or return to the
 host, how does the handler table for a protected vCPU differ, and what is done about a protected
 guest found in AArch32? Start from `fixup_guest_exit()`.
+
+## hyp.guest-hvc: Protected guest hypercalls
+
+- section: Entering a guest
+- relevance: 3 - the guest's only way to reach the host's memory
+
+Which hypercalls from a protected guest does EL2 handle itself, what does each do, and what
+happens to the rest? What happens when a guest asks to share a page that is not mapped yet? Start
+from `kvm_handle_pvm_hvc64()`.
+
+## hyp.pvm-sysregs: Protected guest system registers
+
+- section: Entering a guest
+- relevance: 3 - the feature set is fixed at EL2
+
+Which system register accesses of a protected guest trap to EL2, and where is the table that
+emulates them? How are ID register values worked out, and what happens to an access with no entry
+or one marked as handled by the host? What is verified about the table at init? Start from
+`pvm_init_traps_hcr()` and `pvm_init_traps_mdcr()` for what traps, and `kvm_handle_pvm_sysreg()`
+for the emulation.
 
 # Floating point
 
@@ -767,6 +814,13 @@ from `__do_ffa_mem_xfer()`.
 
 How does the proxy answer a feature query from the host, and what has to change when the FF-A
 specification adds an optional interface that the hypervisor does not implement?
+
+# How findings are judged
+
+## hyp.policy: How findings are judged
+
+- section: How findings are judged
+- verbatim: ../verbatim/hyp-arm64-policy.md
 
 # Model gaps
 

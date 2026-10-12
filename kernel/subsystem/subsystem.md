@@ -151,20 +151,23 @@ change can match more than one row: load every guide that matches.
 
 The maintainers of some subsystems ask for conventions that no code states,
 such as the form of a commit subject or the name of a driver's private data.
-A guide holds them in one answer, titled "Conventions for new code". A search
-of the index for the symbols of a patch can miss that answer, so read it when
-a patch touches the directory in its row.
+A guide holds them in one answer, titled "Conventions for new code". The
+reviewers of a subsystem may also keep how they judge a finding in one answer,
+titled "How findings are judged". A search of the index for the symbols of a
+patch can miss either answer, so read it when a patch touches the directory
+in its row.
 
-| The patch touches | Read "Conventions for new code" in |
-|---|---|
-| drivers/hwmon/ | hwmon.md |
-| drivers/leds/ | leds.md |
-| drivers/mfd/ | mfd.md |
+| The patch touches | Read the answer | In |
+|---|---|---|
+| drivers/hwmon/ | Conventions for new code | hwmon.md |
+| drivers/leds/ | Conventions for new code | leds.md |
+| drivers/mfd/ | Conventions for new code | mfd.md |
+| arch/arm64/kvm/hyp/ | How findings are judged | hyp-arm64.md |
 
 Find the line of each answer with:
 
 ```
-grep -n -F 'Conventions for new code' subsystem-guide-index.txt
+grep -n -F -e 'Conventions for new code' -e 'How findings are judged' subsystem-guide-index.txt
 ```
 
 ## Optional Patterns

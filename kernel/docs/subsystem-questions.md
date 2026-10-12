@@ -221,6 +221,18 @@ and `rust` each have a file `<guide>-conventions.md`, inserted under the title
   The convention for `i2c` names `struct i2c_device_id`, so a search finds
   it, and a review loads `rust.md` whole. Neither needs a row.
 
+The same way also keeps how the reviewers of a subsystem judge a finding,
+which no code states either: who must be able to reach a path for it to be a
+bug, and which reports they turn down as wrong. `hyp-arm64` has a file
+`hyp-arm64-policy.md`, inserted under the title "How findings are judged".
+Unlike a conventions file, such a file does tell a reviewer what to report
+and what not to, since that is all it is for. A rule in it may name the
+code it judges and state the fact its verdict rests on, such as `WARN_ON()`
+being fatal at EL2. Anything else about that code, and anything that
+changes from one tree to the next, is left to the questions, which check it
+against the tree on every build. Render and index it as for a conventions
+file, and give it a row in the same table.
+
 A whole guide can be kept by hand the same way. A question file whose header
 has `- verbatim: ../verbatim/races.md` and no questions builds to a copy of
 that file. That is how the race-tracing method, split out of the hand-written
