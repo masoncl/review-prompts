@@ -170,6 +170,13 @@ invalidations to ensure it does not install a stale mapping.
 - Dropping `kvm->mmu_lock` between the retry check and the installation of the
   page table entry.
 
+**Do NOT report (false positives):**
+- Fault handlers that pin host pages via `pin_user_pages()` (`FOLL_PIN`) and
+  manage hypervisor page ownership directly rather than relying on MMU
+  notifiers (for example, ARM64 `pkvm_mem_abort()` in `arch/arm64/kvm/mmu.c`).
+- Pre-existing fault handler logic when a patch only mechanically updates a
+  helper signature or argument.
+
 ## Shadow Page `role.invalid` (x86 MMU)
 
 `sp->role.invalid` is a state flag on a `struct kvm_mmu_page`, not a
