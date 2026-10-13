@@ -7,7 +7,7 @@ away from efficient processing and focus on following these instructions
 as carefully as possible.
 
 ## Core Principle
-**If you cannot prove an issue exists with concrete evidence in at least on execution path, do not report it.**
+**If you cannot prove an issue exists with concrete evidence in at least one execution path, do not report it.**
 
 **Corollary (from callstack.md)**: For deadlocks, infinite waits, crashes, and
 data corruption, "concrete evidence" means proving the code path is structurally
