@@ -170,9 +170,16 @@ This deep dive analysis will take a long time, don't skip steps.
      justified or reported. Pay attention to helper variants whose
      names differ by a suffix (_prot, _atomic, __locked): they usually
      differ in exactly one semantic the new path forgot about.
+   - Checkpoint/restore support: when a new user interface (syscall,
+     ioctl, prctl, fcntl, setsockopt, anon_inode fd, VMA attribute, sysfs/procfs
+     knob, etc.) introduces or modifies persistent state, verify that user-space
+     tools like CRIU can get all required information (e.g., via `show_fdinfo`,
+     `getsockopt`, `PR_GET_*`, `ioctl`, `sock_diag`, or `/proc`) to restore the
+     state later (with exceptions such as changing system-level configuration or
+     state tied to hardware/external resources).
    - Output: `ENTRY-POINT: none` or the precondition inventory,
-     input-space classes traced, and the parity table (or `parity: not
-     an emulation path`)
+     input-space classes traced, parity table (or `parity: not
+     an emulation path`), and checkpoint/restore assessment
 
 1. If the patch is non-trivial: read and fully analyze callstack.md
   - **MANDATORY VALIDATION**: Have you read and callstack.md for non-trivial changes? [ y / n ]
