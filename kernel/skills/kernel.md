@@ -28,7 +28,7 @@ When asked to review a kernel patch, commit, or series of commits:
 
 ### Debugging
 When asked to debug a kernel crash, oops, warning, or stack trace:
-1. Load `{{KERNEL_REVIEW_PROMPTS_DIR}}/debugging.md`
+1. Load `{{KERNEL_REVIEW_PROMPTS_DIR}}/agent/debug.md`
 2. Follow the complete debugging protocol defined there
 3. Use crash information as entry points into the code analysis
 

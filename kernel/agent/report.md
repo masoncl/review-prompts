@@ -331,7 +331,7 @@ Create `<output_dir>/review-metadata.json` with the following exact format:
   "subject": "<commit subject from commit-message.json>",
   "issues-found": <number>,
   "guide-flagged-issues": <number>,
-  "issue-severity-score": "<none|low|medium|high|urgent>",
+  "issue-severity-score": "<none|low|medium|high|critical>",
   "issue-severity-explanation": "<one sentence explanation>"
 }
 ```
@@ -381,7 +381,7 @@ Total issues: <count>
   - Analysis issues: <count>
   - Lore issues: <count>
   - Fixes issues: <count>
-Highest severity: <none|low|medium|high|urgent>
+Highest severity: <none|low|medium|high|critical>
 
 Lore context (from LORE-result.json):
 - Threads found: <count or "not checked">
