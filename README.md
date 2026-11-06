@@ -8,12 +8,22 @@ nfs-utils, and pahole development. Works with Claude Code and other AI tools.
 ### Install Prompts
 
 ```bash
-./setup.sh <agent> <project>
+./setup.sh [OPTIONS] <agent> <project>
 ```
 
 Where `<agent>` is one of available agents and `<project>` is one of available
 projects that are explicitly stated in the usage message when the script is
 executed with `-h|--help` option.
+
+By default the installed skills and commands reference the prompt files in
+this checkout. Pass `-p|--install-prompts` to also copy the project's prompt
+files into the agent's skill directory alongside the skill file (e.g.
+`~/.claude/skills/kernel/`) and point the skill and commands at that copy, so
+the checkout is not needed at runtime:
+
+```bash
+./setup.sh --install-prompts claude kernel
+```
 
 ## Available Commands
 
