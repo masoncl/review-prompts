@@ -248,6 +248,21 @@ For each diagnosed failure provide:
   has the same text and disappears in a set comparison. A pre-existing
   message whose numbers merely change (`too-many-arguments` 11 -> 12)
   is not a new finding
+- Build with the compiler flags upstream CI uses, including those its
+  workflow adds outside the build system (an `export CXXFLAGS=...`
+  with `-Wall`, `-Wextra` or `-Werror`). Running the project's CMake
+  or Meson directly, even in a mock chroot, uses none of Fedora's
+  `%{optflags}` (which include `-Wall`), only what the build system
+  adds. In the MR/PR, say what a claim like "builds without warnings"
+  or "tests pass" was checked on: arch, compiler version and flags.
+  EternalTerminal PR #924 (November 2026) said every commit built
+  without warnings; that held for a plain `cmake` RelWithDebInfo
+  build with GCC 16 on rawhide aarch64, where CMakeLists.txt adds
+  `-Werror` but not `-Wall`. The project's CI adds `-Wall`, which
+  enables `-Warray-bounds`, and its Fedora job failed on a false
+  positive in a test. The same local build with `CXXFLAGS=-Wall`
+  failed the same way, so the flags made the difference, not the
+  arch
 - When a fix makes a destructive action depend on a condition (kill
   leftover processes only if no other run uses the chroot), test the
   condition changing between the check and the action, not only holding
