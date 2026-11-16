@@ -129,6 +129,23 @@ What a trailing (`epel10.x`) branch takes:
   as fixed, check that the merge request was merged or that the change
   is in the released package
 
+## Merge Requests in CentOS Stream Dist-git
+
+- Stream dist-git projects on GitLab merge by fast-forward without
+  squashing (`merge_method` `ff`, `squash_option` `never` on
+  redhat/centos-stream/rpms bash, blktrace, git, glibc, python3.12
+  and systemd, checked 2026-11-16), so every commit in an MR lands in
+  the package's history as written. A fix-up commit ("Set Release to
+  match the changelog") stays there for good, with a second
+  `Resolves: RHEL-...` line
+- To fix a commit in an open MR, amend it and push the source branch
+  with `--force-with-lease`. Check the project's settings first,
+  since others may differ:
+  `glab api projects/<url-encoded path> | jq .merge_method,.squash_option`
+- If a SIG branch carries the same commit and a CBS build was made
+  from it, push a tag at the old commit to the SIG repo before
+  force-pushing, so the build's source stays reachable
+
 ## Build System Differences
 
 ### CentOS Stream Build Pipeline
