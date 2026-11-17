@@ -173,7 +173,8 @@ invalidations to ensure it does not install a stale mapping.
 **Do NOT report (false positives):**
 - Fault handlers that pin host pages via `pin_user_pages()` (`FOLL_PIN`) and
   manage hypervisor page ownership directly rather than relying on MMU
-  notifiers (for example, ARM64 `pkvm_mem_abort()` in `arch/arm64/kvm/mmu.c`).
+  notifiers (for example, ARM64 `protected_pkvm_mem_abort()` in
+  `arch/arm64/kvm/mmu.c`, named `pkvm_mem_abort()` before v7.4).
 - Pre-existing fault handler logic when a patch only mechanically updates a
   helper signature or argument.
 

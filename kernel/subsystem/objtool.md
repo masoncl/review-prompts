@@ -54,17 +54,16 @@ misinterpreted by objtool.
 object file and exits, relying on the OS to reclaim memory on process exit.
 
 **Do NOT report (false positives):**
-- Memory leaks on OOM or error-exit paths (such as `decode_ranges =
-  realloc(decode_ranges, size)` overwriting the old pointer when `realloc`
-  returns `NULL`, early error returns in `decode_file()` / `check()` skipping
-  `free()`, or un-freed `insn_chunk` / hash allocations at exit).
+- Memory leaks on OOM or error-exit paths (such as `ptr = realloc(ptr, size)`
+  overwriting the old pointer when `realloc` returns `NULL`, early error returns
+  skipping `free()`, or un-freed `insn_chunk` / hash allocations at exit).
 - Cleanup-path bugs (such as `free_insns()` dereferencing a NULL hash table)
   that are only reachable if a startup heap allocation (`calloc`/`malloc`)
   fails under OOM.
-- Concurrent writes to a plain `bool` status flag (such as `elf->changed` or
-  `sec->_changed`) during parallel worker passes when all threads only ever
-  store the same constant (`true` / `1`), the field is not a bitfield, and the
-  value is read only after `pthread_join()`.
+- In a patch that adds worker threads, concurrent writes to a plain `bool`
+  status flag (such as `elf->changed` or `sec->_changed`) when all threads only
+  ever store the same constant (`true` / `1`), the field is not a bitfield, and
+  the value is read only after `pthread_join()`.
 
 ## Quick Checks
 

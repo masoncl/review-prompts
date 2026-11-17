@@ -52,7 +52,7 @@ Do not confuse **mandatory kernel API error-handling** with "defensive programmi
 * Do not discard ignored return values under the assumption that they are "low probability" (e.g., "memory allocation rarely fails during probe" or "PLL lock timeout is unlikely"). In the Linux kernel, all resource acquisition errors must be handled robustly.
 
 * **EXCEPTIONS to Mandatory Error Handling:**
-  1. **Early Boot / Init Code:** Handling allocation or initialization failures is not required in early boot initialization code (typically functions annotated with `__init` or executing during early architecture setup) because a failure here is catastrophic and recovery is impossible.
+  1. **Early Boot Code:** Handling allocation or initialization failures is not required in code that only runs during early boot, such as architecture setup, because the kernel cannot continue after such a failure. The `__init` annotation alone is not enough: a driver's `module_init()` function is also `__init`, and it must undo what it did and return the error.
   2. **Optional / Debug APIs (DebugFS):** Do not flag missing checks on opportunistic debug APIs (specifically `debugfs_create_file`, `debugfs_create_dir`, and other debugfs functions), as kernel policy explicitly discourages checking them.
   3. **Cleanup & Teardown Paths:** During error rollback or driver removal (e.g., `remove` callbacks), checking the return values of release/disable calls (e.g., `clk_disable_unprepare`, `pm_runtime_disable`) is not required, as teardown must proceed regardless of individual release failures.
   4. **Explicitly Documented Omissions:** Do not report ignored returns if the call is explicitly cast to `(void)` or accompanied by a code comment explaining why the omission is safe, unless you can prove their specific reasoning is factually flawed.
@@ -132,14 +132,15 @@ the code behaves a certain way, you MUST verify against the actual implementatio
 - Assuming all shared data needs traditional locks
 
 ### 4.1. Lifecycle Concurrency & Serialization
-**Do not report concurrency issues (data races, locking violations, Use-After-Free) in serialized lifecycle functions:**
-- **Initialization Phase:** Functions like `probe()`, `setup()`, `init()`, and early boot initialization. During these phases, the device is not yet registered or visible to userspace/network/client drivers, meaning concurrent access is structurally impossible.
-- **Teardown Phase:** Functions like `shutdown()`, `remove()`, or final cleanup callbacks. These are typically serialized by the driver core, and parent subsystems (like the PCI core) have already disabled DMA and interrupts.
-- **Parent Subsystem/Bus Protection:** Check if the parent bus core (e.g., PCI, USB, platform bus, or driver core) automatically handles resource teardown, state resets, or cleanup (such as disabling DMA, clearing bus mastering, or freeing devm-managed memory) rendering explicit local driver cleanup redundant.
+**Do not report concurrency issues (data races, locking violations, Use-After-Free) in the part of a lifecycle function where nothing else can reach the object:**
+- **Initialization Phase:** `probe()`, `setup()` and `init()` are safe up to the first call that lets something else reach the object: requesting an interrupt, registering a device or callback, scheduling work, arming a timer, starting DMA, or publishing a pointer. From that call on, the rest of the function can race with what the call started.
+- **Teardown Phase:** `shutdown()`, `remove()` and final cleanup callbacks are safe after the calls that undo this: unregistering, freeing the interrupt, and cancelling work and timers. Before those calls they can race. The driver core does not run `probe()` and `remove()` of one device at the same time, but that does not stop the device's interrupts, DMA, work or open files.
+- **Parent Subsystem/Bus Protection:** Check if the parent bus core (e.g., PCI, USB, platform bus, or driver core) handles resource teardown, state resets, or cleanup (such as disabling DMA, clearing bus mastering, or freeing devm-managed memory), so that explicit local driver cleanup is redundant. Quote the core code that does it.
 
 *Output Verification:*
 - Function execution phase: [ e.g., probe, normal runtime, shutdown ]
-- Proof of concurrent access path: [ quote concurrent thread spawn, or write "serialized lifecycle - no race possible" ]
+- Call that makes the object reachable, or that ends this: [ function and location, or "none found" ]
+- Concurrent access path: [ quote the code that runs concurrently, or write "none - nothing else can reach the object here" ]
 
 ### 5. Use-After-Free Confusion
 **Distinguish between**:
@@ -253,11 +254,12 @@ memory that are real (`struct page` requirements, silently-ignored
 ### 9.2. Practical Severity vs. Theoretical Pathology
 **Do not waste developer time with theoretical, non-impactful bugs:**
 - **Complexity Trade-offs:** Do not flag O(N^2) or high-complexity algorithms in helper, test, or setup code if they are chosen for simplicity and cannot be abused by untrusted input to cause a DoS.
-- **Practically Bounded Values:** Do not flag potential overflows on variables that are practically bounded (e.g., NUMA node IDs, CPUs, or hardware channels that will never exceed limits in real-world systems).
-- **Security Privilege Boundary Equivalence:** Do not flag minor information leaks if the receiving context already possesses equivalent or higher privileges that allow reading/writing that memory anyway (e.g., leaking a kernel memory address or stack structure to a context that already has native kernel-level read privileges).
+- **Practically Bounded Values:** Do not flag potential overflows on variables that are practically bounded (e.g., NUMA node IDs, CPUs, or hardware channels that will never exceed limits in real-world systems). Quote the code or limit that bounds the value. A value that userspace, the network or a device supplies is not bounded until code checks it.
+- **Security Privilege Boundary Equivalence:** Do not flag minor information leaks if the receiving context already possesses equivalent or higher privileges that allow reading/writing that memory anyway (e.g., leaking a kernel memory address or stack structure to a context that already has native kernel-level read privileges). Quote the check that gives the receiver that privilege.
 
 *Output Verification:*
 - Practical impact of worst-case: [ e.g., "negligible", "DoS risk", "no impact" ]
+- What bounds the value: [ quote the code or limit, or "not applicable" ]
 - Security boundary violated: [ e.g., "none - context has read_kernel privilege", "yes - user-space leak" ]
 
 ### 10. Intentional backwards compatibility
@@ -524,7 +526,7 @@ Before reporting ANY regression, verify:
 - Memory leaks (`realloc` losing old pointer on OOM, missing `free()` on error/exit paths) → Do NOT report (process exits immediately and OS reclaims memory)
 - File descriptor / `FILE *` leaks on fatal error paths (`ferror(f) || fclose(f)` before exit) → Do NOT report
 - Non-POSIX portability assumptions (`fopen(..., "w")` vs `"wb"`, `struct stat` `.st_mtim` vs `st_mtimespec`, standard coreutils like `seq`) → Do NOT report
-- Concurrent worker threads writing the same constant (`true`) to a plain `bool` status flag → Do NOT report
+- Concurrent worker threads writing the same constant (`true`) to a plain `bool` status flag that is only read after the threads are joined → Do NOT report
 
 ### Assertions and Warnings
 - Removing WARN_ON/BUG_ON → Not a regression
