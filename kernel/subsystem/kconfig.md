@@ -91,6 +91,81 @@ approaches:
   depends on SOME_SUBSYSTEM
   ```
 
+## Cross-Module Link Dependencies
+
+A patch may introduce a link-time failure without modifying any Kconfig or
+Makefile. An external reference emitted by the caller must resolve to a
+definition reachable from that caller. A missing direct `depends on` or
+`select` is a clue, not proof of a regression: inherited dependencies,
+call-site guards, or header stubs may make the call safe.
+
+This is especially common when:
+- Code is moved from a driver-layer file to an arch-level file (or vice versa)
+  where different CONFIG_ guards apply
+- A function using `EXPORT_SYMBOL_GPL` is called from a new caller whose
+  Makefile entry has a different CONFIG_ guard than the exporting file
+- A patch adds an `mshv_`/driver-prefixed function into a non-driver arch
+  file, creating a cross-layer dependency
+
+**Detection steps** (perform when a patch adds new cross-file function calls):
+
+1. For each new external function call added in the diff, identify:
+  - The caller's and callee's source files and their Makefile rules
+  - Parent-directory gates, conditional Makefile blocks, and composite
+    objects that determine whether each file ends up built-in or in a module
+
+2. Check whether the reference is actually emitted in the configuration:
+  - Inspect `#if` branches, `IS_ENABLED()`/`IS_REACHABLE()` guards, and
+    header stubs or alternative definitions
+  - `IS_ENABLED(CONFIG_Y)` is true for both `y` and `m`; it does not protect
+    built-in code from calling a module. `IS_REACHABLE(CONFIG_Y)` is false
+    for a built-in caller when `CONFIG_Y=m`
+
+3. Determine valid configurations using the full Kconfig dependencies,
+  including inherited and transitive dependencies and conditional selects.
+  Do not assume that the absence of a direct dependency permits a combination.
+
+4. Check valid `n`/`m`/`y` combinations for references that remain:
+  - A built-in caller requires a built-in definition. `CONFIG_X=y` with
+    `CONFIG_Y=m` is not safe merely because both objects are built
+  - A module can call a built-in provider or another module, but symbols
+    crossing module boundaries need an appropriate `EXPORT_SYMBOL*` and
+    must satisfy its license and namespace requirements. The objects do
+    not need to be linked into the same module
+  - With the provider disabled (`CONFIG_Y=n`), verify that a guard removes
+    the reference or a stub/alternative definition supplies it
+
+5. Report a **link-time regression** only after identifying a valid config
+  where the patch leaves an unresolved reference. Reproduce the failure
+  with a build when possible; otherwise show the exact dependency and
+  build-rule path, ruling out guards, stubs, and alternative providers.
+
+Example build rules:
+
+`arch/x86/hyperv/Makefile`:
+```make
+obj-$(CONFIG_HYPERV_VTL_MODE) += hv_vtl.o
+```
+
+`drivers/hv/Makefile`:
+```make
+ifneq ($(CONFIG_MSHV_ROOT)$(CONFIG_MSHV_VTL),)
+   obj-y += mshv_common.o
+endif
+```
+
+The candidate failing configuration is `CONFIG_HYPERV_VTL_MODE=y`,
+`CONFIG_MSHV_ROOT=n`, and `CONFIG_MSHV_VTL=n`. Both driver options must be
+disabled (unset in Make): either one enables `mshv_common.o` in the shown
+conditional. If this configuration is permitted, and `hv_vtl.c` emits a
+reference to `hv_call_set_vp_registers()` defined only in `mshv_common.c`
+with no applicable stub, the result is an undefined reference.
+
+**Fixes**: Correct the Kconfig dependency without bypassing the callee's own
+dependencies, move the shared implementation to reachable common code, or
+provide the appropriate export for a module caller. Use a guard or stub only
+when omitting the feature is semantically valid.
+
 ## Quick Checks
 
 - **Selected symbol existence**: Verify every `select FOO` references a
@@ -102,3 +177,7 @@ approaches:
 - **COMPILE_TEST with arch-specific select**: When a driver uses
   `depends on ... || COMPILE_TEST`, verify that all `select` statements
   reference symbols available on all architectures
+- **Cross-module link deps**: When a patch adds a call to an external
+  function (especially cross-directory), verify that every emitted reference
+  has a reachable definition for valid `n`/`m`/`y` combinations, accounting
+  for guards, stubs, and module exports
