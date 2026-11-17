@@ -85,11 +85,11 @@ review-prompts/
 │   ├── skills/               # Skill template
 │   ├── slash-commands/       # /pahole-review, /pahole-debug, /pahole-verify
 │   └── *.md                  # Subsystem and protocol files
-├── uboot/                   # pahole prompts
+│
+├── uboot/                    # U-Boot prompts
 │   ├── skills/               # Skill template
 │   ├── slash-commands/       # /ureview, /useries, /uverify
-│   └── *.md                  # Subsystem and protocol files
-
+│   └── *.md                  # Protocol files
 │
 └── README.md                  # This file
 ```

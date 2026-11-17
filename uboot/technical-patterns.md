@@ -57,7 +57,7 @@
 - If you find a type mismatch (using `*foo` instead of `foo` etc), trace the type
   fully and check against the expected type to make sure you're flagging it correctly
 - global variables and static variables are zero filled automatically
-- When fields move into a sub-struct, search for all static instances of the parent struct (e.g., init_mm, init_task) and verify their initializers are updated — especially locks, which require explicit initialization macros (e.g., `__RAW_SPIN_LOCK_UNLOCKED`) rather than zero-fill
+- When fields move into a sub-struct, search for all static instances of the parent struct and verify their initializers are updated
 - when freeing/destroying resources referenced by structure fields, ensure pointer fields are set to NULL to prevent use-after-free on reuse if the structure is not also immediately freed
   - ex: unregister_foo() { foo->dead = 1; free(foo->ptr); add to list}
        register_foo() { pull from list ; skip allocation of foo->ptr; foo->ptr->use_after_free;}
@@ -118,8 +118,6 @@ Misunderstanding what constitutes a dereference causes false positives.
 3. **NULL checks protect the pointer being checked**
    - `if (foo)` protects dereferencing `foo`
    - `if (foo && foo->bar)` protects dereferencing both `foo` and `foo->bar`
-
-### SPL and U-Boot proper checks
 
 ### Build variants: SPL/TPL link a different U-Boot
 

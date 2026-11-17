@@ -107,7 +107,7 @@ For each commit in the series (in chronological order):
    - Any dependencies from previous commits in the series
 
 3. **Execute full review-core.md protocol** for this single commit:
-   - Load all required files (technical-patterns.md, subsystem guides, etc.)
+   - Load all required files (technical-patterns.md, etc.)
    - Follow ALL tasks from review-core.md (Task 0 through Task 5)
    - When checking for fixes/regressions, consider:
      * Forward fixes: Are regressions introduced here fixed by later commits in the series?

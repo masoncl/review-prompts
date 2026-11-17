@@ -11,7 +11,7 @@ any summary, comments or questions you add should be wrapped at 78 characters
 - Always end the report with a blank line.
 
 - The report must be conversational with undramatic wording, fit for sending
-as a reply to the patch introducing the regression on the LKML mailing list
+as a reply to the patch introducing the regression on the U-Boot mailing list
   - Report must be **factual**.  just technical observations
   - Report should be framed as **questions**, not accusations
   - Call issues "regressions", never use the word critical

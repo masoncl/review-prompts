@@ -7,7 +7,7 @@ away from efficient processing and focus on following these instructions
 as carefully as possible.
 
 ## Core Principle
-**If you cannot prove an issue exists with concrete evidence in at least on execution path, do not report it.**
+**If you cannot prove an issue exists with concrete evidence in at least one execution path, do not report it.**
 
 **Corollary (from callstack.md)**: For deadlocks, infinite waits, crashes, and
 data corruption, "concrete evidence" means proving the code path is structurally
@@ -167,21 +167,13 @@ the dismissal is invalid. Report the race.
 - Simplicity/maintainability was prioritized
 - It's optimizing for a different use case
 
-### 10. Intentional backwards compatibility
-- Leaving stub sysfs or procfs files is not required, and also not a regression
-- It is not a regression for deprecated sysfs files to remain and just return
-  any constant value (0, empty strings, a specific fixed string are all ok),
-  as long as that value was legal for the interface before deprecation.
-
-**ONLY REPORT**: if you can prove the resource contract has been broken
-
-### 11. Subjective review patterns
+### 10. Subjective review patterns
 - problems flagged by SR-* patterns are not bugs, they are opinions.
 - But, they can still be wrong.  Focus on checking against the commit message,
 nearby code, nearby comments, and the "debate yourself" section of the
 verification checklist.
 
-### 12. Uninitialized variables
+### 11. Uninitialized variables
 - assigning to a variable is the same as initializing it.
 - passing uninitialized variables to a function is fine if that function writes
 to them before reading them
@@ -190,13 +182,13 @@ to them before reading them
   initialization for fields whose zero value is correct (NULL pointers,
   zero counts, empty list heads where `*_INIT` is `{NULL}` or `{0}`).
 
-### 13. Implicit Guard Conditions
+### 12. Implicit Guard Conditions
 
 **Before reporting NULL dereference**:
 - Review technical-patterns.md "NULL Pointer Dereference" section
 - Load and fully analyze pointer-guards.md for EVERY NULL pointer
 
-### 14. Patch series false positive removal
+### 13. Patch series false positive removal
 
 Large changes are broken up into small logical units in order to make them
 easier to understand and review.
@@ -237,7 +229,7 @@ must still report this regression []
 - Was a git range provided in the prompt? [ y / n, range ]
 - Did you use it to search forward? [ y / n ]
 
-### 15. Subsystem guide violations (hallucination check ONLY)
+### 14. Subsystem guide violations (hallucination check ONLY)
 
 Issues tagged `subsystem_guide_violation: true`, or with category
 `guide-directive` or `issue_type: "potential-issue"` with a `guide_directive`
@@ -245,7 +237,7 @@ field, are subsystem guide violations. The subsystem guide is authoritative —
 the violation itself is treated as factually correct.
 
 **STOP. For these issues, ONLY perform these three hallucination checks. Do
-NOTHING else. Do NOT apply sections 1-14. Do NOT apply TASK POSITIVE.1.**
+NOTHING else. Do NOT apply sections 1-13. Do NOT apply TASK POSITIVE.1.**
 
 1. **Does the cited guide rule exist?** Re-read the subsystem guide and confirm
    the quoted directive actually appears in the guide text. If the agent
@@ -378,8 +370,7 @@ Before reporting ANY regression, verify:
      - Output: strongest argument against reporting this bug
      - IMPORTANT: "unlikely in practice" is not a valid argument against a
        deadlock, crash, or data corruption. Only "structurally impossible"
-       (the code literally cannot reach that state) is valid. See
-       callstack.md "Reachability Dismissals".
+       (the code literally cannot reach that state) is valid.
    - 10.2 Now pretend you're the reviewer. Think extremely hard about the author's arguments and decide if the review is correct.
      - Address each author argument with code evidence
      - Output: code evidence refuting the author, or "cannot refute with code - likely false positive"
@@ -414,7 +405,6 @@ Before reporting ANY regression, verify:
 - Don't re-report the original problem
 
 ### Subsystem Exclusions
-- fs/bcachefs → Skip all issues
 - Staging drivers → Lower standards apply
 - Example/test code → Focus on system impact only
 

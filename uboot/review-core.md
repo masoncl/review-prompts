@@ -91,7 +91,7 @@ These default to off
      find it unless you search the parent commit.
 
 2. **Without semcode (fallback)**:
-   - Use `git show <sha>` to identify changes. Do not use `git diff` against HEAD: `review_one.sh` checks out a worktree with the commit applied, so `git diff` will be empty.
+   - Use `git show <sha>` to identify changes. Do not use `git diff` against HEAD: if the commit is already checked out, `git diff` will be empty.
    - Manually find function definitions and relationships with grep and other tools
    - Document any missing context that affects research quality
 
