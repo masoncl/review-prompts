@@ -43,6 +43,7 @@ review-prompts/
 ├── skills/                   # Skill template
 ├── slash-commands/           # Slash command definitions
 ├── false-positive-guide.md   # False positive checklist
+├── pointer-guards.md         # Guards that make a NULL check unneeded
 ├── lore-thread.md            # Process lore threads
 ├── callstack.md              # Regressions within the callstack
 ├── missing-fixes-tag.md      # Missing Fixes: tags rules
