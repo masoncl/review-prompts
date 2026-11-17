@@ -174,7 +174,7 @@ agent was either skipped or failed — check the orchestrator output.
   "line_number": 123,
   "function": "function_name",
   "issue_type": "regression|potential-issue",
-  "issue_category": "resource-leak|null-deref|uaf|race|lock|api|logic|comment|side-effect|guide-directive|missing-fixes-tag|other",
+  "issue_category": "resource-leak|null-deref|uaf|race|lock|api|logic|comment|side-effect|guide-directive|missing-fixes-tag|testability|other",
   "issue_severity": "low|medium|high",
   "issue_context": ["line -1", "line 0", "line +1"],
   "issue_description": "Detailed explanation...",

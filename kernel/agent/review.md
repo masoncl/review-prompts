@@ -34,7 +34,8 @@ Mark each task done as you complete it.
 ## Rules
 
 - Ignore fs/bcachefs completely
-- Ignore test program issues unless they cause system instability
+- Ignore test program issues unless they cause system instability, except for
+  PHASE 4.6 test review findings
 - Don't report assertion/WARN/BUG removals as regressions
 - NEVER read entire source files — use semcode tools
 
@@ -334,6 +335,30 @@ snippet in `issue_context`, a neutral `issue_description` about the code only, a
 `suggested_question`. Commit-message findings use `"file_name": "COMMIT_MESSAGE"`.
 
 Output: `SLOP PASS: <count> kept | none`
+
+---
+
+## PHASE 4.6: Test review
+
+First, search for existing tests of the code this FILE-N changes: test files
+beside it (a `tests/` directory, or a file named as a test such as
+`*_kunit.c` or `*-test.c`), KUnit tests that call the changed functions, and
+kselftests that exercise the interface it implements.
+
+Output: `EXISTING TESTS: <paths> | none found`
+
+Run the rest of this phase only if this FILE-N adds or modifies test code
+(KUnit tests, kselftests, or other in-tree tests), or changes code that the
+tests just found cover or sit beside. Otherwise output `TEST REVIEW: not
+applicable` and continue.
+
+Load `<prompt_dir>/testing.md` and follow it: decide whether this change should
+have a test, and review any test code in this FILE-N against the code it
+exercises. Collect each finding as an issue for
+PHASE 5 in the regression format from Step 8, with
+`issue_category: "testability"` and the severity `testing.md` describes.
+
+Output: `TEST REVIEW: <count> findings | none`
 
 ---
 
