@@ -33,7 +33,7 @@ usage() {
     echo "                                opencode-v2, gemini, goose, kiro-cli"
     echo "  <project>   Install skills and commands for this project"
     echo "              Available projects: iproute, kernel, nfs-utils, pahole,"
-    echo "                                  systemd"
+    echo "                                  systemd, uboot"
     echo ""
     echo "Options:"
     echo "  -h, --help  Show this help message and exit"
