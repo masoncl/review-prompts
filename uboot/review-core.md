@@ -183,15 +183,9 @@ BUG FIX DETERMINATION: major/minor/not a bug fix
 
 2. Determine if we're checking for Fixes: tags
 
-Different subsystems have different preferences for Fixes: tags.
-Identify the subsystem from this change.
-Output:
-```
-Fixes tag check for <subsystem>
-```
   - Not a bug fix -> NO Fixes: tag check
-  - Minor bugs in any subsystem -> NO Fixes: tag check
-    - Fixes: tag already in commit message → also load `fixes-tag.md`
+  - Minor bug -> NO Fixes: tag check
+  - Major bug -> Fixes: tag check
 
 3. If you decided to look for Fixes: tags
   - Load ./missing-fixes-tag.md to check for missing Fixes: tags for this commit.
