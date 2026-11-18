@@ -89,7 +89,8 @@ Binary packages additionally collect dependency licenses:
       needed (rust2rpm-generated binaries normally don't need it in current
       Fedora)
 - [ ] Compat packages (`rust-foo0.3`) only exist when a dependent cannot be
-      ported to the current version
+      ported to the current version; they are requested without a review
+      (see `distro/fedora.md`, "Packages Exempt From Review")
 - [ ] Vendored builds: vendor tarball is reproducible (documented generation
       command), `%cargo_prep -v <vendordir>`, `%cargo_vendor_manifest` used
       so `bundled(crate(...))` Provides are generated, licenses of vendored
