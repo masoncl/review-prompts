@@ -45,7 +45,7 @@ and symbols regexes.
 | Encryption | crypto, fscrypt_ | fscrypt.md |
 | Tracing | trace_, tracepoints | tracing.md |
 | Workqueue | kernel/workqueue.c, work_struct | workqueue.md |
-| Syscalls | `SYSCALL_DEFINE`, `copy_from_user`, `copy_to_user`, `get_user`, `put_user`, any change to syscall parameter validation | syscall.md |
+| Syscalls | `SYSCALL_DEFINE`, `include/uapi/`, `copy_from_user`, `copy_to_user`, `get_user`, `put_user`, `unlocked_ioctl`, `compat_ioctl`, `prctl`, `fcntl`, `setsockopt`, `anon_inode_getfd`, `anon_inode_getfile`, `show_fdinfo`, any change to syscall parameter validation or new user interface | syscall.md |
 | btrfs | fs/btrfs/ | btrfs.md |
 | DAX | dax operations | dax.md |
 | Block/NVMe | block layer, nvme | block.md |
