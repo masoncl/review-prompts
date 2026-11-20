@@ -7,12 +7,16 @@ AI-assisted code review prompts optimized for the systemd codebase.
 Run the setup script from the root of this repository to install the skill and slash commands:
 
 ```bash
-./setup.sh <agent> <project>
+./setup.sh [OPTIONS] <agent> <project>
 ```
 
 Where `<agent>` is one of available agents and `<project>` is one of available
 projects that are explicitly stated in the usage message when the script is
 executed with `-h|--help` option.
+
+Pass `-p|--install-prompts` to also copy the prompt files into the agent's
+skill directory and point the skill and commands at that copy instead of
+this checkout; see the top-level [README](../README.md#install-prompts).
 
 This will install:
 - The `systemd` skill to the agent's specific skill directory

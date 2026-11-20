@@ -59,8 +59,9 @@ _cline_write_skill() {
 # project name, and $SCRIPT_DIR is the repo root.
 install_project() {
     local project="$1"
-    local project_dir="$SCRIPT_DIR/$project"
-    local src_skill="$project_dir/skills/${project}.md"
+    local project_dir
+    project_dir="$(prompts_ref_dir "$project")"
+    local src_skill="$SCRIPT_DIR/$project/skills/${project}.md"
 
     echo "--- Installing $project prompts ---"
 
@@ -79,7 +80,7 @@ install_project() {
 
     # One Cline skill per slash command:
     # ~/.cline/skills/<cmd>/SKILL.md, invoked as /<cmd> in chat.
-    local src_commands="$project_dir/slash-commands"
+    local src_commands="$SCRIPT_DIR/$project/slash-commands"
     if [ ! -d "$src_commands" ]; then
         echo "Warning: commands directory not found for $project, skipping"
         echo ""

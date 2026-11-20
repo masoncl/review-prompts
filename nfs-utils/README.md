@@ -8,12 +8,16 @@ package.
 From the root of this repository:
 
 ```bash
-./setup.sh <agent> nfs-utils
+./setup.sh [OPTIONS] <agent> nfs-utils
 ```
 
 Run `./setup.sh --help` for the list of supported agents. This installs the
 `nfs-utils` skill to the agent's skill directory and the three slash commands
 to its command directory.
+
+Pass `-p|--install-prompts` to also copy the prompt files into the agent's
+skill directory and point the skill and commands at that copy instead of
+this checkout; see the top-level [README](../README.md#install-prompts).
 
 ## Usage
 
