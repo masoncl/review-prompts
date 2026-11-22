@@ -15,6 +15,11 @@ Where `<agent>` is one of available agents and `<project>` is one of available
 projects that are explicitly stated in the usage message when the script is
 executed with `-h|--help` option.
 
+For agents that follow the generic `~/.agents/skills` standard (such as
+[pi.dev](https://pi.dev)), use `agent-skills` as `<agent>`. Both the project
+skill and slash commands are installed under `~/.agents/skills/<name>/SKILL.md`
+and invoked using the agent's skill syntax (e.g. `/skill:kreview` in pi.dev).
+
 ## Available Commands
 
 | Project | Review | Debug | Verify |

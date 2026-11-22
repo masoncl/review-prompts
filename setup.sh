@@ -29,8 +29,11 @@ usage() {
     echo ""
     echo "Arguments:"
     echo "  <agent>     Install skill and commands for this code agent"
-    echo "              Available agents: claude, cline, codex, opencode,"
-    echo "                                opencode-v2, gemini, goose, kiro-cli"
+    echo "              Available agents: agent-skills, claude, cline, codex,"
+    echo "                                opencode, opencode-v2, gemini, goose,"
+    echo "                                kiro-cli"
+    echo "              Use 'agent-skills' for agents following the generic"
+    echo "              ~/.agents/skills standard (e.g. pi.dev)."
     echo "  <project>   Install skills and commands for this project"
     echo "              Available projects: iproute, kernel, nfs-utils, pahole,"
     echo "                                  systemd, uboot"
@@ -74,7 +77,11 @@ install_project() {
         mkdir -p "$COMMANDS_DIR"
 
         echo ""
-        echo "Installed slash commands:"
+        if [ "${COMMANDS_AS_SKILLS:-0}" = "1" ]; then
+            echo "Installed slash commands (as skills in $COMMANDS_DIR):"
+        else
+            echo "Installed slash commands:"
+        fi
 
         for cmd_file in "$src_commands"/*.md; do
             if [ -f "$cmd_file" ]; then
@@ -82,8 +89,8 @@ install_project() {
                 if [ "${COMMANDS_AS_SKILLS:-0}" = "1" ]; then
                     # The agent has no standalone slash-command files; install
                     # each command as a skill (<name>/SKILL.md) so the agent
-                    # exposes it as /<name>.  Skills require frontmatter with
-                    # a name, so generate it when the source file has none.
+                    # exposes it as a skill/command.  Skills require frontmatter
+                    # with a name, so generate it when the source file has none.
                     local cmd_skill_dir="$COMMANDS_DIR/${cmd_name%.md}"
                     mkdir -p "$cmd_skill_dir"
                     {
@@ -149,3 +156,6 @@ install_project "$PROJECT"
 echo "Setup complete!"
 echo ""
 echo "The skills load automatically in their respective project trees."
+if [ -n "${AGENT_POST_INSTALL_NOTE:-}" ]; then
+    echo "$AGENT_POST_INSTALL_NOTE"
+fi
