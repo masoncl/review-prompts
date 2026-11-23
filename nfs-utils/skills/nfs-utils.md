@@ -1,7 +1,6 @@
 ---
 name: nfs-utils
 description: Load anytime the working directory is an nfs-utils tree. nfs-utils specific knowledge, per-daemon details, code review, and debugging protocols. Read this anytime you're in the nfs-utils tree.
-invocation_policy: automatic
 ---
 
 # nfs-utils Skill

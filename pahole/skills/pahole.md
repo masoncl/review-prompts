@@ -1,7 +1,6 @@
 ---
 name: pahole
 description: AI-assisted code review for pahole and the dwarves debug-information tools.
-invocation_policy: automatic
 ---
 
 # pahole Skill
