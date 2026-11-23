@@ -1,7 +1,6 @@
 ---
 name: uboot
 description: Load anytime the working directory is a U-Boot tree, and always load it when you answer questions inside the U-Boot tree.  U-Boot knowledge, analysis and review protocols.  Read this anytime you're in the U-Boot tree
-invocation_policy: automatic
 ---
 
 ## ALWAYS READ
