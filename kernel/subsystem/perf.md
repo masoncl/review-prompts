@@ -3,7 +3,7 @@
 ## Tool API Callbacks
 
 Omitting event callbacks in `struct perf_tool` causes incoming events to be
-silently dropped. In pipe mode, dropping `perf_event_header_attr` events
+silently dropped. In pipe mode, dropping `perf_record_header_attr` events
 prevents the creation of evlists/evsels, breaking event processing entirely.
 
 - Unregistered event types are silently ignored

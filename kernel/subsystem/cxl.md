@@ -10,7 +10,7 @@ backing resource against HMAT memory targets. `resource_contains()` in
 between the two resources. A resource created without `IORESOURCE_MEM`
 has type `0`, while the HMAT target resource has type `IORESOURCE_MEM`, so
 every comparison fails. The function then returns `0` (success) with
-`*cache_size = 0`, and `cxl_acpi_set_cache_size()` in `drivers/cxl/acpi.c`
+`*cache_size = 0`, and `cxl_setup_extended_linear_cache()` in `drivers/cxl/acpi.c`
 stores that zero. The visible effect is that CXL regions with extended
 linear cache report half their actual size, and MCE memory-error reporting
 uses incorrect offsets.
