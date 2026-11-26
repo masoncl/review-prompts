@@ -25,6 +25,27 @@ inconsistent state.
     and returns early (no wakeup needed) -- task hangs forever with no way to
     recover
 
+## Scheduling Class Order
+
+Getting the class order wrong leads to false claims about which class can
+run after another one in the pick path.
+
+- Classes are ordered from highest to lowest priority as:
+  `stop > dl > rt > fair > ext > idle` (see `SCHED_DATA` in
+  `include/asm-generic/vmlinux.lds.h`); `sched_class_above()` compares
+  addresses in that layout
+- `__pick_next_task()` asks each active class in that order via
+  `class->pick_task()` and takes the first non-NULL task. The pick is per
+  runqueue, not per task: a NULL from one class falls through to the next
+  lower class only
+- `fair` is ABOVE `ext`: after a NULL return from `pick_task_scx()` only
+  `idle` remains, and the fair newidle balance can never run after it
+- A class returning `RETRY_TASK` restarts the whole loop, including
+  `prev_balance()`, which may release the rq lock (e.g. `balance_rt()` /
+  `balance_dl()` pulling tasks)
+- `for_each_active_class()` skips classes that cannot have tasks: `fair`
+  when `scx_switched_all()`, `ext` when `!scx_enabled()`
+
 ## Task State Transitions
 
 A lost wakeup leaves a task sleeping forever with no way to recover; a
@@ -169,6 +190,14 @@ trigger the watchdog failsafe causing a revert to CFS.
   local DSQ via per-CPU `direct_dispatch_task` marker
 - Failsafe: watchdog timeout, `scx_error()`, and SysRq-S all trigger
   automatic revert to CFS
+- With all tasks switched to sched_ext (the default), the fair class is
+  skipped in the pick loop; with `SCX_OPS_SWITCH_PARTIAL` both `fair` and
+  `ext` are active on the same rq and `fair` is picked first
+- `pick_task_scx()` can release the rq lock while dispatching and can
+  return `RETRY_TASK`; the ext dl_server pick (`ext_server_pick_task()`)
+  can return NULL, after which lower classes still pick
+- Balance callbacks must not stay queued across anything that can release
+  the rq lock: `rq_pin_lock()` warns if another CPU finds one pending
 
 ## Priority Inheritance
 

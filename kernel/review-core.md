@@ -49,7 +49,8 @@ These default to off
 
 ## EXCLUSIONS
 - Ignore fs/bcachefs regressions
-- Ignore test program issues unless system crash
+- Ignore test program issues unless system crash, except for TASK 2.3 test
+  review findings
 - Don't report assertion/WARN/BUG removals as regressions
 
 ## PATTERN DETECTION (check BEFORE Task 0)
@@ -208,7 +209,22 @@ the change for regressions.
   - When the regression report mentions unaddressed review comments, provide
     a lore link to the thread in review-inline.txt
 
-### TASK 2.1 Commit tag verification
+### TASK 2.1 Commit tag and subject verification
+
+0. **Subject prefix convention check**
+  - If the patch changes files in multiple directories, run the check
+    separately for each distinct directory since conventions vary by path.
+  - For each directory, run `git log --oneline --no-merges -20 -- <directory>`
+    to see existing commit subject prefixes.
+  - Verify the patch's subject prefix ordering matches the dominant convention
+    in that area.  For example, some subsystems prefer `spi: dt-bindings:` while
+    others use `dt-bindings: spi:`.
+  - If the prefix ordering doesn't match the established pattern, flag it.
+  - If different directories suggest conflicting subject prefixes, flag it
+    for the reviewer's decision.
+  - Output: `SUBJECT PREFIX CHECK: ok` or `SUBJECT PREFIX CHECK: mismatch
+    (used "X: Y:" but convention is "Y: X:")` or `SUBJECT PREFIX CHECK:
+    conflicting conventions across changed paths, needs reviewer decision`
 
 1. Consider all of the CHANGE CATEGORIES identified in review-core.md, determine
   if this is a major bug fix.  Major bug fixes address:
@@ -264,6 +280,23 @@ Fixes tag check for <subsystem>
 3. If new `CONFIG_*` macros are used in source code:
   - Verify that the corresponding Kconfig symbol actually exists in the tree or is added in this patch/series.
 4. Output: Kconfig check result (no Kconfig changes / Kconfig changes verified / Kconfig issues found)
+
+### TASK 2.3 Test review
+
+1. Search for existing tests of the changed code: test files beside it (a
+   `tests/` directory, or a file named as a test such as `*_kunit.c` or
+   `*-test.c`), KUnit tests that call the changed functions, and kselftests
+   that exercise the interface it implements.
+  - Output: `EXISTING TESTS: <paths>` or `EXISTING TESTS: none found`
+2. Determine whether the patch:
+  - adds or modifies test code (KUnit tests, kselftests, or other in-tree tests)
+  - changes code that the tests from step 1 cover or sit beside
+  - adds a new UAPI surface (syscall, ioctl, sysfs file, netlink attribute)
+  - fixes a bug whose commit message describes a concrete reproducer
+3. If any apply, load `testing.md` and follow it. It asks both whether this
+   change should have a test and whether the tests present are sound. Report
+   its findings as regressions, with the severity it describes.
+4. Output: `TEST REVIEW: not applicable` or `TEST REVIEW: <N> findings`
 
 ### TASK 3: Verification []
 **Goal**: Eliminate false positives, and confirm regressions
@@ -328,7 +361,7 @@ Always conclude with:
 
 Create a json file in the current directory named ./review-metadata.json
 
-Identify an issue severity score "low", "medium", "high", "urgent" for anything
+Identify an issue severity score "low", "medium", "high", "critical" for anything
 reported in ./review-inline.txt. Scores would increase in severity based on
 user-visible errors such as system crashes, instability, security problems, or
 incorrect system behavior.
@@ -353,7 +386,7 @@ THESE EXACT FIELDS IN THIS EXACT FORMAT.  DEVIATION IS NOT ALLOWED.
   "sha": "<string sha of the commit>",
   "subject": "<string commit subject>",
   "issues-found": <number>,
-  "issue-severity-score": "<none/low/medium/high/urgent>",
+  "issue-severity-score": "<none/low/medium/high/critical>",
   "issue-severity-explanation": "<string, result of Task 5 analysis>"
 }
 ```

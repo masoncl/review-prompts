@@ -283,6 +283,106 @@ give the buggy path something to succeed at, so the two outcomes separate:
 adding a route, an address, or an enabled device turns the broken kernel's
 answer into a success code that the assertion then catches.
 
+## In-Tree References
+
+`Documentation/dev-tools/kselftest.rst` is the authority on running,
+installing, and contributing tests. **You MUST read it at the revision under
+review before reporting on how a test is wired in**, and check such findings
+against that text rather than against this guide or memory. If the file is not
+in the tree, say so in the finding and fall back to the conventions in
+neighboring tests. The sections that matter for review:
+
+- "Contributing new tests" and "Contributing new tests (details)": skip
+  policy, running without root, the Makefile variables, the `config`
+  fragment, `.gitignore`, and out-of-tree (`O=`) builds.
+- "Timeout for selftests": the `settings` file and the default timeout.
+- "Test Harness": `kernel-doc` directives only, and they omit several macros,
+  so read `tools/testing/selftests/kselftest_harness.h` itself for what a
+  macro does.
+
+The rest of the contract lives in code. Read the relevant file when a finding
+turns on exactly what a function or macro does:
+
+- `tools/testing/selftests/kselftest.h`: the exit codes and the C reporting
+  API, listed in its header comment.
+- `tools/testing/selftests/kselftest/ktap_helpers.sh`: the shell equivalents.
+- `tools/testing/selftests/kselftest/runner.sh`: how exit codes become results
+  and how `settings` is applied.
+- `tools/testing/selftests/lib.mk`: the build variables a test Makefile
+  inherits.
+- `Documentation/dev-tools/ktap.rst`: the TAP output format.
+
+## Exit Codes
+
+A kselftest program's exit code is its overall result, and getting it wrong is
+the most common way a broken test reports success. `kselftest.h` defines the
+codes: `KSFT_PASS` (0), `KSFT_FAIL` (1), `KSFT_XFAIL` (2, failed as expected),
+`KSFT_XPASS` (3, passed though expected to fail), and `KSFT_SKIP` (4).
+`runner.sh` reports 2 as xfail and counts 3 as a failure.
+
+A program that cannot run at all, because a prerequisite of the whole program
+is missing, must exit `KSFT_SKIP`. Exiting 0 instead reports a pass for
+something that never ran, which hides a regression for as long as the
+prerequisite stays missing. A shell test does this with `ktap_skip_all` and
+`exit "$KSFT_SKIP"` from `ktap_helpers.sh`, or with `exit $ksft_skip` where the
+script sets `ksft_skip=4`.
+
+Skipping individual cases is different: they report a skip result, as
+described in "Skip vs. Fail" above, and the program exits normally. A
+`kselftest_harness.h` program exits only 0 or 1, even when every case skipped,
+so do not ask a harness test to exit 4.
+
+`ksft_exit_pass()` reports a plan that does not match the results reported, but
+still exits 0. `ksft_finished()` turns the mismatch into a failure, which is
+one more reason to prefer it.
+
+## Harness Pitfalls
+
+`kselftest_harness.h` runs each test in a forked child and manages the plan and
+exit code itself. What decides whether a harness test reports the truth:
+
+- **`ASSERT_*` versus `EXPECT_*`.** `ASSERT_*` aborts the test and `EXPECT_*`
+  records a failure and continues. As in KUnit, anything the following lines
+  depend on must be an `ASSERT_*`, particularly a non-NULL check before a
+  dereference.
+- **When teardown runs.** `FIXTURE_TEARDOWN` runs after the test body,
+  including when an `ASSERT_*` in the body fails, so it is the right place for
+  cleanup. It does not run when `FIXTURE_SETUP` fails, so setup must release
+  whatever it acquired before a failing `ASSERT_*`. Nor does it run when the
+  test crashes, calls `exit()`, or times out; only `FIXTURE_TEARDOWN_PARENT`
+  survives a crash or `exit()`.
+- **Timeouts.** The harness enforces its own per-test timeout, changed with
+  `TEST_F_TIMEOUT()`. The directory's `settings` file does not change it.
+- **`main()`.** `TEST_HARNESS_MAIN` supplies `main()`. A custom `main()` that
+  calls `test_harness_run()` is fine; one that calls test functions directly
+  bypasses result reporting.
+- **Mixing in `kselftest.h` results.** Inside a harness test,
+  `ksft_test_result_fail()` and `ksft_test_result_error()` are reported as
+  illegal usage, and `ksft_test_result_skip()` and `ksft_test_result_pass()`
+  are silently lost, so a skip reported that way becomes a pass. Use `SKIP()`.
+  `ksft_print_msg()` is fine.
+
+## Shell Tests
+
+Source `tools/testing/selftests/kselftest/ktap_helpers.sh` rather than
+hand-printing TAP lines. `set -e` interacts badly with tests that check failing
+commands deliberately, and a cleanup `trap` is the reliable way to release
+resources when a test aborts partway.
+
+## Per-Directory Support Files and Builds
+
+`kselftest.rst` describes the `config` fragment, the `settings` file, and the
+`.gitignore` a test directory carries. The review consequences:
+
+- A new test that depends on a `CONFIG_` option missing from `config` runs on
+  CI kernels built without it, producing skips or failures nobody can explain.
+- A test that outlives the default timeout is killed and reported as a
+  failure. `kselftest.rst` asks that overrides in `settings` stay rare, so
+  question a new one before asking for it.
+- A custom Makefile rule must use the `lib.mk` variables (`$(CC)`, `$(CFLAGS)`,
+  `$(LDFLAGS)`, and `$(LDLIBS)`) rather than invoking `gcc` directly, and write
+  under `$(OUTPUT)`, or cross-compilation and `O=` builds break.
+
 ## Quick Checks
 
 - **New shared files**: When a commit creates a file that is sourced or
@@ -312,3 +412,14 @@ answer into a success code that the assertion then catches.
   actually introduced the bug, not just the commit that added the general
   area of code — this is checked mechanically by CI bots on some lists
   (e.g. bpf) and gets flagged when wrong
+- **Whole-program skip exits 0**: a program that cannot run at all must exit
+  `KSFT_SKIP`. Per-case skips report a skip result instead
+- **`EXPECT_*` before a dereference**: should be `ASSERT_*`, which aborts
+- **`FIXTURE_SETUP` leaks on failure**: teardown does not run after a failed
+  setup, so setup must release what it acquired
+- **`ksft_test_result_*()` inside a harness test**: a skip reported that way
+  becomes a pass; use `SKIP()`
+- **New `CONFIG_` dependency**: must be added to the directory's `config`
+  fragment, or CI builds a kernel that cannot run the test
+- **Long-running suite**: exceeding the default timeout is reported as a
+  failure; check `kselftest.rst` for the default and the policy on overrides

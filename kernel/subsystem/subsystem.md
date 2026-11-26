@@ -50,7 +50,7 @@ and symbols regexes.
 | DAX | dax operations | dax.md |
 | Block/NVMe | block layer, nvme | block.md |
 | Boot Parameters | `__setup("`, `early_param("`, `module_param(`, `module_param_named(`, `core_param(`, `boot parameter`, `cmdline`, `command-line` | boot-params.md |
-| DRM/GPU | drivers/gpu/drm/, drm_atomic_, drm_crtc_, hwseq, hw_sequencer | drm.md |
+| DRM/GPU | drivers/gpu/drm/, include/drm/, include/uapi/drm/, drm_atomic_, drm_crtc_, amdgpu_, amdkfd, hwseq, hw_sequencer | drm.md |
 | Media/V4L2 | drivers/media/, include/media/, v4l2_subdev_, V4L2_SUBDEV_, MEDIA_BUS_FMT_ | media.md |
 | NFSD | fs/nfsd/*, fs/lockd/* | nfsd.md |
 | SunRPC | net/sunrpc/* | sunrpc.md |
@@ -73,6 +73,7 @@ and symbols regexes.
 | hwmon | drivers/hwmon/, hwmon_*, asus-ec-sensors, ec_board_info | hwmon.md |
 | Wireless/mac80211 | drivers/net/wireless/, net/mac80211/, BSS_CHANGED_, vif_cfg_changed, link_info_changed, bss_info_changed | wireless.md |
 | Selftests | tools/testing/selftests/, TEST_PROGS, TEST_FILES, TEST_GEN_FILES | selftests.md |
+| KUnit | kunit, KUNIT_CASE, KUNIT_ASSERT, KUNIT_EXPECT, kunit_test_suite, _kunit.c, .kunitconfig | kunit.md |
 | DT Bindings | Documentation/devicetree/bindings/, *.yaml in devicetree | dt-bindings.md |
 | USB Storage | drivers/usb/storage/, unusual_devs.h, UNUSUAL_DEV, USB_SC_, USB_PR_ | usb-storage.md |
 | ATA/libata | drivers/ata/, ata_dev_, ata_port_, ata_read_log_, ATA_QUIRK_ | ata.md |

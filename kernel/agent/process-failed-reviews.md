@@ -2,6 +2,7 @@
 name: process-failed-reviews
 description: Batch process review-failed.md files across multiple directories, updating subsystem guides and committing after each
 tools: Read, Write, Glob, Bash, Task, TaskCreate, TaskUpdate, TaskList
+model: sonnet
 ---
 
 # Process Failed Reviews Agent
@@ -70,7 +71,7 @@ For each directory, in order:
 
    Check git status for both modified and untracked files:
    ```bash
-   cd <prompt_dir>/.. && git status
+   git -C <prompt_dir>/.. status
    ```
 
    Look for:
@@ -79,9 +80,8 @@ For each directory, in order:
 
    If there are ANY changes (modified OR new files) in `kernel/subsystem/`:
    ```bash
-   cd <prompt_dir>/.. && \
-     git add -A kernel/subsystem/ && \
-     git commit -s -m "$(cat <<'EOF'
+   git -C <prompt_dir>/.. add -A kernel/subsystem/
+   git -C <prompt_dir>/.. commit -s -m "$(cat <<'EOF'
    subsystem[/<file>]: <brief description of changes>
 
    <1-2 sentence explanation of what was added/updated>

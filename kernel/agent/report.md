@@ -174,7 +174,7 @@ agent was either skipped or failed — check the orchestrator output.
   "line_number": 123,
   "function": "function_name",
   "issue_type": "regression|potential-issue",
-  "issue_category": "resource-leak|null-deref|uaf|race|lock|api|logic|comment|side-effect|guide-directive|missing-fixes-tag|other",
+  "issue_category": "resource-leak|null-deref|uaf|race|lock|api|logic|comment|side-effect|guide-directive|missing-fixes-tag|testability|other",
   "issue_severity": "low|medium|high",
   "issue_context": ["line -1", "line 0", "line +1"],
   "issue_description": "Detailed explanation...",
@@ -331,7 +331,7 @@ Create `<output_dir>/review-metadata.json` with the following exact format:
   "subject": "<commit subject from commit-message.json>",
   "issues-found": <number>,
   "guide-flagged-issues": <number>,
-  "issue-severity-score": "<none|low|medium|high|urgent>",
+  "issue-severity-score": "<none|low|medium|high|critical>",
   "issue-severity-explanation": "<one sentence explanation>"
 }
 ```
@@ -381,7 +381,7 @@ Total issues: <count>
   - Analysis issues: <count>
   - Lore issues: <count>
   - Fixes issues: <count>
-Highest severity: <none|low|medium|high|urgent>
+Highest severity: <none|low|medium|high|critical>
 
 Lore context (from LORE-result.json):
 - Threads found: <count or "not checked">

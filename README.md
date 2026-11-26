@@ -26,6 +26,7 @@ executed with `-h|--help` option.
 | nfs-utils | `/nfs-utils-review` | `/nfs-utils-debug` | `/nfs-utils-verify` |
 | pahole | `/pahole-review` | `/pahole-debug` | `/pahole-verify` |
 | RPM | `/rpm-review` | `/rpm-debug` | `/rpm-verify` |
+| U-Boot | `/ureview` | `-` | `/uverify` |
 
 ## Project Documentation
 
@@ -35,6 +36,7 @@ executed with `-h|--help` option.
 * [nfs-utils Review Prompts](nfs-utils/README.md) - nfs-utils specific patterns and protocols
 * [pahole Review Prompts](pahole/README.md) - pahole specific patterns and protocols
 * [RPM Review Prompts](rpm/README.md) - RPM packaging for Fedora and CentOS Stream
+* [U-Boot Review Prompts](uboot/README.md) - U-Boot specific patterns and protocols
 
 ## How It Works
 
@@ -50,6 +52,7 @@ The skills detect your working directory and load appropriate context:
 - In an nfs-utils tree: nfs-utils skill loads automatically
 - In a pahole tree: pahole skill loads automatically
 - In an RPM packaging tree (spec files, dist-git): rpm skill loads automatically
+- In a U-Boot tree: U-Boot skill loads automatically
 
 ## Structure
 
@@ -93,6 +96,10 @@ review-prompts/
 │   ├── distro/               # Fedora / CentOS Stream guidelines
 │   ├── ecosystem/            # Rust, Go, Python packaging
 │   └── *.md                  # Protocol and topic files
+├── uboot/                    # U-Boot prompts
+│   ├── skills/               # Skill template
+│   ├── slash-commands/       # /ureview, /useries, /uverify
+│   └── *.md                  # Protocol files
 │
 └── README.md                  # This file
 ```
