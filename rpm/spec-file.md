@@ -94,6 +94,47 @@ Patch1: add-feature.patch
 %patch 1 -p1
 ```
 
+### Patches That Apply Only Sometimes
+Declare every `PatchN:` unconditionally and make only applying it
+conditional. A `Patch:` inside `%if` or `%ifarch` is missing from an
+SRPM built where the condition is false: the Fedora guidelines forbid
+architecture-conditional `Source:` and `Patch:` tags for this reason,
+and release conditions fail the same way (Hyperscale's rasdaemon,
+2026-11-18: an EL9-only patch under `%if 0%{?rhel} < 10` was missing
+from an SRPM built on a Fedora host by a tool that didn't define
+`%rhel`).
+
+One way to keep this readable is to number patches by audience,
+lower numbers applying more widely, and apply each block with
+`%autopatch -m`/`-M`. Since rpm 4.15 an unnumbered `Source:` or
+`Patch:` takes the previous number plus one (the first is 0), so only
+the reserved blocks need numbers:
+```
+Source:   %{name}-%{version}.tar.gz
+Patch:    rasdaemon-1.0.0-unified-sel-any-arch.patch   # everyone
+Patch200: rasdaemon-1.0.0-python3.9.patch              # EL9 only
+
+%prep
+%autosetup -N
+%autopatch -p1 -M 99
+%if 0%{?rhel} && 0%{?rhel} < 10
+%autopatch -p1 -m 200 -M 299
+%endif
+```
+- Pick the blocks per package: patches for everyone first (up to 99,
+  199 or 999), then blocks for an architecture, a release, and so on.
+  In CentOS Hyperscale the highest block is normally for the
+  Facebook-only builds
+- Keep the unnumbered patches before the first numbered one: an
+  unnumbered `Patch:` after `Patch200:` becomes 201 and joins that
+  block
+- Automatic numbering and `%autopatch -m`/`-M` need rpm 4.15 or later
+  (EL9 and newer, current Fedora). On EL8 number every patch and
+  apply the conditional ones with `%patch -P <n> -p1`
+- In review, a conditionally declared `Patch:` is a finding: a
+  MUST NOT for architecture conditions, and the same failure for
+  release conditions
+
 ### Patch Provenance
 When reusing patches from another packager's COPR, SRPM or another
 distribution, check where each patch came from before carrying it:
