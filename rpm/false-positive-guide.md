@@ -64,6 +64,42 @@ rpmlint produces false positives regularly:
 
 **Check**: Verify rpmlint finding against actual packaging intent.
 
+#### rpmlintrc Filters
+
+A confirmed false positive is documented with a filter in
+`<name>.rpmlintrc` at the dist-git root, which `fedpkg lint` passes to
+rpmlint with `-r` and `fedpkg import` keeps (rpmlint 2.8.0, rpkg 1.70):
+- Narrow each filter to the finding. Messages read
+  `<name>.<arch>: <E|W>: <check> <args>`, so
+  `addFilter(r"foo\.noarch: E: spelling-error \('nonfree', ")` hides only
+  that word in that subpackage, and a new typo still reports. Anchor
+  with `$` where the argument ends the line
+- A filter that matched nothing is reported as
+  `E: unused-rpmlintrc-filter "<regex>"`. The check runs once, after the
+  last package of the invocation, against the filters used anywhere in
+  it. Lint the spec, SRPM and all binary RPMs in one run: linting the
+  spec alone, or the RPMs in separate runs, turns every filter for the
+  other packages' findings into an error. Don't ask for such filters to
+  be removed on the strength of a partial run
+  - `--ignore-unused-rpmlintrc` turns the check off, and with it the
+    detection of stale filters. A filter for `unused-rpmlintrc-filter`
+    itself has no effect: rpmlint never filters that message
+- Without `-r`, rpmlint loads a `*.rpmlintrc` or `*-rpmlintrc` only when
+  given exactly one path, from that file's directory (or that
+  directory). With several paths (spec plus RPMs) nothing is loaded, so
+  pass `-r`. If more than one file matches, all are ignored with a
+  warning
+- `-r` takes a single file, so one run cannot combine a spec/SRPM
+  rpmlintrc with one for the binary RPMs. Splitting the filters by
+  package type means separate runs, each given only the packages its
+  file applies to
+- `fedpkg lint` lints the spec plus the RPMs in the checkout: the
+  `fedpkg mockbuild` results (`results_<name>/<version>/<release>/`) if
+  present, otherwise the SRPM and `<arch>/` directories `fedpkg local`
+  leaves, without -debuginfo and -debugsource. Results built elsewhere
+  are not seen, so binary-RPM filters show up as unused; run
+  `rpmlint -r <name>.rpmlintrc <name>.spec <resultdir>/*.rpm` instead
+
 ### CHECK 6: Is This a Subpackage Split Decision?
 
 Subpackage organization is often a judgment call:
