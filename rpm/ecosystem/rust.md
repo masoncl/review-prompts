@@ -13,9 +13,18 @@ Reference: https://docs.fedoraproject.org/en-US/packaging-guidelines/Rust/
 | Type | Name | Contents |
 |------|------|----------|
 | Library crate | `rust-<crate>` | Only `-devel` subpackages carrying crate sources under `%{crate_instdir}`; noarch |
-| Binary crate | `rust-<crate>` or upstream project name | Compiled binaries; arch-specific |
+| Binary crate | `rust-<crate>`, binaries in a `<crate>` subpackage (may be renamed) | Compiled binaries; arch-specific |
 | Compat crate | `rust-<crate><major>` (e.g. `rust-nom7`) | Older semver-incompatible version kept alongside the current one |
-| Application with vendored deps | upstream name | Binaries built against a vendored crate tarball |
+| Project not packaged from crates.io (application, cargo workspace, Python package written in Rust) | upstream project name, never `rust-` | Built from the upstream release tarball, against system or vendored crates |
+
+Only packages built from crates.io sources take the `rust-` prefix; the
+guidelines require it for crates and forbid it for everything else. A
+project packaged as a whole from its upstream tarball is named after the
+project: the sandogasa cargo workspace is packaged from its GitHub
+release tarball as `sandogasa`, and there is no `rust-sandogasa`. Such a
+package must not ship crate sources in `%{cargo_registry}` (no `-devel`
+crate subpackages, no `crate(...)` provides), and should not use
+`%{crates_source}`, even if some of its crates are also on crates.io.
 
 Library crates produce one `rust-<crate>-devel` subpackage plus one
 `rust-<crate>+<feature>-devel` subpackage per cargo feature (including
