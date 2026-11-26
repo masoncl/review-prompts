@@ -22,7 +22,10 @@ https://docs.fedoraproject.org/en-US/packaging-guidelines/
 - Go packages: `golang-*`
 - Ruby packages: `rubygem-*`
 - Perl packages: `perl-*`
-- Compatibility packages: `compat-*`
+- Another version kept alongside the current one: the base name plus
+  the version, `python-sqlalchemy0.5`; with an underscore when the
+  name ends in a digit, `v8_3.13`; Rust: `rust-nom7` (Naming
+  guidelines, "Multiple packages with the same base name")
 
 ### Source Handling
 - `%forgemeta` / `%forgesource` for GitHub/GitLab/etc. hosted projects
@@ -60,6 +63,22 @@ A Fedora package review typically checks:
 - Not using `%pyproject_*` macros for Python packages
 - Missing `%check` when upstream has tests
 - Static libraries shipped without `-static` subpackage
+
+### Packages Exempt From Review
+- A package that only lets another version of an existing package
+  coexist with it (a compat package, named as above) is exempt from
+  the review process, as are the other cases listed under "Package
+  Review Exceptions" in the Review Guidelines. The package still has
+  to follow the packaging guidelines; for Rust compat crates, Rust.adoc
+  adds two rules of its own
+- The packager requests the repository with
+  `fedpkg request-repo --exception <name>` instead of a review bug.
+  fedpkg (checked at af775b4, November 2026) files that as an issue
+  in `releng/fedora-scm-requests` on Fedora Forge. When an update
+  says a compat package "was requested", look for it there, not
+  among Bugzilla Package Review bugs
+- Exemptions beyond the listed cases are granted by the Packaging
+  Committee; ask there rather than assuming one applies
 
 ## AI-Assisted Contributions
 
