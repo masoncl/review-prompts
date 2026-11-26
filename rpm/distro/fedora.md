@@ -232,6 +232,21 @@ done | grep -v ' > '
 
 ## Reference Data
 
+### Dist-git Pull Requests
+To read a pull request on src.fedoraproject.org without a clone:
+```
+https://src.fedoraproject.org/api/0/rpms/<pkg>/pull-request/<n>  # metadata and comments (JSON)
+https://src.fedoraproject.org/rpms/<pkg>/pull-request/<n>.patch   # its commits as a patch
+```
+- In November 2026 both returned the real content, but a file's
+  `raw/` URL in the contributor's fork returned the Anubis anti-bot
+  page (HTML, with HTTP 200) instead of the file. Check that a
+  download is the file, not HTML, before using it
+- For anything beyond reading the diff (applying a changed patch file
+  to the new sources, a local build), work from a clone with the
+  contributor's fork as a remote
+  (`ssh://pkgs.fedoraproject.org/forks/<user>/rpms/<pkg>.git`)
+
 ### Fedora Spec Archive
 An archive of all current Fedora spec files is available at:
 https://src.fedoraproject.org/lookaside/rpm-specs-latest.tar.xz
