@@ -111,6 +111,32 @@ rpmbuild -bi --short-circuit foo.spec    # re-run %install only
 rpmbuild -bl foo.spec                    # check %files only
 ```
 
+### Passes in Local mock, Fails in Koji
+Local mock inherits the resource limits of the shell that starts it;
+Koji builders don't share them. The open-file limit is the common
+case: Fedora's Koji runs %check with a soft `RLIMIT_NOFILE` of 1024
+and a hard limit of 524288 (systemd's default for services, which
+kojid keeps unless its `RLIMIT_NOFILE` setting changes it), while a
+desktop session's soft limit is often 524288. A test that needs many
+descriptors, or descriptors above `FD_SETSIZE` (1024), then passes
+locally and fails in Koji. EternalTerminal 7.1.1's "FdPoller supports
+descriptors above FD_SETSIZE" test calls
+`fcntl(fd, F_DUPFD, FD_SETSIZE)`, which fails with `EINVAL` under a
+soft limit of 1024: it passed in local mock and failed in Koji on
+x86_64, aarch64 and ppc64le
+(https://github.com/MisterTea/EternalTerminal/pull/922).
+- Reproduce by lowering the soft limit in the shell that starts mock,
+  scoped to that build: `(ulimit -Sn 1024; mock -r <cfg> --rebuild
+  <srpm>)` in bash, `fish -c 'ulimit -S -n 1024; mock ...'` in fish.
+  It reaches the chroot, including the login shell rpmbuild runs in
+- Fix the test rather than disabling it in the spec: an unprivileged
+  process may raise its own soft limit up to the hard limit, so the
+  test can raise it while it runs and skip only when even the hard
+  limit is too low (as the EternalTerminal fix does)
+- For packages with large test suites, build once this way before
+  pushing; a failed Koji (or Packit-owned) scratch build costs builder
+  time, and the packager can't always cancel it
+
 ### Iterating on a Failed mock Build
 A source fix can be tried in the failed build's tree in minutes instead
 of a full rebuild, as long as that tree still exists:
