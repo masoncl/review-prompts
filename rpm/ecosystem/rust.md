@@ -148,6 +148,7 @@ constructors are still there.
 | `Missing build-id` / empty debuginfo | Binary built with raw `cargo build` instead of `%cargo_build`, or custom release profile with `strip = true` | Use `%cargo_build`; patch out `strip`/`debug = false` profile settings |
 | Build fails after Rust toolchain update | New lints set to deny in upstream (`#![deny(warnings)]`), or stabilization changes | Patch out `deny(warnings)`, backport upstream fix |
 | i686/32-bit OOM during link | Large crates exhausting address space | Reduce codegen units/debuginfo level for that arch, or ExcludeArch with tracker bug |
+| Code or tests misbehave on i686, armv7hl or ppc64le only, around the host's architecture | `std::env::consts::ARCH` and `cfg(target_arch)` use Rust's names: `x86` (i686), `arm` (armv7hl), and `powerpc64` for both ppc64le and ppc64 (`cfg(target_endian)` tells them apart); x86_64, aarch64, s390x, riscv64 and loongarch64 match RPM's (checked with `rustc --print cfg`, 1.99.1). Debian's differ more (`amd64`, `arm64`, `ppc64el`) | Map Rust's name to the RPM (or Debian) one explicitly where code or tests compare it with a package's architecture; send the fix upstream |
 
 ## False Positives
 

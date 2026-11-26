@@ -248,6 +248,13 @@ architectures have in common:
 | aarch64 | Page size assumptions, `char` signedness (unsigned by default), weaker memory ordering exposing races |
 | riscv64 | Slower builders: timeouts; missing JIT/asm backends |
 
+On any architecture, also look for tests that assume the host's
+architecture: one that hard-codes an architecture as "foreign" fails
+on the builder that is that architecture (sandogasa 0.29.0's tests
+picked s390x), and one that compares the host's architecture name
+with a package's fails where the naming schemes differ (for Rust, see
+`ecosystem/rust.md`, Build Failures).
+
 Legitimate responses:
 - Fix or patch the code (preferred; send upstream)
 - Skip the specific failing test on that arch, with a comment and an
