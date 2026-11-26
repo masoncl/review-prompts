@@ -96,6 +96,7 @@ review-prompts/
 │   ├── distro/               # Fedora / CentOS Stream guidelines
 │   ├── ecosystem/            # Rust, Go, Python packaging
 │   └── *.md                  # Protocol and topic files
+|
 ├── uboot/                    # U-Boot prompts
 │   ├── skills/               # Skill template
 │   ├── slash-commands/       # /ureview, /useries, /uverify
